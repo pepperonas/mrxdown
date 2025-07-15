@@ -427,7 +427,7 @@ function showAboutDialog() {
         type: 'info',
         title: 'Über MrxDown',
         message: 'MrxDown',
-        detail: `Version 1.0.0
+        detail: `Version 0.0.1
 
 Ein moderner Markdown-Editor mit Live-Vorschau
 
