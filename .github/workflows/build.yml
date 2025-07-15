@@ -13,6 +13,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+      fail-fast: false
         
     steps:
     - name: Check out Git repository
@@ -27,23 +28,34 @@ jobs:
     - name: Install dependencies
       run: npm ci
       
-    - name: Install Python setuptools (Ubuntu)
+    - name: Install Linux dependencies (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
-        sudo apt-get install -y python3-setuptools
+        sudo apt-get install -y python3-setuptools build-essential libnss3-dev libatk-bridge2.0-dev libdrm2 libxkbcommon-dev libxss1 libasound2-dev libgtk-3-dev libgbm-dev
+        
+    - name: Install Windows dependencies
+      if: matrix.os == 'windows-latest'
+      run: |
+        echo "Using default Windows build environment"
         
     - name: Build app for macOS
       if: matrix.os == 'macos-latest'
       run: npm run build-mac
-      
+      env:
+        CSC_IDENTITY_AUTO_DISCOVERY: false
+        
     - name: Build app for Windows
       if: matrix.os == 'windows-latest'
       run: npm run build-win
-      
+      env:
+        CSC_IDENTITY_AUTO_DISCOVERY: false
+        
     - name: Build app for Linux
       if: matrix.os == 'ubuntu-latest'
       run: npm run build-linux
+      env:
+        CSC_IDENTITY_AUTO_DISCOVERY: false
       
     - name: Upload build artifacts (macOS)
       if: matrix.os == 'macos-latest'

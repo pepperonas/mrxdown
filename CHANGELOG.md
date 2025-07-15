@@ -26,10 +26,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed DMG background image reference in build configuration
 - Resolved build errors for macOS releases
 - Improved release artifact generation
+- Fixed GitHub Actions workflow failures
+- Added proper Linux dependencies for Ubuntu builds
+- Resolved code signing issues in CI/CD
 
 ### Changed
 - Optimized build process for faster releases
 - Updated build configuration for better compatibility
+- Enhanced CI/CD pipeline with fail-fast: false
+- Improved cross-platform build stability
 
 ## [0.0.1] - 2025-01-15
 
