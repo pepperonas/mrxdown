@@ -1,37 +1,77 @@
 #!/bin/bash
 
-echo "🚀 Markdown Editor Setup"
-echo "======================="
+# MrxDown Setup Script
+# This script helps set up the development environment for MrxDown
 
-# Erstelle Projektverzeichnis
-mkdir -p markdown-editor
-cd markdown-editor
+set -e
 
-# Erstelle Assets Verzeichnis
-mkdir -p assets
+echo "🚀 Setting up MrxDown development environment..."
 
-# Speichere HTML als index.html
-echo "📝 Erstelle index.html..."
-# Hier müsstest du den HTML-Code aus dem ersten Artifact kopieren
+# Check if Node.js is installed
+if ! command -v node &> /dev/null; then
+    echo "❌ Node.js is not installed. Please install Node.js from https://nodejs.org/"
+    exit 1
+fi
 
-# Speichere main.js
-echo "📝 Erstelle main.js..."
-# Hier müsstest du den main.js Code kopieren
+# Check Node.js version
+NODE_VERSION=$(node --version)
+echo "✅ Node.js version: $NODE_VERSION"
 
-# Speichere package.json
-echo "📝 Erstelle package.json..."
-# Hier müsstest du die package.json kopieren
+# Check if npm is installed
+if ! command -v npm &> /dev/null; then
+    echo "❌ npm is not installed. Please install npm."
+    exit 1
+fi
 
-# Installiere Dependencies
-echo "📦 Installiere Dependencies..."
+NPM_VERSION=$(npm --version)
+echo "✅ npm version: $NPM_VERSION"
+
+# Install dependencies
+echo "📦 Installing dependencies..."
 npm install
 
+# Create assets directory if it doesn't exist
+if [ ! -d "assets" ]; then
+    echo "📁 Creating assets directory..."
+    mkdir -p assets
+fi
+
+# Check if we're on macOS and create placeholder icon files
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    if [ ! -f "assets/icon.icns" ]; then
+        echo "🖼️  Creating placeholder icon.icns..."
+        # Create a simple placeholder icon
+        # In a real setup, you'd want to replace this with actual icon files
+        touch assets/icon.icns
+    fi
+fi
+
+# Create placeholder icon files for other platforms
+if [ ! -f "assets/icon.png" ]; then
+    echo "🖼️  Creating placeholder icon.png..."
+    touch assets/icon.png
+fi
+
+if [ ! -f "assets/icon.ico" ]; then
+    echo "🖼️  Creating placeholder icon.ico..."
+    touch assets/icon.ico
+fi
+
+# Make scripts executable
+if [ -f "scripts/version.js" ]; then
+    chmod +x scripts/version.js
+    echo "✅ Made version script executable"
+fi
+
+# Setup complete
 echo ""
-echo "✅ Setup abgeschlossen!"
+echo "🎉 Setup complete! You can now:"
+echo "   📱 Start the app: npm start"
+echo "   🔨 Build for your platform: npm run build"
+echo "   🚀 Build for all platforms: npm run build-all"
+echo "   📝 Update version: npm run version <version>"
 echo ""
-echo "Nächste Schritte:"
-echo "1. cd markdown-editor"
-echo "2. npm start           # Zum Testen"
-echo "3. npm run build-mac   # Zum Bauen der .app"
+echo "📚 For more information, see README.md"
+echo "🐛 Report issues at: https://github.com/pepperonas/mrxdown/issues"
 echo ""
-echo "Die fertige App findest du dann in: dist/"
+echo "Happy coding! 🚀"

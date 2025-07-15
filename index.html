@@ -79,6 +79,12 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             box-shadow: var(--shadow);
             z-index: 100;
+            -webkit-app-region: drag;
+            padding-left: 80px; /* Space for macOS traffic lights */
+        }
+
+        .toolbar > * {
+            -webkit-app-region: no-drag;
         }
 
         .toolbar-group {
@@ -632,6 +638,10 @@
 
         /* Responsive Design */
         @media (max-width: 768px) {
+            .toolbar {
+                padding-left: var(--spacing-4);
+            }
+            
             .sidebar {
                 position: absolute;
                 z-index: 200;
@@ -676,7 +686,7 @@
         .tooltip::before {
             content: attr(data-tooltip);
             position: absolute;
-            bottom: 100%;
+            top: 100%;
             left: 50%;
             transform: translateX(-50%);
             background-color: var(--card-background);
@@ -687,13 +697,223 @@
             white-space: nowrap;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.3s ease;
+            transition: opacity 0.3s ease 0.5s;
             z-index: 1000;
             box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 5px;
         }
 
         .tooltip:hover::before {
             opacity: 1;
+        }
+
+        /* Context Menu */
+        .context-menu {
+            position: fixed;
+            background-color: var(--card-background);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            z-index: 2000;
+            min-width: 200px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .context-menu.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .context-menu-item {
+            padding: var(--spacing-3) var(--spacing-4);
+            color: var(--text-primary);
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transition: background-color 0.3s ease;
+        }
+
+        .context-menu-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .context-menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .context-menu-separator {
+            height: 1px;
+            background-color: rgba(255, 255, 255, 0.1);
+            margin: var(--spacing-1) 0;
+        }
+
+        /* About Dialog */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal {
+            background-color: var(--card-background);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: var(--spacing-6);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.visible .modal {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            text-align: center;
+            margin-bottom: var(--spacing-6);
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-2);
+        }
+
+        .modal-version {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .modal-content {
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .modal-section {
+            margin-bottom: var(--spacing-4);
+        }
+
+        .modal-section h3 {
+            color: var(--accent-blue);
+            margin-bottom: var(--spacing-2);
+            font-size: 1rem;
+        }
+
+        .modal-link {
+            color: var(--accent-blue);
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: border-color 0.3s ease;
+        }
+
+        .modal-link:hover {
+            border-bottom-color: var(--accent-blue);
+        }
+
+        .modal-footer {
+            text-align: center;
+            margin-top: var(--spacing-6);
+        }
+
+        .modal-button {
+            background-color: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: var(--spacing-3) var(--spacing-6);
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+
+        .modal-button:hover {
+            background-color: #5a7a9f;
+        }
+
+        /* Table Editor */
+        .table-editor {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background-color: var(--card-background);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            z-index: 1000;
+            padding: var(--spacing-4);
+            min-width: 300px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .table-editor.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .table-editor-header {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-3);
+        }
+
+        .table-editor-controls {
+            display: flex;
+            gap: var(--spacing-2);
+            margin-bottom: var(--spacing-3);
+        }
+
+        .table-editor-input {
+            background-color: var(--background-dark);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-sm);
+            padding: var(--spacing-2);
+            color: var(--text-primary);
+            font-size: 14px;
+            width: 60px;
+            text-align: center;
+        }
+
+        .table-editor-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .table-editor-button {
+            background-color: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: var(--spacing-2) var(--spacing-3);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.3s ease;
+        }
+
+        .table-editor-button:hover {
+            background-color: #5a7a9f;
         }
 
         /* Focus styles */
@@ -766,6 +986,9 @@
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Link (⌘K)" onclick="handleMenuAction('insert-link')">
                 🔗
+            </button>
+            <button class="toolbar-button tooltip" data-tooltip="Tabelle (⌘T)" onclick="handleMenuAction('insert-table')">
+                📊
             </button>
         </div>
         
@@ -891,6 +1114,72 @@
         <div class="drop-zone-content">
             <div>📁</div>
             <div>Dateien hier ablegen</div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div class="context-menu" id="contextMenu">
+        <div class="context-menu-item" onclick="handleMenuAction('new-file')">
+            📄 Neue Datei
+        </div>
+        <div class="context-menu-item" onclick="handleMenuAction('open-file')">
+            📁 Datei öffnen
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="handleMenuAction('save-file')">
+            💾 Speichern
+        </div>
+        <div class="context-menu-item" onclick="handleMenuAction('save-file-as')">
+            📄 Speichern unter...
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" onclick="showAboutDialog()">
+            ℹ️ Über MrxDown
+        </div>
+    </div>
+
+    <!-- About Dialog -->
+    <div class="modal-overlay" id="aboutModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">MrxDown</h2>
+                <div class="modal-version">Version 1.0.0</div>
+            </div>
+            <div class="modal-content">
+                <div class="modal-section">
+                    <h3>Entwickler</h3>
+                    <p>Martin Pfeffer © 2025</p>
+                </div>
+                <div class="modal-section">
+                    <h3>Open Source</h3>
+                    <p>Dieses Projekt ist Open Source und unter der MIT-Lizenz verfügbar.</p>
+                    <p>
+                        <a href="https://github.com/pepperonas/mrxdown" class="modal-link" target="_blank">
+                            GitHub Repository
+                        </a>
+                    </p>
+                </div>
+                <div class="modal-section">
+                    <h3>Über</h3>
+                    <p>MrxDown ist ein moderner Markdown-Editor mit Live-Vorschau, entwickelt mit Electron.</p>
+                    <p>Features: Tabs, Drag & Drop, Syntax-Highlighting, Export-Funktionen und vieles mehr.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-button" onclick="closeAboutDialog()">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Editor -->
+    <div class="table-editor" id="tableEditor">
+        <div class="table-editor-header">Tabelle einfügen</div>
+        <div class="table-editor-controls">
+            <input type="number" class="table-editor-input" id="tableRows" value="3" min="1" max="20">
+            <span style="color: var(--text-secondary);">×</span>
+            <input type="number" class="table-editor-input" id="tableCols" value="3" min="1" max="10">
+            <button class="table-editor-button" onclick="insertTable()">Einfügen</button>
+            <button class="table-editor-button" onclick="closeTableEditor()">Abbrechen</button>
         </div>
     </div>
 

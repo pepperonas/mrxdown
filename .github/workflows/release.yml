@@ -1,0 +1,208 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        
+    steps:
+    - name: Check out Git repository
+      uses: actions/checkout@v4
+      
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Install Python setuptools (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-setuptools
+        
+    - name: Build app for macOS
+      if: matrix.os == 'macos-latest'
+      run: npm run build-mac
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Build app for Windows
+      if: matrix.os == 'windows-latest'
+      run: npm run build-win
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Build app for Linux
+      if: matrix.os == 'ubuntu-latest'
+      run: npm run build-linux
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Upload artifacts (macOS)
+      if: matrix.os == 'macos-latest'
+      uses: actions/upload-artifact@v3
+      with:
+        name: macos-artifacts
+        path: |
+          dist/*.dmg
+          dist/*.zip
+          
+    - name: Upload artifacts (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: actions/upload-artifact@v3
+      with:
+        name: windows-artifacts
+        path: |
+          dist/*.exe
+          
+    - name: Upload artifacts (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v3
+      with:
+        name: linux-artifacts
+        path: |
+          dist/*.AppImage
+          dist/*.deb
+          dist/*.snap
+  
+  create-release:
+    needs: release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Check out Git repository
+      uses: actions/checkout@v4
+      
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: MrxDown ${{ github.ref }}
+        draft: false
+        prerelease: false
+        body: |
+          ## 🎉 MrxDown ${{ github.ref }}
+          
+          ### 📥 Downloads
+          
+          **macOS**
+          - DMG für Intel & Apple Silicon Macs
+          - ZIP für portable Installation
+          
+          **Windows**
+          - NSIS Installer für Windows 10/11
+          - Portable Version (keine Installation erforderlich)
+          
+          **Linux**
+          - AppImage (universal)
+          - DEB-Package für Ubuntu/Debian
+          - Snap-Package
+          
+          ### ✨ Features
+          
+          - 🌙 Modern Dark Theme
+          - 📑 Multi-Tab Support
+          - 🖱️ Drag & Drop
+          - ⚡ Live-Vorschau
+          - 📊 Tabellen-Editor
+          - 🔧 Formatierungs-Toolbar
+          - 📂 Datei-Explorer
+          - 🧘 Zen-Modus
+          - 💾 Auto-Save
+          - 📤 HTML-Export
+          - ⌨️ Keyboard Shortcuts
+          
+          ### 🔧 Installation
+          
+          1. Lade die entsprechende Version für dein System herunter
+          2. Installiere die Anwendung
+          3. Starte MrxDown und beginne mit dem Schreiben!
+          
+          ### 🐛 Bekannte Probleme
+          
+          - Siehe [Issues](https://github.com/pepperonas/mrxdown/issues)
+          
+          ### 📞 Support
+          
+          - **Issues**: [GitHub Issues](https://github.com/pepperonas/mrxdown/issues)
+          - **Diskussionen**: [GitHub Discussions](https://github.com/pepperonas/mrxdown/discussions)
+          
+          ---
+          
+          **Entwickelt von Martin Pfeffer © 2025**
+          
+          🔗 [GitHub Repository](https://github.com/pepperonas/mrxdown) | 🌐 [Website](https://pepperonas.com)
+        
+    - name: Upload macOS DMG
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./macos-artifacts/MrxDown-${{ github.ref_name }}.dmg
+        asset_name: MrxDown-${{ github.ref_name }}-macOS.dmg
+        asset_content_type: application/octet-stream
+        
+    - name: Upload macOS ZIP
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./macos-artifacts/MrxDown-${{ github.ref_name }}-mac.zip
+        asset_name: MrxDown-${{ github.ref_name }}-macOS.zip
+        asset_content_type: application/zip
+        
+    - name: Upload Windows Installer
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./windows-artifacts/MrxDown-${{ github.ref_name }}.exe
+        asset_name: MrxDown-Setup-${{ github.ref_name }}.exe
+        asset_content_type: application/octet-stream
+        
+    - name: Upload Linux AppImage
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./linux-artifacts/MrxDown-${{ github.ref_name }}.AppImage
+        asset_name: MrxDown-${{ github.ref_name }}.AppImage
+        asset_content_type: application/octet-stream
+        
+    - name: Upload Linux DEB
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./linux-artifacts/MrxDown-${{ github.ref_name }}.deb
+        asset_name: MrxDown-${{ github.ref_name }}.deb
+        asset_content_type: application/octet-stream

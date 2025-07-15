@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 
@@ -30,6 +30,7 @@ function createWindow() {
             preload: path.join(__dirname, 'preload.js')
         },
         titleBarStyle: 'hiddenInset',
+        trafficLightPosition: { x: 20, y: 20 },
         backgroundColor: '#2B2E3B',
         icon: path.join(__dirname, 'assets/icon.png')
     });
@@ -46,7 +47,12 @@ function createWindow() {
         {
             label: 'MrxDown',
             submenu: [
-                { role: 'about', label: 'Über MrxDown' },
+                {
+                    label: 'Über MrxDown',
+                    click: () => {
+                        showAboutDialog();
+                    }
+                },
                 { type: 'separator' },
                 { role: 'services' },
                 { type: 'separator' },
@@ -187,6 +193,13 @@ function createWindow() {
                     accelerator: 'CmdOrCtrl+Shift+I',
                     click: () => {
                         mainWindow.webContents.send('menu-action', { action: 'insert-image' });
+                    }
+                },
+                {
+                    label: 'Tabelle einfügen',
+                    accelerator: 'CmdOrCtrl+T',
+                    click: () => {
+                        mainWindow.webContents.send('menu-action', { action: 'insert-table' });
                     }
                 },
                 { type: 'separator' },
@@ -407,6 +420,43 @@ ipcMain.on('set-document-edited', (event, edited) => {
     documentEdited = edited;
     mainWindow.setDocumentEdited(edited);
 });
+
+// About Dialog
+function showAboutDialog() {
+    const aboutOptions = {
+        type: 'info',
+        title: 'Über MrxDown',
+        message: 'MrxDown',
+        detail: `Version 1.0.0
+
+Ein moderner Markdown-Editor mit Live-Vorschau
+
+Entwickler: Martin Pfeffer © 2025
+
+Open Source unter MIT-Lizenz
+GitHub: https://github.com/pepperonas/mrxdown
+
+Features:
+• Live-Vorschau
+• Tabs und Drag & Drop
+• Syntax-Highlighting
+• Export-Funktionen
+• Zen-Modus
+• Tabellen-Editor
+
+Entwickelt mit Electron`,
+        buttons: ['OK', 'GitHub öffnen'],
+        defaultId: 0,
+        icon: path.join(__dirname, 'assets/icon.png')
+    };
+
+    dialog.showMessageBox(mainWindow, aboutOptions).then((result) => {
+        if (result.response === 1) {
+            // GitHub öffnen
+            shell.openExternal('https://github.com/pepperonas/mrxdown');
+        }
+    });
+}
 
 // App lifecycle
 app.whenReady().then(createWindow);

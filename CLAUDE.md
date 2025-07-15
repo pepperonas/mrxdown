@@ -33,13 +33,16 @@ The application follows Electron's secure two-process architecture:
 1. **Modern Dark Theme**: Complete Material Design-based dark theme with CSS variables
 2. **Tab System**: Multiple file support with tab management
 3. **Drag & Drop**: File drag-and-drop functionality
-4. **Toolbar**: Modern icon-based toolbar with tooltips
+4. **Toolbar**: Modern icon-based toolbar with enhanced tooltips (500ms delay)
 5. **Sidebar**: File explorer with navigation
 6. **Keyboard Shortcuts**: Comprehensive shortcut system
 7. **Live Preview**: Real-time markdown preview with scroll synchronization
-8. **Export Options**: HTML export with embedded styles
-9. **Zen Mode**: Distraction-free writing mode
-10. **Auto-save**: Configurable auto-save functionality
+8. **Table Editor**: Interactive table insertion with customizable rows/columns
+9. **Context Menu**: Right-click context menu with common actions
+10. **About Dialog**: Information dialog with developer credits and GitHub link
+11. **Export Options**: HTML export with embedded styles
+12. **Zen Mode**: Distraction-free writing mode
+13. **Auto-save**: Configurable auto-save functionality
 
 ### File Structure
 ```
@@ -56,7 +59,7 @@ mrxdown/
 
 ### Keyboard Shortcuts
 - **File Operations**: Cmd/Ctrl + N (New), O (Open), S (Save), Shift+S (Save As)
-- **Formatting**: Cmd/Ctrl + B (Bold), I (Italic), K (Link), ` (Code)
+- **Formatting**: Cmd/Ctrl + B (Bold), I (Italic), K (Link), ` (Code), T (Table)
 - **Headings**: Cmd/Ctrl + 1-6 (H1-H6)
 - **Search**: Cmd/Ctrl + F (Find), H (Replace)
 - **View**: Cmd/Ctrl + \ (Sidebar), Shift+Z (Zen Mode)

@@ -27,6 +27,9 @@ const tabBar = document.getElementById('tabBar');
 const sidebar = document.getElementById('sidebar');
 const dropZone = document.getElementById('dropZone');
 const fileExplorer = document.getElementById('fileExplorer');
+const contextMenu = document.getElementById('contextMenu');
+const aboutModal = document.getElementById('aboutModal');
+const tableEditor = document.getElementById('tableEditor');
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', () => {
@@ -49,6 +52,12 @@ function initializeApp() {
     // Setup IPC listeners
     setupIPCListeners();
     
+    // Setup tooltip delay
+    setupTooltipDelay();
+    
+    // Setup external links
+    handleExternalLinks();
+    
     // Initial render
     renderMarkdown();
 }
@@ -67,6 +76,10 @@ function setupEventListeners() {
     
     // Global keyboard shortcuts
     document.addEventListener('keydown', handleGlobalShortcuts);
+    
+    // Context menu events
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('click', handleDocumentClick);
 }
 
 function setupIPCListeners() {
@@ -431,6 +444,9 @@ function handleMenuAction(action, data = {}) {
         case 'insert-image':
             insertImage();
             break;
+        case 'insert-table':
+            showTableEditor();
+            break;
         case 'heading-1':
             insertHeading(1);
             break;
@@ -456,6 +472,9 @@ function handleMenuAction(action, data = {}) {
             if (data.filePath) {
                 openRecentFile(data.filePath);
             }
+            break;
+        case 'show-about':
+            showAboutDialog();
             break;
     }
     
@@ -670,6 +689,10 @@ function handleGlobalShortcuts(e) {
                 e.preventDefault();
                 insertLink();
                 break;
+            case 't':
+                e.preventDefault();
+                showTableEditor();
+                break;
             case '`':
                 e.preventDefault();
                 formatCode();
@@ -770,6 +793,146 @@ function scheduleAutoSave() {
             saveCurrentFile();
         }, settings.autoSaveInterval * 1000);
     }
+}
+
+// Context Menu Functions
+function handleContextMenu(e) {
+    e.preventDefault();
+    
+    contextMenu.style.left = e.pageX + 'px';
+    contextMenu.style.top = e.pageY + 'px';
+    contextMenu.classList.add('visible');
+}
+
+function handleDocumentClick(e) {
+    if (!contextMenu.contains(e.target)) {
+        contextMenu.classList.remove('visible');
+    }
+    
+    if (!tableEditor.contains(e.target) && !e.target.closest('[data-tooltip="Tabelle (⌘T)"]')) {
+        closeTableEditor();
+    }
+    
+    if (!aboutModal.contains(e.target) && aboutModal.classList.contains('visible')) {
+        closeAboutDialog();
+    }
+}
+
+// About Dialog Functions
+function showAboutDialog() {
+    contextMenu.classList.remove('visible');
+    aboutModal.classList.add('visible');
+}
+
+function closeAboutDialog() {
+    aboutModal.classList.remove('visible');
+}
+
+// Table Editor Functions
+function showTableEditor() {
+    const tableButton = document.querySelector('[data-tooltip="Tabelle (⌘T)"]');
+    if (tableButton) {
+        const rect = tableButton.getBoundingClientRect();
+        tableEditor.style.left = rect.left + 'px';
+        tableEditor.style.top = (rect.bottom + 5) + 'px';
+        tableEditor.classList.add('visible');
+        
+        // Focus on first input
+        document.getElementById('tableRows').focus();
+    }
+}
+
+function closeTableEditor() {
+    tableEditor.classList.remove('visible');
+}
+
+function insertTable() {
+    const rows = parseInt(document.getElementById('tableRows').value) || 3;
+    const cols = parseInt(document.getElementById('tableCols').value) || 3;
+    
+    if (rows < 1 || rows > 20 || cols < 1 || cols > 10) {
+        alert('Ungültige Tabellengröße. Zeilen: 1-20, Spalten: 1-10');
+        return;
+    }
+    
+    let table = '\n';
+    
+    // Header row
+    table += '|';
+    for (let col = 1; col <= cols; col++) {
+        table += ` Spalte ${col} |`;
+    }
+    table += '\n';
+    
+    // Separator row
+    table += '|';
+    for (let col = 1; col <= cols; col++) {
+        table += ' --- |';
+    }
+    table += '\n';
+    
+    // Data rows
+    for (let row = 1; row < rows; row++) {
+        table += '|';
+        for (let col = 1; col <= cols; col++) {
+            table += ` Zeile ${row} |`;
+        }
+        table += '\n';
+    }
+    
+    table += '\n';
+    
+    insertAtCursor(table);
+    closeTableEditor();
+    handleEditorInput();
+}
+
+// Enhanced tooltip delay
+function setupTooltipDelay() {
+    const tooltips = document.querySelectorAll('.tooltip');
+    
+    tooltips.forEach(tooltip => {
+        let timeoutId;
+        
+        tooltip.addEventListener('mouseenter', () => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                tooltip.classList.add('show-tooltip');
+            }, 500);
+        });
+        
+        tooltip.addEventListener('mouseleave', () => {
+            clearTimeout(timeoutId);
+            tooltip.classList.remove('show-tooltip');
+        });
+    });
+}
+
+// Auto-save functionality
+let autoSaveTimeout;
+function scheduleAutoSave() {
+    if (settings.autoSave) {
+        clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = setTimeout(() => {
+            saveCurrentFile();
+        }, settings.autoSaveInterval * 1000);
+    }
+}
+
+// Enhanced external link handling
+function handleExternalLinks() {
+    document.addEventListener('click', (e) => {
+        if (e.target.tagName === 'A' && e.target.target === '_blank') {
+            e.preventDefault();
+            if (window.electronAPI && window.require) {
+                // In Electron, open external links in default browser
+                window.require('electron').shell.openExternal(e.target.href);
+            } else {
+                // In browser environment or fallback
+                window.open(e.target.href, '_blank');
+            }
+        }
+    });
 }
 
 // Initialize when DOM is ready

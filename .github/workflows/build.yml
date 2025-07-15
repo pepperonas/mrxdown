@@ -1,0 +1,76 @@
+name: Build
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        
+    steps:
+    - name: Check out Git repository
+      uses: actions/checkout@v4
+      
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Install Python setuptools (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-setuptools
+        
+    - name: Build app for macOS
+      if: matrix.os == 'macos-latest'
+      run: npm run build-mac
+      
+    - name: Build app for Windows
+      if: matrix.os == 'windows-latest'
+      run: npm run build-win
+      
+    - name: Build app for Linux
+      if: matrix.os == 'ubuntu-latest'
+      run: npm run build-linux
+      
+    - name: Upload build artifacts (macOS)
+      if: matrix.os == 'macos-latest'
+      uses: actions/upload-artifact@v3
+      with:
+        name: macos-build
+        path: |
+          dist/*.dmg
+          dist/*.zip
+        retention-days: 7
+        
+    - name: Upload build artifacts (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: actions/upload-artifact@v3
+      with:
+        name: windows-build
+        path: |
+          dist/*.exe
+        retention-days: 7
+        
+    - name: Upload build artifacts (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v3
+      with:
+        name: linux-build
+        path: |
+          dist/*.AppImage
+          dist/*.deb
+          dist/*.snap
+        retention-days: 7
