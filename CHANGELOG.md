@@ -20,6 +20,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Minor bug fixes
 
+## [0.0.2] - 2025-01-15
+
+### Fixed
+- Fixed DMG background image reference in build configuration
+- Resolved build errors for macOS releases
+- Improved release artifact generation
+
+### Changed
+- Optimized build process for faster releases
+- Updated build configuration for better compatibility
+
 ## [0.0.1] - 2025-01-15
 
 ### Added

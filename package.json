@@ -140,7 +140,6 @@
     },
     "dmg": {
       "title": "MrxDown ${version}",
-      "background": "assets/dmg-background.png",
       "contents": [
         {
           "x": 130,
