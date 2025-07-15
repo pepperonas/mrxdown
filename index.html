@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MrxDown - Markdown Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
+    <style>
+        :root {
+            /* Dark Theme Colors */
+            --background-dark: #2B2E3B;
+            --background-darker: #252830;
+            --card-background: #343845;
+            --accent-blue: #688db1;
+            --accent-green: #9cb68f;
+            --accent-red: #e16162;
+            --text-primary: #d1d5db;
+            --text-secondary: #9ca3af;
+            
+            /* Typography */
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                          sans-serif;
+            --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', 'Courier New', monospace;
+            
+            /* Shadows */
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+            
+            /* Spacing */
+            --spacing-1: 0.25rem;
+            --spacing-2: 0.5rem;
+            --spacing-3: 0.75rem;
+            --spacing-4: 1rem;
+            --spacing-5: 1.25rem;
+            --spacing-6: 1.5rem;
+            --spacing-8: 2rem;
+            --spacing-12: 3rem;
+            --spacing-16: 4rem;
+            
+            /* Radius */
+            --radius-sm: 0.375rem;
+            --radius: 0.5rem;
+            --radius-lg: 0.75rem;
+            --radius-xl: 1rem;
+            
+            /* Sidebar */
+            --sidebar-width: 250px;
+            --toolbar-height: 60px;
+            --statusbar-height: 30px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--background-dark);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header Toolbar */
+        .toolbar {
+            height: var(--toolbar-height);
+            background-color: var(--card-background);
+            display: flex;
+            align-items: center;
+            padding: 0 var(--spacing-4);
+            gap: var(--spacing-3);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: var(--shadow);
+            z-index: 100;
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-2);
+        }
+
+        .toolbar-separator {
+            width: 1px;
+            height: 24px;
+            background-color: rgba(255, 255, 255, 0.1);
+            margin: 0 var(--spacing-2);
+        }
+
+        .toolbar-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            background-color: transparent;
+            border: none;
+            border-radius: var(--radius);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 16px;
+            position: relative;
+        }
+
+        .toolbar-button:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            transform: translateY(-1px);
+        }
+
+        .toolbar-button:active {
+            transform: translateY(0);
+        }
+
+        .toolbar-button.active {
+            background-color: var(--accent-blue);
+            color: white;
+        }
+
+        .toolbar-button.primary {
+            background-color: var(--accent-blue);
+            color: white;
+        }
+
+        .toolbar-button.primary:hover {
+            background-color: #5a7a9f;
+        }
+
+        .toolbar-button.secondary {
+            background-color: var(--accent-green);
+            color: white;
+        }
+
+        .toolbar-button.secondary:hover {
+            background-color: #8aa17f;
+        }
+
+        .toolbar-button.danger {
+            background-color: var(--accent-red);
+            color: white;
+        }
+
+        .toolbar-button.danger:hover {
+            background-color: #d45557;
+        }
+
+        /* Tab System */
+        .tab-bar {
+            display: flex;
+            background-color: var(--background-darker);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .tab-bar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab {
+            display: flex;
+            align-items: center;
+            padding: var(--spacing-3) var(--spacing-4);
+            background-color: var(--background-darker);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            min-width: 120px;
+            max-width: 200px;
+        }
+
+        .tab.active {
+            background-color: var(--background-dark);
+            color: var(--text-primary);
+            border-bottom: 2px solid var(--accent-blue);
+        }
+
+        .tab:hover {
+            background-color: var(--card-background);
+        }
+
+        .tab-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 14px;
+        }
+
+        .tab-close {
+            margin-left: var(--spacing-2);
+            padding: var(--spacing-1);
+            border-radius: var(--radius-sm);
+            opacity: 0.5;
+            transition: opacity 0.3s ease;
+        }
+
+        .tab-close:hover {
+            opacity: 1;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .tab.unsaved .tab-title::after {
+            content: "•";
+            color: var(--accent-blue);
+            margin-left: var(--spacing-1);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--background-darker);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar.hidden {
+            transform: translateX(-100%);
+        }
+
+        .sidebar-header {
+            padding: var(--spacing-4);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--spacing-2);
+        }
+
+        .file-explorer {
+            margin-bottom: var(--spacing-4);
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: var(--spacing-2) var(--spacing-3);
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-bottom: var(--spacing-1);
+        }
+
+        .file-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .file-item.active {
+            background-color: var(--accent-blue);
+            color: white;
+        }
+
+        .file-icon {
+            margin-right: var(--spacing-2);
+            font-size: 14px;
+        }
+
+        .file-name {
+            flex: 1;
+            font-size: 14px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Editor Container */
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .editor-layout {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Editor Pane */
+        .editor-pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--background-dark);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+        }
+
+        .editor-header {
+            background-color: var(--card-background);
+            padding: var(--spacing-3) var(--spacing-4);
+            font-size: 14px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .editor-tools {
+            display: flex;
+            gap: var(--spacing-2);
+        }
+
+        .editor-tool {
+            padding: var(--spacing-1);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .editor-tool:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        #editor {
+            flex: 1;
+            padding: var(--spacing-6);
+            font-family: var(--font-mono);
+            font-size: 14px;
+            line-height: 1.6;
+            background-color: var(--background-dark);
+            color: var(--text-primary);
+            border: none;
+            outline: none;
+            resize: none;
+            overflow-y: auto;
+            tab-size: 4;
+        }
+
+        #editor::placeholder {
+            color: var(--text-secondary);
+        }
+
+        #editor::selection {
+            background-color: rgba(104, 141, 177, 0.3);
+        }
+
+        /* Preview Pane */
+        .preview-pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--background-darker);
+        }
+
+        .preview-header {
+            background-color: var(--card-background);
+            padding: var(--spacing-3) var(--spacing-4);
+            font-size: 14px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #preview {
+            flex: 1;
+            padding: var(--spacing-6);
+            overflow-y: auto;
+            background-color: var(--background-darker);
+            line-height: 1.7;
+        }
+
+        /* Markdown Preview Styles */
+        #preview h1, #preview h2, #preview h3, #preview h4, #preview h5, #preview h6 {
+            color: var(--text-primary);
+            margin-top: var(--spacing-8);
+            margin-bottom: var(--spacing-4);
+            font-weight: 600;
+        }
+
+        #preview h1 {
+            font-size: 2.25rem;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: var(--spacing-2);
+        }
+
+        #preview h2 {
+            font-size: 1.875rem;
+        }
+
+        #preview h3 {
+            font-size: 1.5rem;
+        }
+
+        #preview h4 {
+            font-size: 1.25rem;
+        }
+
+        #preview h5 {
+            font-size: 1.125rem;
+        }
+
+        #preview h6 {
+            font-size: 1rem;
+        }
+
+        #preview p {
+            margin-bottom: var(--spacing-4);
+            color: var(--text-primary);
+        }
+
+        #preview strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        #preview em {
+            color: var(--text-primary);
+            font-style: italic;
+        }
+
+        #preview code {
+            background-color: var(--card-background);
+            padding: var(--spacing-1) var(--spacing-2);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            color: var(--accent-blue);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #preview pre {
+            background-color: var(--card-background);
+            padding: var(--spacing-4);
+            border-radius: var(--radius-lg);
+            overflow-x: auto;
+            margin-bottom: var(--spacing-4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #preview pre code {
+            background: none;
+            padding: 0;
+            color: var(--text-primary);
+            border: none;
+        }
+
+        #preview blockquote {
+            border-left: 4px solid var(--accent-blue);
+            padding-left: var(--spacing-4);
+            margin: var(--spacing-4) 0;
+            color: var(--text-secondary);
+            font-style: italic;
+            background-color: rgba(104, 141, 177, 0.1);
+            padding: var(--spacing-4);
+            border-radius: var(--radius);
+        }
+
+        #preview ul, #preview ol {
+            margin-bottom: var(--spacing-4);
+            padding-left: var(--spacing-6);
+        }
+
+        #preview li {
+            margin-bottom: var(--spacing-2);
+            color: var(--text-primary);
+        }
+
+        #preview a {
+            color: var(--accent-blue);
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: border-color 0.3s ease;
+        }
+
+        #preview a:hover {
+            border-bottom-color: var(--accent-blue);
+        }
+
+        #preview table {
+            border-collapse: collapse;
+            margin-bottom: var(--spacing-4);
+            width: 100%;
+            background-color: var(--card-background);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        #preview th, #preview td {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: var(--spacing-3) var(--spacing-4);
+            text-align: left;
+        }
+
+        #preview th {
+            background-color: rgba(255, 255, 255, 0.1);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        #preview tr:nth-child(even) {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        #preview hr {
+            border: none;
+            height: 1px;
+            background-color: rgba(255, 255, 255, 0.1);
+            margin: var(--spacing-8) 0;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            height: var(--statusbar-height);
+            background-color: var(--card-background);
+            padding: 0 var(--spacing-4);
+            font-size: 12px;
+            color: var(--text-secondary);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .status-group {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-4);
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-1);
+        }
+
+        .status-item.clickable {
+            cursor: pointer;
+            padding: var(--spacing-1) var(--spacing-2);
+            border-radius: var(--radius-sm);
+            transition: background-color 0.3s ease;
+        }
+
+        .status-item.clickable:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--background-dark);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Drag and Drop */
+        .drop-zone {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(104, 141, 177, 0.1);
+            border: 2px dashed var(--accent-blue);
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .drop-zone.active {
+            opacity: 1;
+        }
+
+        .drop-zone-content {
+            text-align: center;
+            color: var(--accent-blue);
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        /* Zen Mode */
+        .zen-mode .sidebar {
+            display: none;
+        }
+
+        .zen-mode .toolbar {
+            display: none;
+        }
+
+        .zen-mode .tab-bar {
+            display: none;
+        }
+
+        .zen-mode .status-bar {
+            display: none;
+        }
+
+        .zen-mode .preview-pane {
+            display: none;
+        }
+
+        .zen-mode .editor-header {
+            display: none;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: absolute;
+                z-index: 200;
+                height: 100%;
+                transform: translateX(-100%);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .preview-pane {
+                display: none;
+            }
+
+            .editor-layout {
+                flex-direction: column;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+
+        /* Tooltips */
+        .tooltip {
+            position: relative;
+        }
+
+        .tooltip::before {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--card-background);
+            color: var(--text-primary);
+            padding: var(--spacing-2) var(--spacing-3);
+            border-radius: var(--radius);
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+            box-shadow: var(--shadow);
+        }
+
+        .tooltip:hover::before {
+            opacity: 1;
+        }
+
+        /* Focus styles */
+        .toolbar-button:focus,
+        .tab:focus,
+        .file-item:focus,
+        .editor-tool:focus {
+            outline: 2px solid var(--accent-blue);
+            outline-offset: 2px;
+        }
+
+        #editor:focus {
+            outline: none;
+        }
+
+        /* Print styles */
+        @media print {
+            .toolbar,
+            .tab-bar,
+            .sidebar,
+            .status-bar {
+                display: none !important;
+            }
+
+            .main-content {
+                flex-direction: column;
+            }
+
+            .preview-pane {
+                flex: 1;
+            }
+
+            .editor-pane {
+                display: none;
+            }
+
+            body {
+                background: white;
+                color: black;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <div class="toolbar-group">
+            <button class="toolbar-button tooltip" data-tooltip="Neue Datei (⌘N)" onclick="handleMenuAction('new-file')">
+                📄
+            </button>
+            <button class="toolbar-button tooltip" data-tooltip="Öffnen (⌘O)" onclick="handleMenuAction('open-file')">
+                📁
+            </button>
+            <button class="toolbar-button tooltip" data-tooltip="Speichern (⌘S)" onclick="handleMenuAction('save-file')">
+                💾
+            </button>
+        </div>
+        
+        <div class="toolbar-separator"></div>
+        
+        <div class="toolbar-group">
+            <button class="toolbar-button tooltip" data-tooltip="Fett (⌘B)" onclick="handleMenuAction('format-bold')">
+                <strong>B</strong>
+            </button>
+            <button class="toolbar-button tooltip" data-tooltip="Kursiv (⌘I)" onclick="handleMenuAction('format-italic')">
+                <em>I</em>
+            </button>
+            <button class="toolbar-button tooltip" data-tooltip="Code (⌘`)" onclick="handleMenuAction('format-code')">
+                &lt;/&gt;
+            </button>
+            <button class="toolbar-button tooltip" data-tooltip="Link (⌘K)" onclick="handleMenuAction('insert-link')">
+                🔗
+            </button>
+        </div>
+        
+        <div class="toolbar-separator"></div>
+        
+        <div class="toolbar-group">
+            <button class="toolbar-button tooltip" data-tooltip="Überschrift 1 (⌘1)" onclick="handleMenuAction('heading-1')">
+                H1
+            </button>
+            <button class="toolbar-button tooltip" data-tooltip="Überschrift 2 (⌘2)" onclick="handleMenuAction('heading-2')">
+                H2
+            </button>
+            <button class="toolbar-button tooltip" data-tooltip="Überschrift 3 (⌘3)" onclick="handleMenuAction('heading-3')">
+                H3
+            </button>
+        </div>
+        
+        <div class="toolbar-separator"></div>
+        
+        <div class="toolbar-group">
+            <button class="toolbar-button tooltip" data-tooltip="Suchen (⌘F)" onclick="handleMenuAction('find')">
+                🔍
+            </button>
+            <button class="toolbar-button tooltip" data-tooltip="Sidebar umschalten (⌘\\)" onclick="toggleSidebar()">
+                📂
+            </button>
+            <button class="toolbar-button tooltip" data-tooltip="Zen-Modus (⌘⇧Z)" onclick="toggleZenMode()">
+                🧘
+            </button>
+        </div>
+        
+        <div style="flex: 1;"></div>
+        
+        <div class="toolbar-group">
+            <button class="toolbar-button secondary tooltip" data-tooltip="Als HTML exportieren (⌘⇧E)" onclick="handleMenuAction('export-html')">
+                📤
+            </button>
+        </div>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar" id="tabBar">
+        <div class="tab active" data-tab-id="0">
+            <div class="tab-title">Unbenannt</div>
+            <div class="tab-close" onclick="closeTab(0)">×</div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                Dateien
+            </div>
+            <div class="sidebar-content">
+                <div class="file-explorer" id="fileExplorer">
+                    <div class="file-item" onclick="handleMenuAction('new-file')">
+                        <div class="file-icon">📄</div>
+                        <div class="file-name">Neue Datei</div>
+                    </div>
+                    <div class="file-item" onclick="handleMenuAction('open-file')">
+                        <div class="file-icon">📁</div>
+                        <div class="file-name">Datei öffnen</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Editor Container -->
+        <div class="editor-container">
+            <div class="editor-layout">
+                <!-- Editor Pane -->
+                <div class="editor-pane">
+                    <div class="editor-header">
+                        <span>Markdown Editor</span>
+                        <div class="editor-tools">
+                            <div class="editor-tool tooltip" data-tooltip="Zeilennummern umschalten" onclick="toggleLineNumbers()">
+                                #
+                            </div>
+                            <div class="editor-tool tooltip" data-tooltip="Zeilenumbruch umschalten" onclick="toggleWordWrap()">
+                                ↩
+                            </div>
+                        </div>
+                    </div>
+                    <textarea id="editor" placeholder="Beginnen Sie mit dem Schreiben Ihres Markdown-Textes..."></textarea>
+                </div>
+                
+                <!-- Preview Pane -->
+                <div class="preview-pane">
+                    <div class="preview-header">Live-Vorschau</div>
+                    <div id="preview"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="status-group">
+            <div class="status-item">
+                <span id="charCount">0 Zeichen</span>
+            </div>
+            <div class="status-item">
+                <span id="wordCount">0 Wörter</span>
+            </div>
+            <div class="status-item">
+                <span id="lineCount">1 Zeile</span>
+            </div>
+        </div>
+        <div class="status-group">
+            <div class="status-item clickable" onclick="showSettings()">
+                ⚙️ Einstellungen
+            </div>
+            <div class="status-item">
+                <span id="fileName">Unbenannt</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Drop Zone -->
+    <div class="drop-zone" id="dropZone">
+        <div class="drop-zone-content">
+            <div>📁</div>
+            <div>Dateien hier ablegen</div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>
