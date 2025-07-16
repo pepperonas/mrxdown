@@ -20,6 +20,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Minor bug fixes
 
+## [0.0.4] - 2025-01-16
+
+### Fixed
+- 🐛 **CRITICAL FIX**: Resolved GUI interaction issues - all buttons now work properly
+- 🔧 Fixed duplicate `autoSaveTimeout` declaration causing JavaScript syntax error
+- ✅ All toolbar buttons, sidebar elements, and UI components now respond to clicks
+- 🎯 File operations (New, Open, Save) now function correctly
+- 🎨 Formatting buttons (Bold, Italic, Code, etc.) now work as expected
+- 📊 Table editor, settings, and context menu now functional
+- 🚀 Improved overall app stability and responsiveness
+
+### Technical Changes
+- Removed duplicate auto-save functionality declarations
+- Fixed function scope issues preventing onclick handlers from working
+- Enhanced error handling and debugging capabilities
+
 ## [0.0.3] - 2025-01-16
 
 ### Added
