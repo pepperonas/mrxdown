@@ -20,6 +20,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Minor bug fixes
 
+## [0.0.3] - 2025-01-16
+
+### Added
+- 📋 Comprehensive macOS installation guide with step-by-step instructions
+- 🚀 Automated install-macos.sh script for one-click installation
+- 💡 Detailed explanation of macOS Gatekeeper warnings for unsigned apps
+- 🔧 curl-based installation command for easy deployment
+
+### Fixed
+- ❌ Resolved DMG build failures on GitHub Actions by switching to ZIP format
+- 🛡️ Fixed macOS "app is damaged" warnings with proper Gatekeeper bypass instructions
+- 🔄 Updated all GitHub Actions to use non-deprecated artifact actions (v4)
+- 🏗️ Improved build configuration for better cross-platform compatibility
+
+### Changed
+- 📦 macOS distribution format changed from DMG to ZIP for better CI/CD compatibility
+- 📚 Enhanced documentation with troubleshooting section
+- 🔒 Improved security instructions for macOS users
+
 ## [0.0.2] - 2025-01-15
 
 ### Fixed

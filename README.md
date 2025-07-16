@@ -33,16 +33,16 @@
 
 1. Gehe zu den [Releases](https://github.com/pepperonas/mrxdown/releases)
 2. Lade die neueste Version für dein Betriebssystem herunter:
-   - **macOS**: `MrxDown-v0.0.2-macOS.zip`
-   - **Windows**: `MrxDown-Setup-v0.0.2.exe`
-   - **Linux**: `MrxDown-v0.0.2.AppImage`
+   - **macOS**: `MrxDown-v0.0.3-macOS.zip`
+   - **Windows**: `MrxDown-Setup-v0.0.3.exe`
+   - **Linux**: `MrxDown-v0.0.3.AppImage`
 
 #### ⚠️ macOS Installation (Wichtig!)
 
 **macOS zeigt "MrxDown.app ist beschädigt" an?** Das ist normal für nicht-signierte Apps. Folge diesen Schritten:
 
 ##### Schritt 1: ZIP-Datei herunterladen und entpacken
-1. Lade `MrxDown-v0.0.2-macOS.zip` herunter
+1. Lade `MrxDown-v0.0.3-macOS.zip` herunter
 2. Doppelklick zum Entpacken
 
 ##### Schritt 2: Gatekeeper-Quarantäne entfernen
@@ -67,7 +67,7 @@ curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/install-macos.
 ##### Manuelle Installation
 ```bash
 # Herunterladen und manuell installieren:
-curl -L https://github.com/pepperonas/mrxdown/releases/latest/download/MrxDown-v0.0.2-macOS.zip -o ~/Downloads/MrxDown.zip
+curl -L https://github.com/pepperonas/mrxdown/releases/latest/download/MrxDown-v0.0.3-macOS.zip -o ~/Downloads/MrxDown.zip
 cd ~/Downloads
 unzip MrxDown.zip
 sudo xattr -rd com.apple.quarantine MrxDown.app
