@@ -20,6 +20,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Minor bug fixes
 
+## [0.0.5] - 2025-01-16
+
+### Added
+- 🎛️ **Resizable Divider** - Drag & Drop zwischen Editor und Preview
+- 🎯 **View Modes** - Editor Only, Split View, Preview Only Modi
+- 🔄 **Scroll Sync Control** - Toggle-Button für Scroll-Synchronisation
+- 📸 **App Screenshot** - Mockup in README für bessere Darstellung
+- ⚌ **Professional UI** - Drei View-Mode Buttons in Toolbar
+- 🎨 **Hover Effects** - Visuelle Rückmeldung beim Divider-Resize
+
+### Fixed
+- 🐛 **Scroll-Synchronisation** - Verhindert ungewolltes automatisches Scrollen
+- 🔄 **Infinite Loops** - Scroll-Sync Protection mit Debounce-Mechanismus
+- 📏 **Minimum Width** - 200px Mindestbreite für Editor/Preview Panes
+- 🎯 **Resize Conflicts** - Deaktiviert Sync während Divider-Operationen
+- ⚡ **Performance** - 50ms Debounce und intelligente Sync-Erkennung
+
+### Changed
+- 🎨 **Enhanced UX** - Smooth Divider-Resize mit col-resize Cursor
+- 🔧 **Settings Persistence** - Scroll-Sync Einstellungen werden gespeichert
+- 💫 **Visual Feedback** - Opacity-Änderungen für Toggle-States
+- 🎪 **Improved Tooltips** - Dynamische Tooltip-Updates für Toggle-Buttons
+
+### Technical Improvements
+- Split-View only scroll synchronization
+- Minimum difference threshold (5px) before syncing
+- Scrollable content validation before sync attempts
+- Enhanced error handling for edge cases
+
 ## [0.0.4] - 2025-01-16
 
 ### Fixed

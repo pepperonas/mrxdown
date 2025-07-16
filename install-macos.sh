@@ -28,7 +28,7 @@ if ! command -v unzip &> /dev/null; then
 fi
 
 # Download-URL
-DOWNLOAD_URL="https://github.com/pepperonas/mrxdown/releases/latest/download/MrxDown-v0.0.3-macOS.zip"
+DOWNLOAD_URL="https://github.com/pepperonas/mrxdown/releases/latest/download/MrxDown-0.0.5.zip"
 DOWNLOAD_PATH="$HOME/Downloads/MrxDown.zip"
 APP_PATH="$HOME/Downloads/MrxDown.app"
 INSTALL_PATH="/Applications/MrxDown.app"
