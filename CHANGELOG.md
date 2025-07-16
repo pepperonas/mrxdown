@@ -20,6 +20,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Minor bug fixes
 
+## [0.0.6] - 2025-01-16
+
+### Fixed
+- 🚨 **CRITICAL HOTFIX**: Fixed app startup crash due to DOM initialization
+- 🔧 DOM elements now properly initialized after DOMContentLoaded event
+- 🛡️ Added null checks for all critical DOM operations
+- 💥 Prevented app crashes when DOM elements are not found
+- 📊 Improved error handling and stability
+- 🔍 Better error reporting for debugging
+
+### Technical Changes
+- Moved DOM element initialization from module level to initializeApp()
+- Added defensive programming with null checks
+- Enhanced error handling throughout the application
+- Improved app startup reliability
+
 ## [0.0.5] - 2025-01-16
 
 ### Added
