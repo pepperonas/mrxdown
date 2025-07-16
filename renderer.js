@@ -921,17 +921,6 @@ function setupTooltipDelay() {
     });
 }
 
-// Auto-save functionality
-let autoSaveTimeout;
-function scheduleAutoSave() {
-    if (settings.autoSave) {
-        clearTimeout(autoSaveTimeout);
-        autoSaveTimeout = setTimeout(() => {
-            saveCurrentFile();
-        }, settings.autoSaveInterval * 1000);
-    }
-}
-
 // Enhanced external link handling
 function handleExternalLinks() {
     document.addEventListener('click', (e) => {
