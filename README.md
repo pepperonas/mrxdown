@@ -9,6 +9,10 @@
   [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)](https://github.com/pepperonas/mrxdown/releases)
   [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
   [![Electron](https://img.shields.io/badge/electron-28.0.0-47848f)](https://electronjs.org/)
+  
+  <br>
+  
+  <img src="assets/mockup-1.png" alt="MrxDown Screenshot" width="800">
 </div>
 
 ## ✨ Features
