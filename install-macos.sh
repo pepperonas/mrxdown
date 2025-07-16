@@ -41,6 +41,9 @@ if [ ! -f "$DOWNLOAD_PATH" ]; then
     exit 1
 fi
 
+echo -e "${BLUE}🔓 Entferne Quarantäne von ZIP-Datei...${NC}"
+sudo xattr -d com.apple.quarantine "$DOWNLOAD_PATH" 2>/dev/null || true
+
 echo -e "${BLUE}📦 Entpacke ZIP-Datei...${NC}"
 cd "$HOME/Downloads"
 unzip -q MrxDown.zip

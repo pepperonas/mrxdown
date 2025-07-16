@@ -47,11 +47,15 @@
 
 ##### Schritt 2: Gatekeeper-Quarantäne entfernen
 ```bash
-# Terminal öffnen und ausführen:
-sudo xattr -rd com.apple.quarantine ~/Downloads/MrxDown.app
+# WICHTIG: Quarantäne ZUERST von der ZIP-Datei entfernen!
+sudo xattr -d com.apple.quarantine ~/Downloads/MrxDown-v0.0.3-macOS.zip
 
-# Falls die App bereits in Applications liegt:
-sudo xattr -rd com.apple.quarantine /Applications/MrxDown.app
+# Dann entpacken
+cd ~/Downloads
+unzip MrxDown-v0.0.3-macOS.zip
+
+# Sicherheitshalber auch von der App entfernen
+sudo xattr -rd com.apple.quarantine ~/Downloads/MrxDown.app
 ```
 
 ##### Schritt 3: App starten
@@ -68,6 +72,10 @@ curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/install-macos.
 ```bash
 # Herunterladen und manuell installieren:
 curl -L https://github.com/pepperonas/mrxdown/releases/latest/download/MrxDown-v0.0.3-macOS.zip -o ~/Downloads/MrxDown.zip
+
+# WICHTIG: Quarantäne VOR dem Entpacken entfernen!
+sudo xattr -d com.apple.quarantine ~/Downloads/MrxDown.zip
+
 cd ~/Downloads
 unzip MrxDown.zip
 sudo xattr -rd com.apple.quarantine MrxDown.app

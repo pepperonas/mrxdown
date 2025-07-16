@@ -50,7 +50,12 @@ jobs:
         
     - name: Build app for macOS
       if: matrix.os == 'macos-latest'
-      run: npm run build-mac
+      run: |
+        npm run build-mac
+        # Remove quarantine attributes from built app
+        find dist -name "*.app" -exec xattr -cr {} \;
+        # Remove quarantine from ZIP contents
+        find dist -name "*.zip" -exec xattr -cr {} \;
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         CSC_IDENTITY_AUTO_DISCOVERY: false
