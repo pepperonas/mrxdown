@@ -25,10 +25,7 @@
     "release-linux": "electron-builder --linux --publish=always",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
-    "postinstall": "electron-builder install-app-deps",
-    "version": "node scripts/version.js",
-    "changelog": "echo 'Please update CHANGELOG.md manually'",
-    "prerelease": "npm run version"
+    "postinstall": "electron-builder install-app-deps"
   },
   "keywords": [
     "markdown",

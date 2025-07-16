@@ -24,70 +24,101 @@
 - **💾 Auto-Save** - Automatisches Speichern (konfigurierbar)
 - **📤 Export-Funktionen** - HTML-Export mit eingebetteten Styles
 - **⌨️ Keyboard Shortcuts** - Umfassende Tastaturkürzel
-- **🎯 Suchen & Ersetzen** - Erweiterte Suchfunktionen
-- **🔗 Link-Verwaltung** - Einfaches Einfügen von Links und Bildern
 
-## 🚀 Installation
+## 🚀 Download & Installation
 
-### Über GitHub Releases (Empfohlen)
+### Version 0.0.3 (Aktuell)
 
-1. Gehe zu den [Releases](https://github.com/pepperonas/mrxdown/releases)
-2. Lade die neueste Version für dein Betriebssystem herunter:
-   - **macOS**: `MrxDown-v0.0.3-macOS.zip`
-   - **Windows**: `MrxDown-Setup-v0.0.3.exe`
-   - **Linux**: `MrxDown-v0.0.3.AppImage`
+[![Download für macOS](https://img.shields.io/badge/macOS-Download-blue?style=for-the-badge&logo=apple)](https://github.com/pepperonas/mrxdown/releases/download/v0.0.3/MrxDown-0.0.3.zip)
+[![Download für Windows](https://img.shields.io/badge/Windows-Download-blue?style=for-the-badge&logo=windows)](https://github.com/pepperonas/mrxdown/releases/download/v0.0.3/MrxDown-0.0.3.exe)
+[![Download für Linux](https://img.shields.io/badge/Linux-Download-blue?style=for-the-badge&logo=linux)](https://github.com/pepperonas/mrxdown/releases/download/v0.0.3/MrxDown-0.0.3.AppImage)
 
-#### ⚠️ macOS Installation (Wichtig!)
+| Betriebssystem | Datei | Größe | Installation |
+|----------------|-------|-------|--------------|
+| **macOS** | `MrxDown-0.0.3.zip` | 86.4 MB | ZIP entpacken, Rechtsklick → "Öffnen" |
+| **Windows** | `MrxDown-0.0.3.exe` | 135 MB | Installer ausführen |
+| **Linux** | `MrxDown-0.0.3.AppImage` | 99.4 MB | Ausführbar machen: `chmod +x` |
+| **Linux** | `MrxDown-0.0.3.deb` | 134 MB | `sudo dpkg -i MrxDown-0.0.3.deb` |
+| **Linux** | `MrxDown-0.0.3.snap` | 84.1 MB | `sudo snap install MrxDown-0.0.3.snap --dangerous` |
 
-**macOS zeigt "MrxDown.app ist beschädigt" an?** Das ist normal für nicht-signierte Apps. Folge diesen Schritten:
+### 🍎 macOS Installation
 
-##### Schritt 1: ZIP-Datei herunterladen und entpacken
-1. Lade `MrxDown-v0.0.3-macOS.zip` herunter
-2. Doppelklick zum Entpacken
+1. **Download**: [MrxDown-0.0.3.zip](https://github.com/pepperonas/mrxdown/releases/download/v0.0.3/MrxDown-0.0.3.zip)
+2. **Entpacken**: Doppelklick auf ZIP-Datei
+3. **Öffnen**: Rechtsklick auf MrxDown.app → **"Öffnen"** → **"Öffnen"** bestätigen
 
-##### Schritt 2: Gatekeeper-Quarantäne entfernen
+> **💡 Tipp**: Nach dem ersten "Öffnen" funktioniert die App dauerhaft normal!
+
+**🚀 Automatische Installation:**
 ```bash
-# WICHTIG: Quarantäne ZUERST von der ZIP-Datei entfernen!
-sudo xattr -d com.apple.quarantine ~/Downloads/MrxDown-v0.0.3-macOS.zip
-
-# Dann entpacken
-cd ~/Downloads
-unzip MrxDown-v0.0.3-macOS.zip
-
-# Sicherheitshalber auch von der App entfernen
-sudo xattr -rd com.apple.quarantine ~/Downloads/MrxDown.app
-```
-
-##### Schritt 3: App starten
-1. **✅ Einfachste Methode**: Rechtsklick auf MrxDown.app → **"Öffnen"** → **"Öffnen"** bestätigen
-2. Alternative: In Systemeinstellungen → Datenschutz & Sicherheit → "Trotzdem öffnen"
-
-> **💡 Tipp**: Nach dem ersten Rechtsklick + "Öffnen" funktioniert die App dauerhaft mit normalem Doppelklick!
-
-##### 🚀 Ein-Klick Installation (Empfohlen)
-```bash
-# Automatisches Installations-Script herunterladen und ausführen:
 curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/install-macos.sh | bash
 ```
 
-##### Manuelle Installation
+### 🪟 Windows Installation
+
+1. **Download**: [MrxDown-0.0.3.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.0.3/MrxDown-0.0.3.exe)
+2. **Installation**: Installer ausführen und Anweisungen folgen
+3. **Start**: Desktop-Icon oder Startmenü
+
+### 🐧 Linux Installation
+
+#### AppImage (Universal)
 ```bash
-# Herunterladen und manuell installieren:
-curl -L https://github.com/pepperonas/mrxdown/releases/latest/download/MrxDown-v0.0.3-macOS.zip -o ~/Downloads/MrxDown.zip
+# Download
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.0.3/MrxDown-0.0.3.AppImage
 
-# WICHTIG: Quarantäne VOR dem Entpacken entfernen!
-sudo xattr -d com.apple.quarantine ~/Downloads/MrxDown.zip
+# Ausführbar machen
+chmod +x MrxDown-0.0.3.AppImage
 
-cd ~/Downloads
-unzip MrxDown.zip
-sudo xattr -rd com.apple.quarantine MrxDown.app
-mv MrxDown.app /Applications/
-echo "✅ MrxDown erfolgreich installiert!"
+# Starten
+./MrxDown-0.0.3.AppImage
 ```
 
-> **Warum diese Schritte?** Die App ist nicht mit einem Apple Developer-Zertifikat (99$/Jahr) signiert. Der Quellcode ist vollständig einsehbar und sicher. macOS blockiert standardmäßig alle Apps aus "unbekannten Quellen".
+#### DEB (Ubuntu/Debian)
+```bash
+# Download und Installation
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.0.3/MrxDown-0.0.3.deb
+sudo dpkg -i MrxDown-0.0.3.deb
 
-### Aus dem Quellcode
+# Falls Abhängigkeiten fehlen:
+sudo apt-get install -f
+```
+
+#### Snap
+```bash
+# Download und Installation
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.0.3/MrxDown-0.0.3.snap
+sudo snap install MrxDown-0.0.3.snap --dangerous
+```
+
+## ⌨️ Keyboard Shortcuts
+
+### Dateien
+- `Cmd/Ctrl + N` - Neue Datei
+- `Cmd/Ctrl + O` - Datei öffnen
+- `Cmd/Ctrl + S` - Speichern
+- `Cmd/Ctrl + Shift + S` - Speichern unter
+
+### Formatierung
+- `Cmd/Ctrl + B` - **Fett**
+- `Cmd/Ctrl + I` - *Kursiv*
+- `Cmd/Ctrl + K` - Link einfügen
+- `Cmd/Ctrl + T` - Tabelle einfügen
+- `Cmd/Ctrl + \`` - Code formatieren
+
+### Überschriften
+- `Cmd/Ctrl + 1-6` - Überschrift H1-H6
+
+### Navigation
+- `Cmd/Ctrl + F` - Suchen
+- `Cmd/Ctrl + H` - Ersetzen
+- `Cmd/Ctrl + \\` - Sidebar umschalten
+- `Cmd/Ctrl + Shift + Z` - Zen-Modus
+- `Cmd/Ctrl + Tab` - Zwischen Tabs wechseln
+
+## 🏗️ Entwicklung
+
+### Aus dem Quellcode starten
 
 ```bash
 # Repository klonen
@@ -100,100 +131,16 @@ npm install
 # Anwendung starten
 npm start
 
-# Build für alle Plattformen
-npm run build
+# Für alle Plattformen bauen
+npm run build-all
 ```
-
-## 🎮 Verwendung
-
-### Erste Schritte
-
-1. **Neue Datei erstellen**: `Cmd/Ctrl + N` oder Klick auf 📄
-2. **Datei öffnen**: `Cmd/Ctrl + O` oder Drag & Drop
-3. **Markdown schreiben**: Der Editor unterstützt vollständige Markdown-Syntax
-4. **Live-Vorschau**: Sieh deine Änderungen in Echtzeit rechts
-5. **Speichern**: `Cmd/Ctrl + S`
-
-### Tastaturkürzel
-
-#### Dateien
-- `Cmd/Ctrl + N` - Neue Datei
-- `Cmd/Ctrl + O` - Datei öffnen
-- `Cmd/Ctrl + S` - Speichern
-- `Cmd/Ctrl + Shift + S` - Speichern unter
-- `Cmd/Ctrl + Shift + E` - Als HTML exportieren
-
-#### Formatierung
-- `Cmd/Ctrl + B` - **Fett**
-- `Cmd/Ctrl + I` - *Kursiv*
-- `Cmd/Ctrl + K` - Link einfügen
-- `Cmd/Ctrl + T` - Tabelle einfügen
-- `Cmd/Ctrl + \`` - Code formatieren
-
-#### Überschriften
-- `Cmd/Ctrl + 1-6` - Überschrift H1-H6
-
-#### Navigation
-- `Cmd/Ctrl + F` - Suchen
-- `Cmd/Ctrl + H` - Ersetzen
-- `Cmd/Ctrl + \\` - Sidebar umschalten
-- `Cmd/Ctrl + Shift + Z` - Zen-Modus
-- `Cmd/Ctrl + Tab` - Zwischen Tabs wechseln
-
-### Tabellen erstellen
-
-1. Klicke auf das Tabellen-Icon 📊 oder drücke `Cmd/Ctrl + T`
-2. Wähle die Anzahl der Zeilen und Spalten
-3. Klicke auf "Einfügen"
-4. Bearbeite die Tabelle direkt im Editor
-
-### Drag & Drop
-
-- Ziehe Markdown-Dateien (`.md`, `.markdown`, `.txt`) direkt in den Editor
-- Mehrere Dateien werden automatisch in separaten Tabs geöffnet
-
-## 🏗️ Entwicklung
 
 ### Technischer Stack
 
-- **Electron** - Desktop-App-Framework
+- **Electron 28.0.0** - Desktop-App-Framework
 - **Marked.js** - Markdown-Parser
 - **DOMPurify** - HTML-Sanitization
 - **Material Design** - Design-System
-- **Node.js** - Backend-Runtime
-
-### Projekt-Struktur
-
-```
-mrxdown/
-├── main.js           # Electron Main Process
-├── preload.js        # Sicherer IPC-Bridge
-├── index.html        # UI-Struktur
-├── renderer.js       # Frontend-Logik
-├── package.json      # Projektkonfiguration
-├── README.md         # Dokumentation
-├── CLAUDE.md         # Entwickler-Guide
-└── .github/          # GitHub Actions
-    └── workflows/
-        └── release.yml
-```
-
-### Build-Kommandos
-
-```bash
-# Entwicklung
-npm start              # App starten
-npm run dev           # Development-Modus mit Hot-Reload
-
-# Building
-npm run build         # Build für alle Plattformen
-npm run build-mac     # macOS DMG
-npm run build-win     # Windows Installer
-npm run build-linux   # Linux AppImage
-
-# Release
-npm run release       # Neue Version taggen und releasen
-```
 
 ### Beitrag leisten
 
@@ -203,68 +150,24 @@ npm run release       # Neue Version taggen und releasen
 4. Push zum Branch (`git push origin feature/AmazingFeature`)
 5. Öffne einen Pull Request
 
-## 🔧 Konfiguration
-
-### Einstellungen
-
-Die App unterstützt verschiedene Einstellungen:
-
-- **Theme**: Dark Theme (Standard)
-- **Schriftgröße**: 14px (Standard, 12-24px)
-- **Auto-Save**: Aktiviert/Deaktiviert
-- **Auto-Save-Intervall**: 5 Sekunden (Standard)
-- **Zeilennummern**: Ein/Aus
-- **Zeilenumbruch**: Aktiviert (Standard)
-- **Tab-Größe**: 4 Leerzeichen (Standard)
-
-### Dateiformate
-
-**Unterstützte Eingabeformate:**
-- `.md` (Markdown)
-- `.markdown` (Markdown)
-- `.txt` (Plain Text)
-
-**Export-Formate:**
-- HTML (mit eingebetteten Styles)
-- PDF (geplant)
-
-## 🐛 Bekannte Probleme
-
-- PDF-Export noch nicht implementiert
-- Syntax-Highlighting in Entwicklung
-- Mermaid-Diagramme geplant
-
 ## 📋 Roadmap
 
-### Version 1.1.0
+### Version 1.0.0
 - [ ] PDF-Export
 - [ ] Syntax-Highlighting im Editor
 - [ ] Mermaid-Diagramm-Support
 - [ ] Zusätzliche Themes
 
-### Version 1.2.0
+### Version 1.1.0
 - [ ] Plugin-System
 - [ ] Live-Collaboration
 - [ ] Cloud-Sync
 - [ ] Math-Formeln (KaTeX)
 
-### Version 2.0.0
-- [ ] Complete UI-Redesign
-- [ ] Mobile App
-- [ ] Web-Version
-
-## 🙏 Danksagungen
-
-- [Electron](https://electronjs.org/) - Desktop-App-Framework
-- [Marked.js](https://marked.js.org/) - Markdown-Parser
-- [DOMPurify](https://github.com/cure53/DOMPurify) - HTML-Sanitization
-- [Material Design](https://material.io/) - Design-System
-
 ## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/pepperonas/mrxdown/issues)
 - **Diskussionen**: [GitHub Discussions](https://github.com/pepperonas/mrxdown/discussions)
-- **Email**: [support@mrxdown.com](mailto:support@mrxdown.com)
 
 ## 📜 Lizenz
 
