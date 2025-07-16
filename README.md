@@ -59,8 +59,10 @@ sudo xattr -rd com.apple.quarantine ~/Downloads/MrxDown.app
 ```
 
 ##### Schritt 3: App starten
-1. **Erste Methode**: Rechtsklick auf MrxDown.app → "Öffnen" → "Öffnen" bestätigen
-2. **Alternative**: In Systemeinstellungen → Datenschutz & Sicherheit → "Trotzdem öffnen"
+1. **✅ Einfachste Methode**: Rechtsklick auf MrxDown.app → **"Öffnen"** → **"Öffnen"** bestätigen
+2. Alternative: In Systemeinstellungen → Datenschutz & Sicherheit → "Trotzdem öffnen"
+
+> **💡 Tipp**: Nach dem ersten Rechtsklick + "Öffnen" funktioniert die App dauerhaft mit normalem Doppelklick!
 
 ##### 🚀 Ein-Klick Installation (Empfohlen)
 ```bash
