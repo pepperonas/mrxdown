@@ -34,6 +34,19 @@ const tableEditor = document.getElementById('tableEditor');
 // Initialize application
 document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
+    
+    // Make functions globally available for onclick handlers
+    window.handleMenuAction = handleMenuAction;
+    window.toggleSidebar = toggleSidebar;
+    window.toggleZenMode = toggleZenMode;
+    window.closeTab = closeTab;
+    window.toggleLineNumbers = toggleLineNumbers;
+    window.toggleWordWrap = toggleWordWrap;
+    window.showSettings = showSettings;
+    window.showAboutDialog = showAboutDialog;
+    window.closeAboutDialog = closeAboutDialog;
+    window.insertTable = insertTable;
+    window.closeTableEditor = closeTableEditor;
 });
 
 function initializeApp() {
