@@ -37,27 +37,45 @@
    - **Windows**: `MrxDown-Setup-v0.0.2.exe`
    - **Linux**: `MrxDown-v0.0.2.AppImage`
 
-#### ⚠️ macOS Sicherheitshinweis
+#### ⚠️ macOS Installation (Wichtig!)
 
-Falls macOS die App als "beschädigt" meldet, führe diese Schritte aus:
+**macOS zeigt "MrxDown.app ist beschädigt" an?** Das ist normal für nicht-signierte Apps. Folge diesen Schritten:
 
-1. **Gatekeeper umgehen**:
-   ```bash
-   sudo xattr -rd com.apple.quarantine /Applications/MrxDown.app
-   ```
+##### Schritt 1: ZIP-Datei herunterladen und entpacken
+1. Lade `MrxDown-v0.0.2-macOS.zip` herunter
+2. Doppelklick zum Entpacken
 
-2. **Alternative Methode**:
-   - Rechtsklick auf MrxDown.app → "Öffnen"
-   - Im Dialog "Öffnen" bestätigen
-   - Oder: Systemeinstellungen → Sicherheit → "Trotzdem öffnen"
+##### Schritt 2: Gatekeeper-Quarantäne entfernen
+```bash
+# Terminal öffnen und ausführen:
+sudo xattr -rd com.apple.quarantine ~/Downloads/MrxDown.app
 
-3. **Für ZIP-Dateien**:
-   ```bash
-   # Nach dem Entpacken der ZIP-Datei
-   sudo xattr -rd com.apple.quarantine MrxDown.app
-   ```
+# Falls die App bereits in Applications liegt:
+sudo xattr -rd com.apple.quarantine /Applications/MrxDown.app
+```
 
-> **Hinweis**: Diese Warnung erscheint, weil die App nicht mit einem Apple Developer-Zertifikat signiert ist. Die App ist sicher und der Quellcode ist vollständig einsehbar.
+##### Schritt 3: App starten
+1. **Erste Methode**: Rechtsklick auf MrxDown.app → "Öffnen" → "Öffnen" bestätigen
+2. **Alternative**: In Systemeinstellungen → Datenschutz & Sicherheit → "Trotzdem öffnen"
+
+##### 🚀 Ein-Klick Installation (Empfohlen)
+```bash
+# Automatisches Installations-Script herunterladen und ausführen:
+curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/install-macos.sh | bash
+```
+
+##### Manuelle Installation
+```bash
+# Herunterladen und manuell installieren:
+curl -L https://github.com/pepperonas/mrxdown/releases/latest/download/MrxDown-v0.0.2-macOS.zip -o ~/Downloads/MrxDown.zip
+cd ~/Downloads
+unzip MrxDown.zip
+sudo xattr -rd com.apple.quarantine MrxDown.app
+mv MrxDown.app /Applications/
+echo "✅ MrxDown erfolgreich installiert!"
+```
+
+> **Warum diese Schritte?** Die App ist nicht mit einem Apple Developer-Zertifikat (99$/Jahr) signiert. Der Quellcode ist vollständig einsehbar und sicher. macOS blockiert standardmäßig alle Apps aus "unbekannten Quellen".
 
 ### Aus dem Quellcode
 
