@@ -302,6 +302,55 @@
             display: flex;
             overflow: hidden;
         }
+        
+        /* Resizable Divider */
+        .divider {
+            width: 4px;
+            background-color: var(--card-background);
+            cursor: col-resize;
+            position: relative;
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s ease;
+        }
+        
+        .divider:hover {
+            background-color: var(--accent-blue);
+        }
+        
+        .divider-handle {
+            color: var(--text-secondary);
+            font-size: 12px;
+            writing-mode: vertical-lr;
+            user-select: none;
+            pointer-events: none;
+        }
+        
+        .divider:hover .divider-handle {
+            color: white;
+        }
+        
+        /* View Modes */
+        .view-mode-editor .preview-pane,
+        .view-mode-editor .divider {
+            display: none;
+        }
+        
+        .view-mode-preview .editor-pane,
+        .view-mode-preview .divider {
+            display: none;
+        }
+        
+        .view-mode-split .editor-pane {
+            flex: 1;
+        }
+        
+        .view-mode-split .preview-pane {
+            flex: 1;
+        }
 
         /* Editor Pane */
         .editor-pane {
@@ -1020,6 +1069,20 @@
             </button>
         </div>
         
+        <div class="toolbar-separator"></div>
+        
+        <div class="toolbar-group">
+            <button class="toolbar-button tooltip" data-tooltip="Nur Editor" onclick="setViewMode('editor')" id="viewModeEditor">
+                📝
+            </button>
+            <button class="toolbar-button tooltip active" data-tooltip="Editor + Vorschau" onclick="setViewMode('split')" id="viewModeSplit">
+                ⚌
+            </button>
+            <button class="toolbar-button tooltip" data-tooltip="Nur Vorschau" onclick="setViewMode('preview')" id="viewModePreview">
+                👁
+            </button>
+        </div>
+        
         <div style="flex: 1;"></div>
         
         <div class="toolbar-group">
@@ -1062,7 +1125,7 @@
         <div class="editor-container">
             <div class="editor-layout">
                 <!-- Editor Pane -->
-                <div class="editor-pane">
+                <div class="editor-pane" id="editorPane">
                     <div class="editor-header">
                         <span>Markdown Editor</span>
                         <div class="editor-tools">
@@ -1077,8 +1140,13 @@
                     <textarea id="editor" placeholder="Beginnen Sie mit dem Schreiben Ihres Markdown-Textes..."></textarea>
                 </div>
                 
+                <!-- Resizable Divider -->
+                <div class="divider" id="resizableDivider">
+                    <div class="divider-handle">⋮</div>
+                </div>
+                
                 <!-- Preview Pane -->
-                <div class="preview-pane">
+                <div class="preview-pane" id="previewPane">
                     <div class="preview-header">Live-Vorschau</div>
                     <div id="preview"></div>
                 </div>

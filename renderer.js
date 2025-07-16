@@ -6,6 +6,10 @@ let isZenMode = false;
 let sidebarVisible = true;
 let lineNumbers = false;
 let wordWrap = true;
+let currentViewMode = 'split';
+let isResizing = false;
+let startX = 0;
+let startWidth = 0;
 let settings = {
     theme: 'dark',
     fontSize: 14,
@@ -47,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.closeAboutDialog = closeAboutDialog;
     window.insertTable = insertTable;
     window.closeTableEditor = closeTableEditor;
+    window.setViewMode = setViewMode;
 });
 
 function initializeApp() {
@@ -70,6 +75,9 @@ function initializeApp() {
     
     // Setup external links
     handleExternalLinks();
+    
+    // Setup resizable divider
+    setupResizableDivider();
     
     // Initial render
     renderMarkdown();
@@ -935,6 +943,86 @@ function handleExternalLinks() {
             }
         }
     });
+}
+
+// View Mode Management
+function setViewMode(mode) {
+    currentViewMode = mode;
+    const editorContainer = document.querySelector('.editor-container');
+    
+    // Remove existing view mode classes
+    editorContainer.classList.remove('view-mode-editor', 'view-mode-split', 'view-mode-preview');
+    
+    // Add new view mode class
+    editorContainer.classList.add(`view-mode-${mode}`);
+    
+    // Update button states
+    document.querySelectorAll('[id^="viewMode"]').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.getElementById(`viewMode${mode.charAt(0).toUpperCase() + mode.slice(1)}`).classList.add('active');
+    
+    // Adjust editor dimensions
+    setTimeout(() => {
+        if (editor) {
+            editor.style.height = 'auto';
+            editor.style.height = editor.scrollHeight + 'px';
+        }
+    }, 100);
+}
+
+// Resizable Divider Setup
+function setupResizableDivider() {
+    const divider = document.getElementById('resizableDivider');
+    const editorPane = document.getElementById('editorPane');
+    const previewPane = document.getElementById('previewPane');
+    
+    if (!divider || !editorPane || !previewPane) return;
+    
+    divider.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        isResizing = true;
+        startX = e.clientX;
+        startWidth = editorPane.offsetWidth;
+        
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        
+        // Add resizing cursor to body
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+    });
+    
+    function handleMouseMove(e) {
+        if (!isResizing) return;
+        
+        const deltaX = e.clientX - startX;
+        const containerWidth = editorPane.parentElement.offsetWidth;
+        const dividerWidth = divider.offsetWidth;
+        
+        // Calculate new width as percentage
+        const newWidth = startWidth + deltaX;
+        const minWidth = 200; // Minimum width for each pane
+        const maxWidth = containerWidth - dividerWidth - minWidth;
+        
+        if (newWidth >= minWidth && newWidth <= maxWidth) {
+            const percentage = (newWidth / containerWidth) * 100;
+            const previewPercentage = ((containerWidth - newWidth - dividerWidth) / containerWidth) * 100;
+            
+            editorPane.style.flex = `0 0 ${percentage}%`;
+            previewPane.style.flex = `0 0 ${previewPercentage}%`;
+        }
+    }
+    
+    function handleMouseUp() {
+        isResizing = false;
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        
+        // Remove resizing cursor
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+    }
 }
 
 // Initialize when DOM is ready
