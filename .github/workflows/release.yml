@@ -71,7 +71,6 @@ jobs:
       with:
         name: macos-artifacts
         path: |
-          dist/*.dmg
           dist/*.zip
           
     - name: Upload artifacts (Windows)

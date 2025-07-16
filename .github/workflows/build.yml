@@ -64,7 +64,6 @@ jobs:
       with:
         name: macos-build
         path: |
-          dist/*.dmg
           dist/*.zip
         retention-days: 7
         

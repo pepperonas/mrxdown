@@ -33,9 +33,31 @@
 
 1. Gehe zu den [Releases](https://github.com/pepperonas/mrxdown/releases)
 2. Lade die neueste Version für dein Betriebssystem herunter:
-   - **macOS**: `MrxDown-1.0.0.dmg`
-   - **Windows**: `MrxDown-Setup-1.0.0.exe`
-   - **Linux**: `MrxDown-1.0.0.AppImage`
+   - **macOS**: `MrxDown-v0.0.2-macOS.zip`
+   - **Windows**: `MrxDown-Setup-v0.0.2.exe`
+   - **Linux**: `MrxDown-v0.0.2.AppImage`
+
+#### ⚠️ macOS Sicherheitshinweis
+
+Falls macOS die App als "beschädigt" meldet, führe diese Schritte aus:
+
+1. **Gatekeeper umgehen**:
+   ```bash
+   sudo xattr -rd com.apple.quarantine /Applications/MrxDown.app
+   ```
+
+2. **Alternative Methode**:
+   - Rechtsklick auf MrxDown.app → "Öffnen"
+   - Im Dialog "Öffnen" bestätigen
+   - Oder: Systemeinstellungen → Sicherheit → "Trotzdem öffnen"
+
+3. **Für ZIP-Dateien**:
+   ```bash
+   # Nach dem Entpacken der ZIP-Datei
+   sudo xattr -rd com.apple.quarantine MrxDown.app
+   ```
+
+> **Hinweis**: Diese Warnung erscheint, weil die App nicht mit einem Apple Developer-Zertifikat signiert ist. Die App ist sicher und der Quellcode ist vollständig einsehbar.
 
 ### Aus dem Quellcode
 
