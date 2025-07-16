@@ -10,6 +10,7 @@ let currentViewMode = 'split';
 let isResizing = false;
 let startX = 0;
 let startWidth = 0;
+let isScrollSyncing = false;
 let settings = {
     theme: 'dark',
     fontSize: 14,
@@ -17,7 +18,8 @@ let settings = {
     autoSaveInterval: 5,
     showLineNumbers: false,
     wordWrap: true,
-    tabSize: 4
+    tabSize: 4,
+    syncScroll: true
 };
 
 // DOM Elements
@@ -52,6 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.insertTable = insertTable;
     window.closeTableEditor = closeTableEditor;
     window.setViewMode = setViewMode;
+    window.toggleScrollSync = toggleScrollSync;
 });
 
 function initializeApp() {
@@ -332,14 +335,39 @@ function updateStats() {
     lineCount.textContent = `${lines} Zeilen`;
 }
 
-function syncScroll() {
+function syncScroll(event) {
+    // Prevent sync during resizing, if already syncing, not in split mode, or sync disabled
+    if (isResizing || isScrollSyncing || currentViewMode !== 'split' || !settings.syncScroll) {
+        return;
+    }
+    
     const sourceElement = event.target;
     const targetElement = sourceElement === editor ? preview : editor;
     
     if (sourceElement && targetElement) {
-        const scrollRatio = sourceElement.scrollTop / (sourceElement.scrollHeight - sourceElement.clientHeight);
-        const targetScrollTop = scrollRatio * (targetElement.scrollHeight - targetElement.clientHeight);
-        targetElement.scrollTop = targetScrollTop;
+        // Check if elements have scrollable content
+        const sourceScrollHeight = sourceElement.scrollHeight - sourceElement.clientHeight;
+        const targetScrollHeight = targetElement.scrollHeight - targetElement.clientHeight;
+        
+        if (sourceScrollHeight <= 0 || targetScrollHeight <= 0) {
+            return;
+        }
+        
+        // Set sync flag to prevent infinite loops
+        isScrollSyncing = true;
+        
+        const scrollRatio = sourceElement.scrollTop / sourceScrollHeight;
+        const targetScrollTop = scrollRatio * targetScrollHeight;
+        
+        // Only sync if there's a meaningful difference
+        if (Math.abs(targetElement.scrollTop - targetScrollTop) > 5) {
+            targetElement.scrollTop = targetScrollTop;
+        }
+        
+        // Reset sync flag after a short delay
+        setTimeout(() => {
+            isScrollSyncing = false;
+        }, 50);
     }
 }
 
@@ -631,6 +659,21 @@ function toggleLineNumbers() {
 function toggleWordWrap() {
     wordWrap = !wordWrap;
     editor.style.whiteSpace = wordWrap ? 'pre-wrap' : 'pre';
+}
+
+function toggleScrollSync() {
+    settings.syncScroll = !settings.syncScroll;
+    const toggle = document.getElementById('scrollSyncToggle');
+    
+    if (settings.syncScroll) {
+        toggle.style.opacity = '1';
+        toggle.setAttribute('data-tooltip', 'Scroll-Synchronisation ausschalten');
+    } else {
+        toggle.style.opacity = '0.5';
+        toggle.setAttribute('data-tooltip', 'Scroll-Synchronisation einschalten');
+    }
+    
+    saveSettings();
 }
 
 function showFindDialog() {
