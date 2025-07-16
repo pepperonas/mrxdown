@@ -22,20 +22,8 @@ let settings = {
     syncScroll: true
 };
 
-// DOM Elements
-const editor = document.getElementById('editor');
-const preview = document.getElementById('preview');
-const charCount = document.getElementById('charCount');
-const wordCount = document.getElementById('wordCount');
-const lineCount = document.getElementById('lineCount');
-const fileName = document.getElementById('fileName');
-const tabBar = document.getElementById('tabBar');
-const sidebar = document.getElementById('sidebar');
-const dropZone = document.getElementById('dropZone');
-const fileExplorer = document.getElementById('fileExplorer');
-const contextMenu = document.getElementById('contextMenu');
-const aboutModal = document.getElementById('aboutModal');
-const tableEditor = document.getElementById('tableEditor');
+// DOM Elements - will be initialized in initializeApp
+let editor, preview, charCount, wordCount, lineCount, fileName, tabBar, sidebar, dropZone, fileExplorer, contextMenu, aboutModal, tableEditor;
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', () => {
@@ -58,6 +46,27 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeApp() {
+    // Initialize DOM elements
+    editor = document.getElementById('editor');
+    preview = document.getElementById('preview');
+    charCount = document.getElementById('charCount');
+    wordCount = document.getElementById('wordCount');
+    lineCount = document.getElementById('lineCount');
+    fileName = document.getElementById('fileName');
+    tabBar = document.getElementById('tabBar');
+    sidebar = document.getElementById('sidebar');
+    dropZone = document.getElementById('dropZone');
+    fileExplorer = document.getElementById('fileExplorer');
+    contextMenu = document.getElementById('contextMenu');
+    aboutModal = document.getElementById('aboutModal');
+    tableEditor = document.getElementById('tableEditor');
+    
+    // Check if critical elements exist
+    if (!editor || !preview || !tabBar) {
+        console.error('Critical DOM elements not found');
+        return;
+    }
+    
     // Create initial tab
     createNewTab();
     
@@ -88,12 +97,16 @@ function initializeApp() {
 
 function setupEventListeners() {
     // Editor events
-    editor.addEventListener('input', handleEditorInput);
-    editor.addEventListener('keydown', handleEditorKeydown);
-    editor.addEventListener('scroll', syncScroll);
+    if (editor) {
+        editor.addEventListener('input', handleEditorInput);
+        editor.addEventListener('keydown', handleEditorKeydown);
+        editor.addEventListener('scroll', syncScroll);
+    }
     
     // Preview events
-    preview.addEventListener('scroll', syncScroll);
+    if (preview) {
+        preview.addEventListener('scroll', syncScroll);
+    }
     
     // Window events
     window.addEventListener('resize', handleWindowResize);
@@ -325,6 +338,8 @@ function renderMarkdown() {
 }
 
 function updateStats() {
+    if (!editor || !charCount || !wordCount || !lineCount) return;
+    
     const text = editor.value;
     const chars = text.length;
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
