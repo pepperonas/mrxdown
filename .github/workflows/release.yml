@@ -51,12 +51,16 @@ jobs:
     - name: Build app for macOS
       if: matrix.os == 'macos-latest'
       run: |
-        # Create custom build script to avoid DMG issues in CI
-        npx electron-builder --mac --config.mac.target.target=zip --publish=never
-        # Remove quarantine attributes from built app
+        # Build universal binary for both Intel and Apple Silicon
+        npm run build-mac
+        # Remove quarantine attributes from built app (all architectures)
         find dist -name "*.app" -exec xattr -cr {} \; 2>/dev/null || true
         # Remove quarantine from ZIP contents
         find dist -name "*.zip" -exec xattr -cr {} \; 2>/dev/null || true
+        # Remove extended attributes that cause Gatekeeper issues
+        find dist -name "*.app" -exec xattr -dr com.apple.quarantine {} \; 2>/dev/null || true
+        # List built artifacts for debugging
+        ls -la dist/
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         CSC_IDENTITY_AUTO_DISCOVERY: false
@@ -81,6 +85,7 @@ jobs:
       with:
         name: macos-artifacts
         path: |
+          dist/*.dmg
           dist/*.zip
           
     - name: Upload artifacts (Windows)
@@ -126,7 +131,8 @@ jobs:
           ### 📥 Downloads
           
           **macOS**
-          - **ZIP** für Intel & Apple Silicon Macs (Universal Binary)
+          - **DMG** für Intel & Apple Silicon Macs (Universal Binary) 
+          - **ZIP** für portable Installation (Universal Binary)
           
           **Windows**
           - NSIS Installer für Windows 10/11

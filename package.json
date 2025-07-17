@@ -16,6 +16,8 @@
     "dev": "electron . --dev",
     "build": "electron-builder --publish=never",
     "build-mac": "electron-builder --mac --publish=never",
+    "build-mac-arm64": "electron-builder --mac --arm64 --publish=never",
+    "build-mac-local": "electron-builder --mac --publish=never && find dist -name '*.app' -exec xattr -cr {} \\; 2>/dev/null || true",
     "build-win": "electron-builder --win --publish=never",
     "build-linux": "electron-builder --linux --publish=never",
     "build-all": "electron-builder --mac --win --linux --publish=never",
@@ -73,6 +75,10 @@
       "type": "distribution",
       "entitlements": "assets/entitlements.mac.plist",
       "entitlementsInherit": "assets/entitlements.mac.plist",
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "MrxDown needs access to AppleEvents for file operations.",
+        "NSSystemAdministrationUsageDescription": "MrxDown needs system permissions for file management."
+      },
       "target": [
         {
           "target": "dmg",
