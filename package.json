@@ -1,6 +1,6 @@
 {
   "name": "mrxdown",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Ein moderner Markdown-Editor mit Live-Vorschau",
   "main": "main.js",
   "homepage": "https://github.com/pepperonas/mrxdown",
@@ -69,10 +69,18 @@
       "category": "public.app-category.productivity",
       "icon": "assets/icon.icns",
       "darkModeSupport": true,
-      "hardenedRuntime": false,
-      "gatekeeperAssess": false,
+      "hardenedRuntime": true,
       "type": "distribution",
+      "entitlements": "assets/entitlements.mac.plist",
+      "entitlementsInherit": "assets/entitlements.mac.plist",
       "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
         {
           "target": "zip",
           "arch": [
