@@ -80,6 +80,7 @@ jobs:
       with:
         name: macos-artifacts
         path: |
+          dist/*.dmg
           dist/*.zip
           
     - name: Upload artifacts (Windows)
@@ -120,13 +121,13 @@ jobs:
         draft: false
         prerelease: false
         body: |
-          ## 🎉 MrxDown ${{ github.ref }}
+          ## 🎉 MrxDown ${{ github.ref }} - Multi-Platform Release
           
           ### 📥 Downloads
           
           **macOS**
-          - DMG für Intel & Apple Silicon Macs
-          - ZIP für portable Installation
+          - **DMG** für Intel & Apple Silicon Macs (Universal Binary)
+          - **ZIP** für portable Installation (Universal Binary)
           
           **Windows**
           - NSIS Installer für Windows 10/11
