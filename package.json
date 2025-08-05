@@ -72,6 +72,7 @@
       "icon": "assets/icon.icns",
       "darkModeSupport": true,
       "hardenedRuntime": true,
+      "gatekeeperAssess": false,
       "type": "distribution",
       "entitlements": "assets/entitlements.mac.plist",
       "entitlementsInherit": "assets/entitlements.mac.plist",
@@ -79,6 +80,7 @@
         "NSAppleEventsUsageDescription": "MrxDown needs access to AppleEvents for file operations.",
         "NSSystemAdministrationUsageDescription": "MrxDown needs system permissions for file management."
       },
+      "notarize": false,
       "target": [
         {
           "target": "dmg",

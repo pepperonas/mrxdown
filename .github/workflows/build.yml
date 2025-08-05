@@ -44,10 +44,8 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: |
         npm run build-mac
-        # Remove quarantine attributes from built app
-        find dist -name "*.app" -exec xattr -cr {} \;
-        # Remove quarantine from ZIP contents
-        find dist -name "*.zip" -exec xattr -cr {} \;
+        # List built artifacts for debugging
+        ls -la dist/
       env:
         CSC_IDENTITY_AUTO_DISCOVERY: false
         

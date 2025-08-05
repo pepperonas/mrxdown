@@ -53,17 +53,18 @@ jobs:
       run: |
         # Build universal binary for both Intel and Apple Silicon
         npm run build-mac
-        # Remove quarantine attributes from built app (all architectures)
-        find dist -name "*.app" -exec xattr -cr {} \; 2>/dev/null || true
-        # Remove quarantine from ZIP contents
-        find dist -name "*.zip" -exec xattr -cr {} \; 2>/dev/null || true
-        # Remove extended attributes that cause Gatekeeper issues
-        find dist -name "*.app" -exec xattr -dr com.apple.quarantine {} \; 2>/dev/null || true
         # List built artifacts for debugging
         ls -la dist/
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        CSC_IDENTITY_AUTO_DISCOVERY: false
+        # Code Signing Configuration
+        CSC_IDENTITY_AUTO_DISCOVERY: true
+        CSC_LINK: ${{ secrets.CSC_LINK }}
+        CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        # Apple Notarization
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         
     - name: Build app for Windows
       if: matrix.os == 'windows-latest'

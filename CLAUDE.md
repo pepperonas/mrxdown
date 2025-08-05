@@ -20,6 +20,24 @@ npm run build-mac  # Build the macOS application
 npm run dist       # Create distribution package (DMG)
 ```
 
+## macOS Code Signing & Notarization
+
+For production releases on macOS, the app requires code signing and notarization to avoid Gatekeeper warnings. Configure these GitHub Secrets:
+
+**Required GitHub Secrets:**
+- `CSC_LINK`: Base64-encoded .p12 certificate file
+- `CSC_KEY_PASSWORD`: Password for the .p12 certificate
+- `APPLE_ID`: Apple ID email for notarization
+- `APPLE_APP_SPECIFIC_PASSWORD`: App-specific password for Apple ID
+- `APPLE_TEAM_ID`: Apple Developer Team ID (10-character string)
+
+**Setup Process:**
+1. Export Developer ID Application certificate from Keychain as .p12
+2. Convert to base64: `base64 -i certificate.p12 | pbcopy`
+3. Add as `CSC_LINK` secret in GitHub repository settings
+4. Generate app-specific password at appleid.apple.com
+5. Add remaining secrets to GitHub repository settings
+
 ## Architecture
 
 The application follows Electron's secure two-process architecture:
