@@ -538,7 +538,7 @@ function handleMenuAction(action, data = {}) {
             }
             break;
         case 'show-about':
-            showAboutDialog();
+            showAboutDialog(data.version);
             break;
     }
     
@@ -898,8 +898,17 @@ function handleDocumentClick(e) {
 }
 
 // About Dialog Functions
-function showAboutDialog() {
+function showAboutDialog(version) {
     contextMenu.classList.remove('visible');
+    
+    // Update version in about dialog
+    if (version) {
+        const versionElement = document.querySelector('.modal-version');
+        if (versionElement) {
+            versionElement.textContent = `Version ${version}`;
+        }
+    }
+    
     aboutModal.classList.add('visible');
 }
 
