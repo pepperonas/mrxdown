@@ -1,6 +1,6 @@
 {
   "name": "mrxdown",
-  "version": "0.0.11",
+  "version": "0.1.2",
   "description": "Ein moderner Markdown-Editor mit Live-Vorschau",
   "main": "main.js",
   "homepage": "https://github.com/pepperonas/mrxdown",
@@ -78,7 +78,16 @@
       "entitlementsInherit": "assets/entitlements.mac.plist",
       "extendInfo": {
         "NSAppleEventsUsageDescription": "MrxDown needs access to AppleEvents for file operations.",
-        "NSSystemAdministrationUsageDescription": "MrxDown needs system permissions for file management."
+        "NSSystemAdministrationUsageDescription": "MrxDown needs system permissions for file management.",
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "Markdown Document",
+            "CFBundleTypeIconFile": "icon.icns",
+            "CFBundleTypeExtensions": ["md", "markdown"],
+            "CFBundleTypeRole": "Editor",
+            "LSHandlerRank": "Owner"
+          }
+        ]
       },
       "notarize": false,
       "target": [
