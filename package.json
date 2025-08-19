@@ -1,6 +1,6 @@
 {
   "name": "mrxdown",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Ein moderner Markdown-Editor mit Live-Vorschau",
   "main": "main.js",
   "homepage": "https://github.com/pepperonas/mrxdown",
@@ -90,6 +90,13 @@
       "notarize": false,
       "target": [
         {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
           "target": "zip",
           "arch": [
             "x64",
@@ -143,6 +150,7 @@
     },
     "dmg": {
       "title": "MrxDown ${version}",
+      "format": "ULFO",
       "contents": [
         {
           "x": 130,
