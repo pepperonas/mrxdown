@@ -1,6 +1,6 @@
 {
   "name": "mrxdown",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Ein moderner Markdown-Editor mit Live-Vorschau",
   "main": "main.js",
   "homepage": "https://github.com/pepperonas/mrxdown",
