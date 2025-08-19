@@ -3,6 +3,100 @@ const path = require('path');
 const fs = require('fs').promises;
 const packageJson = require('./package.json');
 
+// Helper function to convert images to base64 for PDF export
+async function convertImagesToBase64(htmlContent) {
+    const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/g;
+    let match;
+    const imagePromises = [];
+
+    while ((match = imgRegex.exec(htmlContent)) !== null) {
+        const fullImgTag = match[0];
+        const imgSrc = match[1];
+        
+        // Skip if already base64
+        if (imgSrc.startsWith('data:')) {
+            continue;
+        }
+
+        imagePromises.push(
+            convertImageToBase64(imgSrc).then(base64 => ({
+                originalTag: fullImgTag,
+                originalSrc: imgSrc,
+                base64: base64
+            })).catch(err => {
+                console.log(`Failed to convert image ${imgSrc}:`, err);
+                return null;
+            })
+        );
+    }
+
+    const results = await Promise.all(imagePromises);
+    
+    for (const result of results) {
+        if (result && result.base64) {
+            htmlContent = htmlContent.replace(
+                result.originalTag,
+                result.originalTag.replace(result.originalSrc, result.base64)
+            );
+        }
+    }
+
+    return htmlContent;
+}
+
+async function convertImageToBase64(imagePath) {
+    try {
+        // Handle different types of paths
+        let fullPath;
+        
+        if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+            // Web URL - use https module for Node.js
+            const https = require('https');
+            const http = require('http');
+            
+            return new Promise((resolve, reject) => {
+                const client = imagePath.startsWith('https://') ? https : http;
+                client.get(imagePath, (response) => {
+                    const chunks = [];
+                    response.on('data', chunk => chunks.push(chunk));
+                    response.on('end', () => {
+                        const buffer = Buffer.concat(chunks);
+                        const mimeType = response.headers['content-type'] || 'image/png';
+                        const base64 = buffer.toString('base64');
+                        resolve(`data:${mimeType};base64,${base64}`);
+                    });
+                }).on('error', reject);
+            });
+        } else if (path.isAbsolute(imagePath)) {
+            // Absolute path
+            fullPath = imagePath;
+        } else {
+            // Relative path - resolve relative to current file or working directory
+            if (currentFilePath) {
+                fullPath = path.resolve(path.dirname(currentFilePath), imagePath);
+            } else {
+                fullPath = path.resolve(imagePath);
+            }
+        }
+
+        // Read local file
+        const imageBuffer = await fs.readFile(fullPath);
+        const ext = path.extname(fullPath).toLowerCase();
+        
+        let mimeType = 'image/png';
+        if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
+        else if (ext === '.gif') mimeType = 'image/gif';
+        else if (ext === '.svg') mimeType = 'image/svg+xml';
+        else if (ext === '.webp') mimeType = 'image/webp';
+
+        const base64 = imageBuffer.toString('base64');
+        return `data:${mimeType};base64,${base64}`;
+    } catch (error) {
+        console.log(`Error converting image ${imagePath}:`, error);
+        return null;
+    }
+}
+
 let mainWindow;
 let currentFilePath = null;
 let documentEdited = false;
@@ -384,28 +478,48 @@ ipcMain.on('save-file-as', async (event, { content }) => {
 });
 
 ipcMain.on('export-html', async (event, { content, filePath }) => {
+    // Use the provided filePath from the active tab or fall back to currentFilePath
+    const baseFilePath = filePath || currentFilePath;
+    const defaultFileName = baseFilePath ? 
+        path.basename(baseFilePath, path.extname(baseFilePath)) + '.html' : 
+        'Untitled.html';
+    
     const result = await dialog.showSaveDialog(mainWindow, {
         filters: [
             { name: 'HTML', extensions: ['html'] }
         ],
-        defaultPath: currentFilePath ? path.basename(currentFilePath, path.extname(currentFilePath)) + '.html' : 'Untitled.html'
+        defaultPath: defaultFileName
     });
 
     if (!result.canceled) {
         try {
-            await fs.writeFile(result.filePath, content, 'utf-8');
-            dialog.showMessageBox(mainWindow, {
-                type: 'info',
-                message: 'HTML erfolgreich exportiert!',
-                detail: `Die Datei wurde gespeichert unter: ${result.filePath}`
-            });
+            // Convert file:// image URLs to base64 data URLs
+            let processedContent = content;
+            const imgRegex = /<img[^>]+src="file:\/\/([^"]+)"[^>]*>/g;
+            let match;
+            
+            while ((match = imgRegex.exec(content)) !== null) {
+                const imagePath = decodeURIComponent(match[1]);
+                try {
+                    const imageData = await fs.readFile(imagePath);
+                    const extension = path.extname(imagePath).toLowerCase().slice(1);
+                    const mimeType = extension === 'jpg' ? 'jpeg' : extension;
+                    const base64 = imageData.toString('base64');
+                    const dataUrl = `data:image/${mimeType};base64,${base64}`;
+                    processedContent = processedContent.replace(match[0], match[0].replace(`file://${match[1]}`, dataUrl));
+                } catch (err) {
+                    console.error(`Failed to convert image ${imagePath}:`, err);
+                }
+            }
+            
+            await fs.writeFile(result.filePath, processedContent, 'utf-8');
         } catch (error) {
             dialog.showErrorBox('Fehler', `Export fehlgeschlagen: ${error.message}`);
         }
     }
 });
 
-ipcMain.on('print-to-pdf', async (event) => {
+ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
     try {
         // Create a new window for PDF generation with proper styling
         const pdfWindow = new BrowserWindow({
@@ -420,9 +534,12 @@ ipcMain.on('print-to-pdf', async (event) => {
         });
 
         // Get the current content from the main window
-        const content = await mainWindow.webContents.executeJavaScript(`
+        let content = await mainWindow.webContents.executeJavaScript(`
             document.querySelector('#preview').innerHTML
         `);
+
+        // Convert images to base64 for embedding
+        content = await convertImagesToBase64(content);
 
         // Load HTML with proper print styles
         await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
@@ -488,6 +605,12 @@ ipcMain.on('print-to-pdf', async (event) => {
                     strong { color: #000 !important; }
                     em { color: #000 !important; }
                     a { color: #0066cc !important; }
+                    img {
+                        max-width: 100%;
+                        height: auto;
+                        margin: 16px 0;
+                        border-radius: 4px;
+                    }
                 </style>
             </head>
             <body>
@@ -508,20 +631,21 @@ ipcMain.on('print-to-pdf', async (event) => {
 
         pdfWindow.close();
         
+        // Use the provided filePath from the active tab or fall back to currentFilePath
+        const baseFilePath = filePath || currentFilePath;
+        const defaultFileName = baseFilePath ? 
+            path.basename(baseFilePath, path.extname(baseFilePath)) + '.pdf' : 
+            'Untitled.pdf';
+        
         const result = await dialog.showSaveDialog(mainWindow, {
             filters: [
                 { name: 'PDF', extensions: ['pdf'] }
             ],
-            defaultPath: currentFilePath ? path.basename(currentFilePath, path.extname(currentFilePath)) + '.pdf' : 'Untitled.pdf'
+            defaultPath: defaultFileName
         });
         
         if (!result.canceled) {
             await fs.writeFile(result.filePath, pdfData);
-            dialog.showMessageBox(mainWindow, {
-                type: 'info',
-                message: 'PDF erfolgreich exportiert!',
-                detail: `Die Datei wurde gespeichert unter: ${result.filePath}`
-            });
         }
     } catch (error) {
         dialog.showErrorBox('Fehler', `PDF-Export fehlgeschlagen: ${error.message}`);

@@ -26,7 +26,7 @@
 - **📂 Datei-Explorer** - Integrierte Sidebar für Dateinavigation
 - **🧘 Zen-Modus** - Ablenkungsfreies Schreiben
 - **💾 Auto-Save** - Automatisches Speichern (konfigurierbar)
-- **📤 Export-Funktionen** - HTML-Export mit eingebetteten Styles
+- **📤 Export-Funktionen** - HTML-Export mit eingebetteten Bildern & PDF-Export ohne Artefakte
 - **⌨️ Keyboard Shortcuts** - Umfassende Tastaturkürzel
 
 ## 🚀 Download & Installation

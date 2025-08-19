@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveFile: (content, filePath) => ipcRenderer.send('save-file', { content, filePath }),
     saveFileAs: (content) => ipcRenderer.send('save-file-as', { content }),
     exportHTML: (content, filePath) => ipcRenderer.send('export-html', { content, filePath }),
-    printToPDF: () => ipcRenderer.send('print-to-pdf'),
+    printToPDF: (filePath) => ipcRenderer.send('print-to-pdf', { filePath }),
     
     // File dialog handlers
     onFileOpened: (callback) => ipcRenderer.on('file-opened', callback),

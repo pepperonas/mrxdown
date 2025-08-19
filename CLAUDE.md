@@ -58,7 +58,7 @@ The application follows Electron's secure two-process architecture:
 8. **Table Editor**: Interactive table insertion with customizable rows/columns
 9. **Context Menu**: Right-click context menu with common actions
 10. **About Dialog**: Information dialog with developer credits and GitHub link
-11. **Export Options**: HTML export with embedded styles
+11. **Export Options**: HTML export with embedded images (base64), PDF export without visual artifacts
 12. **Zen Mode**: Distraction-free writing mode
 13. **Auto-save**: Configurable auto-save functionality
 

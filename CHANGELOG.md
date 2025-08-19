@@ -8,7 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- PDF-Export functionality
 - Syntax highlighting in editor
 - Mermaid diagram support
 - Additional themes
@@ -18,7 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UI improvements
 
 ### Fixed
-- Minor bug fixes
+- 🖼️ **PDF-Export** - Entfernt grauen Rahmen (box-shadow) um Bilder im PDF
+- 📸 **HTML-Export** - Bilder werden jetzt als base64 eingebettet für Portabilität
+- 📝 **Export-Dateinamen** - Übernimmt automatisch den Namen der aktiven Datei
+- 🔕 **Export-Dialoge** - Entfernt überflüssige Erfolgsmeldungen nach Export
 
 ## [0.0.6] - 2025-01-16
 

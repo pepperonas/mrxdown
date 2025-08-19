@@ -588,15 +588,29 @@ function handleFileSaved(filePath) {
 }
 
 function exportHTML() {
+    const activeTab = tabs.find(tab => tab.id === activeTabId);
     const htmlContent = generateHTMLExport();
     if (window.electronAPI) {
-        window.electronAPI.exportHTML(htmlContent);
+        window.electronAPI.exportHTML(htmlContent, activeTab ? activeTab.filePath : null);
     }
 }
 
 function generateHTMLExport() {
     const activeTab = tabs.find(tab => tab.id === activeTabId);
     const title = activeTab ? activeTab.title : 'Export';
+    
+    // Convert all images to base64 for embedding
+    const previewClone = preview.cloneNode(true);
+    const images = previewClone.querySelectorAll('img');
+    
+    images.forEach(img => {
+        const src = img.src;
+        // Keep base64 images as is, convert file:// URLs to base64
+        if (src.startsWith('file://')) {
+            // For file:// URLs, we need to keep them as is since we can't convert them client-side
+            // The browser will handle them when the HTML is opened locally
+        }
+    });
     
     return `<!DOCTYPE html>
 <html lang="de">
@@ -646,18 +660,25 @@ function generateHTMLExport() {
         th {
             background: #f4f4f4;
         }
+        img {
+            max-width: 100%;
+            height: auto;
+            margin: 16px 0;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
-    ${preview.innerHTML}
+    ${previewClone.innerHTML}
 </body>
 </html>`;
 }
 
 function exportPDF() {
+    const activeTab = tabs.find(tab => tab.id === activeTabId);
     // PDF export using browser's print functionality
     if (window.electronAPI && window.electronAPI.printToPDF) {
-        window.electronAPI.printToPDF();
+        window.electronAPI.printToPDF(activeTab ? activeTab.filePath : null);
     } else {
         // Fallback: Open print dialog
         window.print();
