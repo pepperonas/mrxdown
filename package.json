@@ -69,7 +69,6 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "assets/icon.icns",
       "darkModeSupport": true,
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
@@ -82,7 +81,6 @@
         "CFBundleDocumentTypes": [
           {
             "CFBundleTypeName": "Markdown Document",
-            "CFBundleTypeIconFile": "icon.icns",
             "CFBundleTypeExtensions": ["md", "markdown"],
             "CFBundleTypeRole": "Editor",
             "LSHandlerRank": "Owner"
@@ -108,7 +106,6 @@
       ]
     },
     "win": {
-      "icon": "assets/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -127,7 +124,6 @@
       ]
     },
     "linux": {
-      "icon": "assets/icon.png",
       "category": "Office",
       "target": [
         {
