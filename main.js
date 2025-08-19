@@ -330,6 +330,26 @@ ipcMain.on('save-file', async (event, { content, filePath }) => {
     }
 
     try {
+        // Check if file exists and is read-only
+        try {
+            await fs.access(targetPath, fs.constants.W_OK);
+        } catch (accessError) {
+            // File is read-only or doesn't exist, prompt for Save As
+            const response = await dialog.showMessageBox(mainWindow, {
+                type: 'warning',
+                buttons: ['Speichern unter...', 'Abbrechen'],
+                defaultId: 0,
+                message: 'Diese Datei ist schreibgeschützt.',
+                detail: 'Möchten Sie die Datei unter einem anderen Namen speichern?'
+            });
+            
+            if (response.response === 0) {
+                return ipcMain.emit('save-file-as', event, { content });
+            } else {
+                return; // User cancelled
+            }
+        }
+        
         await fs.writeFile(targetPath, content, 'utf-8');
         currentFilePath = targetPath;
         documentEdited = false;

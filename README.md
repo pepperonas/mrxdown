@@ -31,23 +31,23 @@
 
 ## 🚀 Download & Installation
 
-### Version 0.0.5 (Aktuell)
+### Version 0.0.11 (Aktuell)
 
-[![Download für macOS](https://img.shields.io/badge/macOS-Download-blue?style=for-the-badge&logo=apple)](https://github.com/pepperonas/mrxdown/releases/download/v0.0.5/MrxDown-0.0.5.zip)
-[![Download für Windows](https://img.shields.io/badge/Windows-Download-blue?style=for-the-badge&logo=windows)](https://github.com/pepperonas/mrxdown/releases/download/v0.0.5/MrxDown-0.0.5.exe)
-[![Download für Linux](https://img.shields.io/badge/Linux-Download-blue?style=for-the-badge&logo=linux)](https://github.com/pepperonas/mrxdown/releases/download/v0.0.5/MrxDown-0.0.5.AppImage)
+[![Download für macOS](https://img.shields.io/badge/macOS-Download-blue?style=for-the-badge&logo=apple)](https://github.com/pepperonas/mrxdown/releases/download/v0.0.11/MrxDown-0.0.11.zip)
+[![Download für Windows](https://img.shields.io/badge/Windows-Download-blue?style=for-the-badge&logo=windows)](https://github.com/pepperonas/mrxdown/releases/download/v0.0.11/MrxDown-0.0.11.exe)
+[![Download für Linux](https://img.shields.io/badge/Linux-Download-blue?style=for-the-badge&logo=linux)](https://github.com/pepperonas/mrxdown/releases/download/v0.0.11/MrxDown-0.0.11.AppImage)
 
-| Betriebssystem | Datei                    | Größe   | Installation                                       |
-|----------------|--------------------------|---------|----------------------------------------------------|
-| **macOS**      | `MrxDown-0.0.5.zip`      | ~86 MB  | ZIP entpacken, Rechtsklick → "Öffnen"              |
-| **Windows**    | `MrxDown-0.0.5.exe`      | ~135 MB | Installer ausführen                                |
-| **Linux**      | `MrxDown-0.0.5.AppImage` | ~99 MB  | Ausführbar machen: `chmod +x`                      |
-| **Linux**      | `MrxDown-0.0.5.deb`      | ~134 MB | `sudo dpkg -i MrxDown-0.0.5.deb`                   |
-| **Linux**      | `MrxDown-0.0.5.snap`     | ~84 MB  | `sudo snap install MrxDown-0.0.5.snap --dangerous` |
+| Betriebssystem | Datei                      | Größe   | Installation                                         |
+|----------------|----------------------------|---------|------------------------------------------------------|
+| **macOS**      | `MrxDown-0.0.11.zip`      | ~86 MB  | ZIP entpacken, Rechtsklick → "Öffnen"                |
+| **Windows**    | `MrxDown-0.0.11.exe`      | ~135 MB | Installer ausführen                                  |
+| **Linux**      | `MrxDown-0.0.11.AppImage` | ~99 MB  | Ausführbar machen: `chmod +x`                        |
+| **Linux**      | `MrxDown-0.0.11.deb`      | ~134 MB | `sudo dpkg -i MrxDown-0.0.11.deb`                    |
+| **Linux**      | `MrxDown-0.0.11.snap`     | ~84 MB  | `sudo snap install MrxDown-0.0.11.snap --dangerous` |
 
 ### 🍎 macOS Installation
 
-1. **Download**: [MrxDown-0.0.5.zip](https://github.com/pepperonas/mrxdown/releases/download/v0.0.5/MrxDown-0.0.5.zip)
+1. **Download**: [MrxDown-0.0.11.zip](https://github.com/pepperonas/mrxdown/releases/download/v0.0.11/MrxDown-0.0.11.zip)
 2. **Entpacken**: Doppelklick auf ZIP-Datei
 3. **Öffnen**: Rechtsklick auf MrxDown.app → **"Öffnen"** → **"Öffnen"** bestätigen
 
@@ -61,7 +61,7 @@ curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/install-macos.
 
 ### 🪟 Windows Installation
 
-1. **Download**: [MrxDown-0.0.5.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.0.5/MrxDown-0.0.5.exe)
+1. **Download**: [MrxDown-0.0.11.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.0.11/MrxDown-0.0.11.exe)
 2. **Installation**: Installer ausführen und Anweisungen folgen
 3. **Start**: Desktop-Icon oder Startmenü
 
@@ -71,21 +71,21 @@ curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/install-macos.
 
 ```bash
 # Download
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.0.5/MrxDown-0.0.5.AppImage
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.0.11/MrxDown-0.0.11.AppImage
 
 # Ausführbar machen
-chmod +x MrxDown-0.0.5.AppImage
+chmod +x MrxDown-0.0.11.AppImage
 
 # Starten
-./MrxDown-0.0.5.AppImage
+./MrxDown-0.0.11.AppImage
 ```
 
 #### DEB (Ubuntu/Debian)
 
 ```bash
 # Download und Installation
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.0.5/MrxDown-0.0.5.deb
-sudo dpkg -i MrxDown-0.0.5.deb
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.0.11/MrxDown-0.0.11.deb
+sudo dpkg -i MrxDown-0.0.11.deb
 
 # Falls Abhängigkeiten fehlen:
 sudo apt-get install -f
@@ -95,8 +95,8 @@ sudo apt-get install -f
 
 ```bash
 # Download und Installation
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.0.5/MrxDown-0.0.5.snap
-sudo snap install MrxDown-0.0.5.snap --dangerous
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.0.11/MrxDown-0.0.11.snap
+sudo snap install MrxDown-0.0.11.snap --dangerous
 ```
 
 ## ⌨️ Keyboard Shortcuts
@@ -161,6 +161,21 @@ npm run build-all
 3. Committe deine Änderungen (`git commit -m 'Add some AmazingFeature'`)
 4. Push zum Branch (`git push origin feature/AmazingFeature`)
 5. Öffne einen Pull Request
+
+## 📋 Changelog
+
+### Version 0.0.11 (2025-08-19)
+
+**🛠️ Verbesserungen:**
+- **Behebung schreibgeschützter Dateien**: Bessere Behandlung von read-only Dateien mit automatischer "Speichern unter..." Option
+- **Verbesserte Fehlermeldungen**: Nutzerfreundlichere Dialoge bei Dateiberechtigungsproblemen
+- **Stabilität**: Reduzierte EROFS-Fehler durch proaktive Berechtigungsprüfung
+
+### Frühere Versionen
+
+- **v0.0.10**: macOS Code Signing und Notarisierung
+- **v0.0.9**: Automatisierte Multi-Platform Builds
+- **v0.0.5**: Initiale stabile Version mit allen Kernfeatures
 
 ## 📋 Roadmap
 
