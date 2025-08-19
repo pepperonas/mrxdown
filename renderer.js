@@ -654,6 +654,16 @@ function generateHTMLExport() {
 </html>`;
 }
 
+function exportPDF() {
+    // PDF export using browser's print functionality
+    if (window.electronAPI && window.electronAPI.printToPDF) {
+        window.electronAPI.printToPDF();
+    } else {
+        // Fallback: Open print dialog
+        window.print();
+    }
+}
+
 // UI Functions
 function toggleSidebar() {
     sidebarVisible = !sidebarVisible;

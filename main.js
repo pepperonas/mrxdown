@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
+const packageJson = require('./package.json');
 
 let mainWindow;
 let currentFilePath = null;
@@ -50,7 +51,7 @@ function createWindow() {
                 {
                     label: 'Über MrxDown',
                     click: () => {
-                        showAboutDialog();
+                        mainWindow.webContents.send('menu-action', { action: 'show-about', version: packageJson.version });
                     }
                 },
                 { type: 'separator' },
@@ -401,6 +402,35 @@ ipcMain.on('export-html', async (event, { content, filePath }) => {
         } catch (error) {
             dialog.showErrorBox('Fehler', `Export fehlgeschlagen: ${error.message}`);
         }
+    }
+});
+
+ipcMain.on('print-to-pdf', async (event) => {
+    try {
+        const pdfData = await mainWindow.webContents.printToPDF({
+            marginsType: 0,
+            pageSize: 'A4',
+            printBackground: true,
+            landscape: false
+        });
+        
+        const result = await dialog.showSaveDialog(mainWindow, {
+            filters: [
+                { name: 'PDF', extensions: ['pdf'] }
+            ],
+            defaultPath: currentFilePath ? path.basename(currentFilePath, path.extname(currentFilePath)) + '.pdf' : 'export.pdf'
+        });
+        
+        if (!result.canceled) {
+            await fs.writeFile(result.filePath, pdfData);
+            dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                message: 'PDF erfolgreich exportiert!',
+                detail: `Die Datei wurde gespeichert unter: ${result.filePath}`
+            });
+        }
+    } catch (error) {
+        dialog.showErrorBox('Fehler', `PDF-Export fehlgeschlagen: ${error.message}`);
     }
 });
 
