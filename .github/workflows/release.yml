@@ -51,8 +51,8 @@ jobs:
     - name: Build app for macOS
       if: matrix.os == 'macos-latest'
       run: |
-        # Build universal binary for both Intel and Apple Silicon
-        npm run build-mac
+        # Build only ZIP for CI to avoid hdiutil issues
+        npx electron-builder --mac --publish=never --config.mac.target=zip
         # List built artifacts for debugging
         ls -la dist/
       env:
@@ -80,7 +80,6 @@ jobs:
       with:
         name: macos-artifacts
         path: |
-          dist/*.dmg
           dist/*.zip
           
     - name: Upload artifacts (Windows)
@@ -126,8 +125,7 @@ jobs:
           ### 📥 Downloads
           
           **macOS**
-          - **DMG** für Intel & Apple Silicon Macs (Universal Binary) 
-          - **ZIP** für portable Installation (Universal Binary)
+          - **ZIP** für Intel & Apple Silicon Macs (Universal Binary)
           
           **Windows**
           - NSIS Installer für Windows 10/11
