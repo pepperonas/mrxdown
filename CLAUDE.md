@@ -81,7 +81,7 @@ mrxdown/
 - **Headings**: Cmd/Ctrl + 1-6 (H1-H6)
 - **Search**: Cmd/Ctrl + F (Find), H (Replace)
 - **View**: Cmd/Ctrl + \ (Sidebar), Shift+Z (Zen Mode)
-- **Export**: Cmd/Ctrl + Shift + E (HTML), P (PDF)
+- **Export**: Cmd/Ctrl + E (HTML), Cmd/Ctrl + P (PDF)
 - **Tabs**: Cmd/Ctrl + Tab (Next), Shift+Tab (Previous)
 
 ### Security Features

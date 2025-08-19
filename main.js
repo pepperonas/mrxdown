@@ -210,14 +210,14 @@ function createWindow() {
                 { type: 'separator' },
                 {
                     label: 'Als HTML exportieren',
-                    accelerator: 'CmdOrCtrl+Shift+E',
+                    accelerator: 'CmdOrCtrl+E',
                     click: () => {
                         mainWindow.webContents.send('menu-action', { action: 'export-html' });
                     }
                 },
                 {
                     label: 'Als PDF exportieren',
-                    accelerator: 'CmdOrCtrl+Shift+P',
+                    accelerator: 'CmdOrCtrl+P',
                     click: () => {
                         mainWindow.webContents.send('menu-action', { action: 'export-pdf' });
                     }
@@ -455,13 +455,30 @@ ipcMain.on('save-file', async (event, { content, filePath }) => {
     }
 });
 
-ipcMain.on('save-file-as', async (event, { content }) => {
+ipcMain.on('save-file-as', async (event, { content, filePath, tabTitle }) => {
+    // Use the provided filePath from the active tab or fall back to currentFilePath
+    const baseFilePath = filePath || currentFilePath;
+    let defaultFileName;
+    
+    if (tabTitle && tabTitle !== 'Unbenannt') {
+        // Prioritize tab title (works for both existing files and new files)
+        defaultFileName = tabTitle.endsWith('.md') || tabTitle.endsWith('.txt') ? 
+            tabTitle : 
+            `${tabTitle}.md`;
+    } else if (baseFilePath) {
+        // If no meaningful tab title, use file path
+        defaultFileName = path.basename(baseFilePath);
+    } else {
+        // Default fallback
+        defaultFileName = 'untitled.md';
+    }
+    
     const result = await dialog.showSaveDialog(mainWindow, {
         filters: [
             { name: 'Markdown', extensions: ['md'] },
             { name: 'Text', extensions: ['txt'] }
         ],
-        defaultPath: currentFilePath || 'untitled.md'
+        defaultPath: defaultFileName
     });
 
     if (!result.canceled) {

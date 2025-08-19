@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     newFile: () => ipcRenderer.send('new-file'),
     openFile: () => ipcRenderer.send('open-file'),
     saveFile: (content, filePath) => ipcRenderer.send('save-file', { content, filePath }),
-    saveFileAs: (content) => ipcRenderer.send('save-file-as', { content }),
+    saveFileAs: (content, filePath, tabTitle) => ipcRenderer.send('save-file-as', { content, filePath, tabTitle }),
     exportHTML: (content, filePath) => ipcRenderer.send('export-html', { content, filePath }),
     printToPDF: (filePath) => ipcRenderer.send('print-to-pdf', { filePath }),
     

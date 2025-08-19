@@ -161,7 +161,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Formatting**: Cmd/Ctrl + B (Bold), I (Italic), K (Link), T (Table), ` (Code)
 - **Headings**: Cmd/Ctrl + 1-6 (H1-H6)
 - **Navigation**: Cmd/Ctrl + F (Find), H (Replace), \ (Sidebar), Shift+Z (Zen Mode)
-- **Export**: Cmd/Ctrl + Shift + E (HTML)
+- **Export**: Cmd/Ctrl + E (HTML), Cmd/Ctrl + P (PDF)
 - **Tabs**: Cmd/Ctrl + Tab (Switch tabs)
 
 ### Build Targets

@@ -711,6 +711,19 @@
             }
         }
 
+        /* Text Mode for .txt files */
+        .text-mode .preview-pane {
+            display: none !important;
+        }
+        
+        .text-mode .editor-pane {
+            flex: 1 !important;
+        }
+        
+        .text-mode .divider {
+            display: none !important;
+        }
+
         /* Animations */
         @keyframes fadeIn {
             from {
@@ -1086,7 +1099,7 @@
         <div style="flex: 1;"></div>
         
         <div class="toolbar-group">
-            <button class="toolbar-button secondary tooltip" data-tooltip="Als HTML exportieren (⌘⇧E)" onclick="handleMenuAction('export-html')">
+            <button class="toolbar-button secondary tooltip" data-tooltip="Als HTML exportieren (⌘E)" onclick="handleMenuAction('export-html')">
                 📤
             </button>
         </div>

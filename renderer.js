@@ -269,6 +269,8 @@ function loadTabContent(tabId) {
         window.electronAPI.updateWindowTitle(tab.title + (tab.isModified ? ' •' : ''));
     }
     
+    // Update UI based on file type
+    updateUIForFileType(tab);
     renderMarkdown();
 }
 
@@ -332,9 +334,33 @@ function handleEditorKeydown(e) {
 }
 
 function renderMarkdown() {
-    const markdown = editor.value;
-    const html = marked.parse(markdown);
-    preview.innerHTML = DOMPurify.sanitize(html);
+    const activeTab = tabs.find(tab => tab.id === activeTabId);
+    const isTextFile = activeTab && activeTab.filePath && activeTab.filePath.toLowerCase().endsWith('.txt');
+    
+    if (isTextFile) {
+        // For .txt files, hide preview and show only editor
+        preview.style.display = 'none';
+        editor.parentElement.style.width = '100%';
+        return;
+    } else {
+        // For .md files, show preview and render markdown
+        preview.style.display = 'block';
+        editor.parentElement.style.width = '';
+        const markdown = editor.value;
+        const html = marked.parse(markdown);
+        preview.innerHTML = DOMPurify.sanitize(html);
+    }
+}
+
+function updateUIForFileType(tab) {
+    const isTextFile = tab && tab.filePath && tab.filePath.toLowerCase().endsWith('.txt');
+    const container = document.querySelector('.editor-layout');
+    
+    if (isTextFile) {
+        container.classList.add('text-mode');
+    } else {
+        container.classList.remove('text-mode');
+    }
 }
 
 function updateStats() {
@@ -556,8 +582,9 @@ function saveCurrentFile() {
 }
 
 function saveCurrentFileAs() {
+    const activeTab = tabs.find(tab => tab.id === activeTabId);
     if (window.electronAPI) {
-        window.electronAPI.saveFileAs(editor.value);
+        window.electronAPI.saveFileAs(editor.value, activeTab ? activeTab.filePath : null, activeTab ? activeTab.title : null);
     }
 }
 
@@ -835,16 +862,12 @@ function handleGlobalShortcuts(e) {
                 insertHeading(parseInt(e.key));
                 break;
             case 'e':
-                if (e.shiftKey) {
-                    e.preventDefault();
-                    exportHTML();
-                }
+                e.preventDefault();
+                exportHTML();
                 break;
             case 'p':
-                if (e.shiftKey) {
-                    e.preventDefault();
-                    exportPDF();
-                }
+                e.preventDefault();
+                exportPDF();
                 break;
             case 'Tab':
                 e.preventDefault();
@@ -1123,9 +1146,5 @@ function setupResizableDivider() {
     }
 }
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeApp);
-} else {
-    initializeApp();
-}
+// Initialize when DOM is ready - removed duplicate initialization
+// Already handled by DOMContentLoaded listener at the top of the file
