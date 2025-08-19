@@ -407,42 +407,106 @@ ipcMain.on('export-html', async (event, { content, filePath }) => {
 
 ipcMain.on('print-to-pdf', async (event) => {
     try {
-        // Inject print styles before PDF generation
-        await mainWindow.webContents.insertCSS(`
-            @media print {
-                body { 
-                    color: #000 !important; 
-                    background: #fff !important; 
-                    font-family: 'Times New Roman', serif;
-                }
-                .sidebar, .toolbar, .tab-bar, .status-bar { display: none !important; }
-                .main-content { margin: 0 !important; padding: 20px !important; }
-                .editor-pane { display: none !important; }
-                .preview-pane { 
-                    width: 100% !important; 
-                    border: none !important;
-                    background: #fff !important;
-                    color: #000 !important;
-                }
-                #preview * { 
-                    color: #000 !important; 
-                    background: transparent !important; 
-                }
-                h1, h2, h3, h4, h5, h6 { color: #000 !important; }
-                code, pre { 
-                    background: #f5f5f5 !important; 
-                    color: #000 !important; 
-                    border: 1px solid #ddd !important;
-                }
+        // Create a new window for PDF generation with proper styling
+        const pdfWindow = new BrowserWindow({
+            width: 800,
+            height: 1000,
+            show: false,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                preload: path.join(__dirname, 'preload.js')
             }
+        });
+
+        // Get the current content from the main window
+        const content = await mainWindow.webContents.executeJavaScript(`
+            document.querySelector('#preview').innerHTML
         `);
-        
-        const pdfData = await mainWindow.webContents.printToPDF({
+
+        // Load HTML with proper print styles
+        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    body {
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        color: #000 !important;
+                        background: #fff !important;
+                        max-width: 800px;
+                        margin: 20px auto;
+                        padding: 20px;
+                        line-height: 1.6;
+                    }
+                    h1, h2, h3, h4, h5, h6 {
+                        color: #000 !important;
+                        margin-top: 24px;
+                        margin-bottom: 16px;
+                    }
+                    h1 { border-bottom: 2px solid #eee; padding-bottom: 8px; }
+                    p { color: #000 !important; margin: 16px 0; }
+                    code {
+                        background: #f4f4f4 !important;
+                        color: #000 !important;
+                        padding: 2px 6px;
+                        border-radius: 3px;
+                        font-family: monospace;
+                    }
+                    pre {
+                        background: #f4f4f4 !important;
+                        color: #000 !important;
+                        padding: 16px;
+                        border-radius: 6px;
+                        overflow-x: auto;
+                        border: 1px solid #ddd;
+                    }
+                    blockquote {
+                        border-left: 4px solid #ddd;
+                        padding-left: 16px;
+                        color: #666 !important;
+                        margin: 16px 0;
+                    }
+                    table {
+                        border-collapse: collapse;
+                        width: 100%;
+                        margin: 16px 0;
+                    }
+                    th, td {
+                        border: 1px solid #ddd;
+                        padding: 8px 12px;
+                        text-align: left;
+                        color: #000 !important;
+                    }
+                    th {
+                        background: #f4f4f4 !important;
+                        color: #000 !important;
+                    }
+                    ul, ol { color: #000 !important; }
+                    li { color: #000 !important; }
+                    strong { color: #000 !important; }
+                    em { color: #000 !important; }
+                    a { color: #0066cc !important; }
+                </style>
+            </head>
+            <body>
+                ${content}
+            </body>
+            </html>
+        `)}`);
+
+        await pdfWindow.webContents.once('did-finish-load', () => {});
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for rendering
+
+        const pdfData = await pdfWindow.webContents.printToPDF({
             marginsType: 1,
             pageSize: 'A4',
             printBackground: true,
             landscape: false
         });
+
+        pdfWindow.close();
         
         const result = await dialog.showSaveDialog(mainWindow, {
             filters: [
