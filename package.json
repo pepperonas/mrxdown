@@ -151,6 +151,7 @@
     "dmg": {
       "title": "MrxDown ${version}",
       "format": "ULFO",
+      "background": null,
       "contents": [
         {
           "x": 130,
@@ -166,6 +167,9 @@
       "window": {
         "width": 540,
         "height": 380
+      },
+      "additionalDMGOptions": {
+        "filesystem": "APFS"
       }
     },
     "nsis": {

@@ -388,7 +388,7 @@ ipcMain.on('export-html', async (event, { content, filePath }) => {
         filters: [
             { name: 'HTML', extensions: ['html'] }
         ],
-        defaultPath: currentFilePath ? path.basename(currentFilePath, path.extname(currentFilePath)) + '.html' : 'export.html'
+        defaultPath: currentFilePath ? path.basename(currentFilePath, path.extname(currentFilePath)) + '.html' : 'Untitled.html'
     });
 
     if (!result.canceled) {
@@ -407,8 +407,38 @@ ipcMain.on('export-html', async (event, { content, filePath }) => {
 
 ipcMain.on('print-to-pdf', async (event) => {
     try {
+        // Inject print styles before PDF generation
+        await mainWindow.webContents.insertCSS(`
+            @media print {
+                body { 
+                    color: #000 !important; 
+                    background: #fff !important; 
+                    font-family: 'Times New Roman', serif;
+                }
+                .sidebar, .toolbar, .tab-bar, .status-bar { display: none !important; }
+                .main-content { margin: 0 !important; padding: 20px !important; }
+                .editor-pane { display: none !important; }
+                .preview-pane { 
+                    width: 100% !important; 
+                    border: none !important;
+                    background: #fff !important;
+                    color: #000 !important;
+                }
+                #preview * { 
+                    color: #000 !important; 
+                    background: transparent !important; 
+                }
+                h1, h2, h3, h4, h5, h6 { color: #000 !important; }
+                code, pre { 
+                    background: #f5f5f5 !important; 
+                    color: #000 !important; 
+                    border: 1px solid #ddd !important;
+                }
+            }
+        `);
+        
         const pdfData = await mainWindow.webContents.printToPDF({
-            marginsType: 0,
+            marginsType: 1,
             pageSize: 'A4',
             printBackground: true,
             landscape: false
@@ -418,7 +448,7 @@ ipcMain.on('print-to-pdf', async (event) => {
             filters: [
                 { name: 'PDF', extensions: ['pdf'] }
             ],
-            defaultPath: currentFilePath ? path.basename(currentFilePath, path.extname(currentFilePath)) + '.pdf' : 'export.pdf'
+            defaultPath: currentFilePath ? path.basename(currentFilePath, path.extname(currentFilePath)) + '.pdf' : 'Untitled.pdf'
         });
         
         if (!result.canceled) {
