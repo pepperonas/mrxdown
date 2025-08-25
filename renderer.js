@@ -23,7 +23,12 @@ let settings = {
 };
 
 // DOM Elements - will be initialized in initializeApp
-let editor, preview, charCount, wordCount, lineCount, fileName, tabBar, sidebar, dropZone, fileExplorer, contextMenu, aboutModal, tableEditor;
+let editor, preview, charCount, wordCount, lineCount, fileName, tabBar, sidebar, dropZone, fileExplorer, contextMenu, aboutModal, tableEditor, searchModal, replaceModal;
+
+// Search state
+let currentSearchTerm = '';
+let searchMatches = [];
+let currentMatchIndex = -1;
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', () => {
@@ -43,6 +48,15 @@ document.addEventListener('DOMContentLoaded', () => {
     window.closeTableEditor = closeTableEditor;
     window.setViewMode = setViewMode;
     window.toggleScrollSync = toggleScrollSync;
+    window.showSearchDialog = showSearchDialog;
+    window.closeSearchDialog = closeSearchDialog;
+    window.showReplaceDialog = showReplaceDialog;
+    window.closeReplaceDialog = closeReplaceDialog;
+    window.findNext = findNext;
+    window.findPrevious = findPrevious;
+    window.replaceNext = replaceNext;
+    window.replaceAll = replaceAll;
+    window.findNextReplace = findNextReplace;
 });
 
 function initializeApp() {
@@ -60,6 +74,8 @@ function initializeApp() {
     contextMenu = document.getElementById('contextMenu');
     aboutModal = document.getElementById('aboutModal');
     tableEditor = document.getElementById('tableEditor');
+    searchModal = document.getElementById('searchModal');
+    replaceModal = document.getElementById('replaceModal');
     
     // Check if critical elements exist
     if (!editor || !preview || !tabBar) {
@@ -136,6 +152,14 @@ function setupIPCListeners() {
         window.electronAPI.onMenuAction((event, data) => {
             handleMenuAction(data.action, data);
         });
+        
+        window.electronAPI.onFileChangedExternally((event, data) => {
+            handleFileChangedExternally(data.filePath, data.content);
+        });
+        
+        window.electronAPI.onBatchExportPrepareTab((event, data) => {
+            handleBatchExportPrepareTab(data.filePath, data.content);
+        });
     }
 }
 
@@ -180,7 +204,10 @@ function handleDrop(e) {
             if (file.type === 'text/markdown' || file.type === 'text/plain' || file.name.endsWith('.md')) {
                 const reader = new FileReader();
                 reader.onload = (event) => {
-                    openFileContent(file.name, event.target.result);
+                    // Use file.path for the full path, fallback to file.name if not available
+                    const filePath = file.path || file.name;
+                    console.log('Drag & Drop file:', filePath);
+                    openFileContent(filePath, event.target.result);
                 };
                 reader.readAsText(file);
             }
@@ -218,6 +245,12 @@ function closeTab(tabId) {
     if (tab.isModified) {
         const shouldSave = confirm('Ungespeicherte Änderungen gehen verloren. Trotzdem schließen?');
         if (!shouldSave) return;
+    }
+    
+    // Stop watching the file if it has one
+    if (tab.filePath && window.electronAPI) {
+        console.log('Stopping file watch for closed tab:', tab.filePath);
+        window.electronAPI.unwatchFile(tab.filePath);
     }
     
     tabs.splice(tabIndex, 1);
@@ -519,6 +552,9 @@ function handleMenuAction(action, data = {}) {
         case 'export-pdf':
             exportPDF();
             break;
+        case 'batch-export-pdf':
+            batchExportPDF();
+            break;
         case 'format-bold':
             formatBold();
             break;
@@ -547,7 +583,7 @@ function handleMenuAction(action, data = {}) {
             insertHeading(3);
             break;
         case 'find':
-            showFindDialog();
+            showSearchDialog();
             break;
         case 'replace':
             showReplaceDialog();
@@ -595,6 +631,12 @@ function openFileContent(filePath, content) {
         switchTab(existingTab.id);
     } else {
         createNewTab(content, filePath);
+    }
+    
+    // Start watching the file for external changes
+    if (filePath && window.electronAPI) {
+        console.log('Starting file watch for:', filePath);
+        window.electronAPI.watchFile(filePath);
     }
 }
 
@@ -709,6 +751,34 @@ function exportPDF() {
     } else {
         // Fallback: Open print dialog
         window.print();
+    }
+}
+
+function batchExportPDF() {
+    // Get all tabs that have file paths (saved files)
+    const tabsWithFiles = tabs.filter(tab => tab.filePath && tab.filePath !== null);
+    
+    if (tabsWithFiles.length === 0) {
+        alert('Keine gespeicherten Dateien gefunden. Speichern Sie zuerst Ihre Markdown-Dateien.');
+        return;
+    }
+    
+    const confirmExport = confirm(`${tabsWithFiles.length} Markdown-Dateien als PDF exportieren?`);
+    if (!confirmExport) return;
+    
+    console.log('Batch exporting PDFs for tabs:', tabsWithFiles.map(tab => tab.filePath));
+    
+    if (window.electronAPI && window.electronAPI.batchPrintToPDF) {
+        // Prepare tab data for export
+        const tabData = tabsWithFiles.map(tab => ({
+            filePath: tab.filePath,
+            content: tab.content,
+            title: tab.title
+        }));
+        
+        window.electronAPI.batchPrintToPDF(tabData);
+    } else {
+        alert('PDF-Batch-Export nicht verfügbar.');
     }
 }
 
@@ -1145,6 +1215,362 @@ function setupResizableDivider() {
         document.body.style.userSelect = '';
     }
 }
+
+// File change detection
+function handleFileChangedExternally(filePath, newContent) {
+    console.log('handleFileChangedExternally called with:', filePath);
+    const tab = tabs.find(tab => tab.filePath === filePath);
+    if (!tab) {
+        console.log('No tab found for file:', filePath);
+        return;
+    }
+    
+    console.log('Tab found:', tab.title, 'isModified:', tab.isModified);
+    
+    // Check if the current tab has unsaved changes
+    if (tab.isModified) {
+        const result = confirm(
+            `Die Datei "${tab.title}" wurde extern geändert und hat auch ungespeicherte Änderungen.\n\n` +
+            'Möchten Sie die externe Version laden? (Ungespeicherte Änderungen gehen verloren)'
+        );
+        if (!result) return;
+    } else {
+        // Show a notification for clean files
+        console.log('File changed externally, reloading:', tab.title);
+    }
+    
+    // Update tab content
+    tab.content = newContent;
+    tab.isModified = false;
+    
+    // If this is the active tab, update the editor
+    if (tab.id === activeTabId) {
+        console.log('Updating active tab content');
+        editor.value = newContent;
+        renderMarkdown();
+    }
+    
+    // Update tab display
+    renderTabs();
+}
+
+// Batch export helper
+function handleBatchExportPrepareTab(filePath, content) {
+    try {
+        console.log('Preparing tab for batch export:', filePath);
+        
+        // Find the tab with this file path
+        const targetTab = tabs.find(tab => tab.filePath === filePath);
+        
+        if (!targetTab) {
+            console.error('Tab not found for file:', filePath);
+            window.electronAPI.sendBatchExportTabReady({
+                error: `Tab not found for file: ${filePath}`
+            });
+            return;
+        }
+        
+        // Switch to the tab
+        switchTab(targetTab.id);
+        
+        // Update the content if needed
+        targetTab.content = content;
+        editor.value = content;
+        
+        // Render markdown and wait a moment
+        renderMarkdown();
+        
+        // Wait for rendering to complete, then send the HTML content
+        setTimeout(() => {
+            try {
+                const htmlContent = preview.innerHTML;
+                console.log('Sending rendered HTML for:', filePath);
+                window.electronAPI.sendBatchExportTabReady({
+                    htmlContent: htmlContent
+                });
+            } catch (error) {
+                console.error('Error getting preview content:', error);
+                window.electronAPI.sendBatchExportTabReady({
+                    error: `Error getting preview content: ${error.message}`
+                });
+            }
+        }, 1000); // Give more time for rendering
+        
+    } catch (error) {
+        console.error('Error in handleBatchExportPrepareTab:', error);
+        window.electronAPI.sendBatchExportTabReady({
+            error: `Error preparing tab: ${error.message}`
+        });
+    }
+}
+
+// Search functionality
+function showSearchDialog() {
+    if (searchModal) {
+        searchModal.classList.add('visible');
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.focus();
+            searchInput.select();
+        }
+    }
+}
+
+function closeSearchDialog() {
+    if (searchModal) {
+        searchModal.classList.remove('visible');
+        clearSearchHighlights();
+    }
+}
+
+function showReplaceDialog() {
+    if (replaceModal) {
+        replaceModal.classList.add('visible');
+        const replaceSearchInput = document.getElementById('replaceSearchInput');
+        if (replaceSearchInput) {
+            replaceSearchInput.focus();
+            replaceSearchInput.select();
+        }
+    }
+}
+
+function closeReplaceDialog() {
+    if (replaceModal) {
+        replaceModal.classList.remove('visible');
+        clearSearchHighlights();
+    }
+}
+
+function getSearchOptions(isReplace = false) {
+    const prefix = isReplace ? 'replace' : 'search';
+    return {
+        caseSensitive: document.getElementById(`${prefix}CaseSensitive`)?.checked || false,
+        regex: document.getElementById(`${prefix}Regex`)?.checked || false,
+        wholeWord: document.getElementById(`${prefix}WholeWord`)?.checked || false
+    };
+}
+
+function performSearch(searchTerm, isReplace = false) {
+    if (!searchTerm) return [];
+    
+    const text = editor.value;
+    const options = getSearchOptions(isReplace);
+    const matches = [];
+    
+    let pattern;
+    try {
+        if (options.regex) {
+            const flags = options.caseSensitive ? 'g' : 'gi';
+            pattern = new RegExp(searchTerm, flags);
+        } else {
+            const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            let regexTerm = escapedTerm;
+            
+            if (options.wholeWord) {
+                regexTerm = `\\b${regexTerm}\\b`;
+            }
+            
+            const flags = options.caseSensitive ? 'g' : 'gi';
+            pattern = new RegExp(regexTerm, flags);
+        }
+    } catch (e) {
+        // Invalid regex, treat as literal text
+        const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const flags = options.caseSensitive ? 'g' : 'gi';
+        pattern = new RegExp(escapedTerm, flags);
+    }
+    
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+        matches.push({
+            start: match.index,
+            end: match.index + match[0].length,
+            text: match[0]
+        });
+        
+        // Prevent infinite loop with zero-width matches
+        if (match.index === pattern.lastIndex) {
+            pattern.lastIndex++;
+        }
+    }
+    
+    return matches;
+}
+
+function highlightMatches(matches) {
+    // For now, we'll just select the current match
+    // In a full implementation, you'd want to add highlighting to the editor
+}
+
+function clearSearchHighlights() {
+    searchMatches = [];
+    currentMatchIndex = -1;
+}
+
+function findNext() {
+    const searchInput = document.getElementById('searchInput');
+    const searchTerm = searchInput?.value || '';
+    
+    if (!searchTerm) return;
+    
+    if (searchTerm !== currentSearchTerm) {
+        currentSearchTerm = searchTerm;
+        searchMatches = performSearch(searchTerm);
+        currentMatchIndex = -1;
+    }
+    
+    if (searchMatches.length === 0) {
+        alert('Keine Treffer gefunden');
+        return;
+    }
+    
+    currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
+    const match = searchMatches[currentMatchIndex];
+    
+    editor.focus();
+    editor.setSelectionRange(match.start, match.end);
+}
+
+function findPrevious() {
+    const searchInput = document.getElementById('searchInput');
+    const searchTerm = searchInput?.value || '';
+    
+    if (!searchTerm) return;
+    
+    if (searchTerm !== currentSearchTerm) {
+        currentSearchTerm = searchTerm;
+        searchMatches = performSearch(searchTerm);
+        currentMatchIndex = searchMatches.length;
+    }
+    
+    if (searchMatches.length === 0) {
+        alert('Keine Treffer gefunden');
+        return;
+    }
+    
+    currentMatchIndex = currentMatchIndex <= 0 ? searchMatches.length - 1 : currentMatchIndex - 1;
+    const match = searchMatches[currentMatchIndex];
+    
+    editor.focus();
+    editor.setSelectionRange(match.start, match.end);
+}
+
+function findNextReplace() {
+    const replaceSearchInput = document.getElementById('replaceSearchInput');
+    const searchTerm = replaceSearchInput?.value || '';
+    
+    if (!searchTerm) return;
+    
+    if (searchTerm !== currentSearchTerm) {
+        currentSearchTerm = searchTerm;
+        searchMatches = performSearch(searchTerm, true);
+        currentMatchIndex = -1;
+    }
+    
+    if (searchMatches.length === 0) {
+        alert('Keine Treffer gefunden');
+        return;
+    }
+    
+    currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
+    const match = searchMatches[currentMatchIndex];
+    
+    editor.focus();
+    editor.setSelectionRange(match.start, match.end);
+}
+
+function replaceNext() {
+    const replaceSearchInput = document.getElementById('replaceSearchInput');
+    const replaceInput = document.getElementById('replaceInput');
+    const searchTerm = replaceSearchInput?.value || '';
+    const replaceTerm = replaceInput?.value || '';
+    
+    if (!searchTerm) return;
+    
+    // Get current selection
+    const selectionStart = editor.selectionStart;
+    const selectionEnd = editor.selectionEnd;
+    const selectedText = editor.value.substring(selectionStart, selectionEnd);
+    
+    // Check if current selection matches search term
+    const options = getSearchOptions(true);
+    let matches = false;
+    
+    if (options.regex) {
+        try {
+            const flags = options.caseSensitive ? '' : 'i';
+            const pattern = new RegExp(`^${searchTerm}$`, flags);
+            matches = pattern.test(selectedText);
+        } catch (e) {
+            matches = selectedText === searchTerm;
+        }
+    } else {
+        matches = options.caseSensitive ? 
+            selectedText === searchTerm : 
+            selectedText.toLowerCase() === searchTerm.toLowerCase();
+    }
+    
+    if (matches) {
+        // Replace current selection
+        const newValue = editor.value.substring(0, selectionStart) + replaceTerm + editor.value.substring(selectionEnd);
+        editor.value = newValue;
+        editor.setSelectionRange(selectionStart, selectionStart + replaceTerm.length);
+        
+        // Mark tab as modified
+        const activeTab = tabs.find(tab => tab.id === activeTabId);
+        if (activeTab) {
+            markTabAsModified(activeTabId, true);
+        }
+        
+        renderMarkdown();
+        
+        // Reset search to account for text change
+        currentSearchTerm = '';
+    }
+    
+    // Find next match
+    findNextReplace();
+}
+
+function replaceAll() {
+    const replaceSearchInput = document.getElementById('replaceSearchInput');
+    const replaceInput = document.getElementById('replaceInput');
+    const searchTerm = replaceSearchInput?.value || '';
+    const replaceTerm = replaceInput?.value || '';
+    
+    if (!searchTerm) return;
+    
+    const matches = performSearch(searchTerm, true);
+    if (matches.length === 0) {
+        alert('Keine Treffer gefunden');
+        return;
+    }
+    
+    const confirmReplace = confirm(`${matches.length} Treffer gefunden. Alle ersetzen?`);
+    if (!confirmReplace) return;
+    
+    let newValue = editor.value;
+    
+    // Replace from end to start to maintain indices
+    for (let i = matches.length - 1; i >= 0; i--) {
+        const match = matches[i];
+        newValue = newValue.substring(0, match.start) + replaceTerm + newValue.substring(match.end);
+    }
+    
+    editor.value = newValue;
+    
+    // Mark tab as modified
+    const activeTab = tabs.find(tab => tab.id === activeTabId);
+    if (activeTab) {
+        markTabAsModified(activeTabId, true);
+    }
+    
+    renderMarkdown();
+    clearSearchHighlights();
+    
+    alert(`${matches.length} Ersetzungen vorgenommen`);
+}
+
 
 // Initialize when DOM is ready - removed duplicate initialization
 // Already handled by DOMContentLoaded listener at the top of the file

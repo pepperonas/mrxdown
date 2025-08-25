@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveFileAs: (content, filePath, tabTitle) => ipcRenderer.send('save-file-as', { content, filePath, tabTitle }),
     exportHTML: (content, filePath) => ipcRenderer.send('export-html', { content, filePath }),
     printToPDF: (filePath) => ipcRenderer.send('print-to-pdf', { filePath }),
+    batchPrintToPDF: (tabData) => ipcRenderer.send('batch-print-to-pdf', { tabData }),
     
     // File dialog handlers
     onFileOpened: (callback) => ipcRenderer.on('file-opened', callback),
@@ -37,5 +38,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     
     // Update UI state
     updateWindowTitle: (title) => ipcRenderer.send('update-window-title', title),
-    setDocumentEdited: (edited) => ipcRenderer.send('set-document-edited', edited)
+    setDocumentEdited: (edited) => ipcRenderer.send('set-document-edited', edited),
+    
+    // File watching
+    watchFile: (filePath) => ipcRenderer.send('watch-file', filePath),
+    unwatchFile: (filePath) => ipcRenderer.send('unwatch-file', filePath),
+    onFileChangedExternally: (callback) => ipcRenderer.on('file-changed-externally', callback),
+    
+    // Batch export
+    onBatchExportPrepareTab: (callback) => ipcRenderer.on('batch-export-prepare-tab', callback),
+    sendBatchExportTabReady: (data) => ipcRenderer.send('batch-export-tab-ready', data)
 });

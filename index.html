@@ -913,6 +913,82 @@
             background-color: #5a7a9f;
         }
 
+        /* Search Dialog Styles */
+        .search-controls {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-4);
+        }
+
+        .search-input {
+            background-color: var(--background-dark);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-sm);
+            padding: var(--spacing-3);
+            color: var(--text-primary);
+            font-size: 14px;
+            width: 100%;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .search-options {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-2);
+        }
+
+        .search-options label {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-2);
+            color: var(--text-secondary);
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .search-options input[type="checkbox"] {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: var(--radius-sm);
+            background-color: var(--background-dark);
+            position: relative;
+            cursor: pointer;
+        }
+
+        .search-options input[type="checkbox"]:checked {
+            background-color: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+        .search-options input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .search-buttons {
+            display: flex;
+            gap: var(--spacing-2);
+            flex-wrap: wrap;
+        }
+
+        .search-result-info {
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin-top: var(--spacing-2);
+        }
+
         /* Table Editor */
         .table-editor {
             position: absolute;
@@ -1102,6 +1178,9 @@
             <button class="toolbar-button secondary tooltip" data-tooltip="Als HTML exportieren (⌘E)" onclick="handleMenuAction('export-html')">
                 📤
             </button>
+            <button class="toolbar-button secondary tooltip" data-tooltip="Alle Tabs als PDF exportieren" onclick="handleMenuAction('batch-export-pdf')">
+                🚀
+            </button>
         </div>
     </div>
 
@@ -1251,6 +1330,56 @@
             </div>
             <div class="modal-footer">
                 <button class="modal-button" onclick="closeAboutDialog()">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Dialog -->
+    <div class="modal-overlay" id="searchModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Suchen</h2>
+            </div>
+            <div class="modal-content">
+                <div class="search-controls">
+                    <input type="text" class="search-input" id="searchInput" placeholder="Suchbegriff eingeben...">
+                    <div class="search-options">
+                        <label><input type="checkbox" id="searchCaseSensitive"> Groß-/Kleinschreibung</label>
+                        <label><input type="checkbox" id="searchRegex"> Reguläre Ausdrücke</label>
+                        <label><input type="checkbox" id="searchWholeWord"> Ganze Wörter</label>
+                    </div>
+                    <div class="search-buttons">
+                        <button class="modal-button" onclick="findNext()">Weiter suchen</button>
+                        <button class="modal-button" onclick="findPrevious()">Zurück suchen</button>
+                        <button class="modal-button" onclick="closeSearchDialog()">Schließen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Replace Dialog -->
+    <div class="modal-overlay" id="replaceModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Suchen und Ersetzen</h2>
+            </div>
+            <div class="modal-content">
+                <div class="search-controls">
+                    <input type="text" class="search-input" id="replaceSearchInput" placeholder="Suchbegriff eingeben...">
+                    <input type="text" class="search-input" id="replaceInput" placeholder="Ersetzen durch...">
+                    <div class="search-options">
+                        <label><input type="checkbox" id="replaceCaseSensitive"> Groß-/Kleinschreibung</label>
+                        <label><input type="checkbox" id="replaceRegex"> Reguläre Ausdrücke</label>
+                        <label><input type="checkbox" id="replaceWholeWord"> Ganze Wörter</label>
+                    </div>
+                    <div class="search-buttons">
+                        <button class="modal-button" onclick="replaceNext()">Ersetzen</button>
+                        <button class="modal-button" onclick="replaceAll()">Alle ersetzen</button>
+                        <button class="modal-button" onclick="findNextReplace()">Weiter suchen</button>
+                        <button class="modal-button" onclick="closeReplaceDialog()">Schließen</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

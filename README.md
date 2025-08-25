@@ -27,11 +27,14 @@
 - **🧘 Zen-Modus** - Ablenkungsfreies Schreiben
 - **💾 Auto-Save** - Automatisches Speichern (konfigurierbar)
 - **📤 Export-Funktionen** - HTML-Export mit eingebetteten Bildern & PDF-Export ohne Artefakte
+- **🚀 Batch PDF Export** - Alle geöffneten Tabs auf einmal als PDF exportieren
+- **🔍 Search & Replace** - Erweiterte Suchfunktion mit Regex-Unterstützung
+- **👁️ File Watching** - Automatische Erkennung externer Dateiänderungen
 - **⌨️ Keyboard Shortcuts** - Umfassende Tastaturkürzel
 
 ## 🚀 Download & Installation
 
-### Version 0.1.2 (Aktuell)
+### Version 0.2.0 (Aktuell)
 
 [![Download für macOS](https://img.shields.io/badge/macOS-Download-blue?style=for-the-badge&logo=apple)](https://github.com/pepperonas/mrxdown/releases/download/v0.1.2/MrxDown-0.1.2.zip)
 [![Download für Windows](https://img.shields.io/badge/Windows-Download-blue?style=for-the-badge&logo=windows)](https://github.com/pepperonas/mrxdown/releases/download/v0.1.2/MrxDown-0.1.2.exe)
@@ -123,7 +126,7 @@ sudo snap install MrxDown-0.1.2.snap --dangerous
 ### Navigation
 
 - `Cmd/Ctrl + F` - Suchen
-- `Cmd/Ctrl + H` - Ersetzen
+- `Cmd/Ctrl + R` - Ersetzen
 - `Cmd/Ctrl + \\` - Sidebar umschalten
 - `Cmd/Ctrl + Shift + Z` - Zen-Modus
 - `Cmd/Ctrl + Tab` - Zwischen Tabs wechseln
@@ -164,6 +167,27 @@ npm run build-all
 
 ## 📋 Changelog
 
+### Version 0.2.0 (2025-08-25)
+
+**🚀 Neue Features:**
+- **🔍 Search & Replace**: Vollständige Suchfunktion mit Find/Replace Dialogen
+  - Regex-Unterstützung
+  - Case-sensitive und Whole-word Optionen
+  - Keyboard Shortcuts: Cmd+F (Suchen), Cmd+R (Ersetzen)
+- **👁️ File Watching**: Automatische Erkennung externer Dateiänderungen
+  - Polling-basiertes System (alle 2 Sekunden)
+  - Funktioniert mit allen Editoren (VS Code, TextEdit, etc.)
+  - Intelligente Konflikterkennung bei ungespeicherten Änderungen
+- **🚀 Batch PDF Export**: Raketen-Button für PDF-Massenexport
+  - Alle geöffneten Tabs als PDF exportieren
+  - Automatische Pfadgenerierung im gleichen Verzeichnis
+  - Fortschrittsanzeige und Fehlerbehandlung
+
+**🛠️ Verbesserungen:**
+- **Drag & Drop**: Verbesserte Dateipfad-Behandlung für File Watching
+- **IPC-Kommunikation**: Robuste Renderer-Main-Process Kommunikation
+- **Error Handling**: Umfassende Fehlerbehandlung bei allen neuen Features
+
 ### Version 0.1.2 (2025-08-19)
 
 **🛠️ Verbesserungen:**
@@ -183,7 +207,7 @@ npm run build-all
 
 ### Version 1.0.0
 
-- [ ] PDF-Export
+- [x] PDF-Export
 - [ ] Syntax-Highlighting im Editor
 - [ ] Mermaid-Diagramm-Support
 - [ ] Zusätzliche Themes

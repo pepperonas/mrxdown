@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
+const fsWatchers = new Map();
 const packageJson = require('./package.json');
 
 // Helper function to convert images to base64 for PDF export
@@ -244,7 +245,7 @@ function createWindow() {
                 },
                 {
                     label: 'Ersetzen',
-                    accelerator: 'CmdOrCtrl+H',
+                    accelerator: 'CmdOrCtrl+R',
                     click: () => {
                         mainWindow.webContents.send('menu-action', { action: 'replace' });
                     }
@@ -365,6 +366,16 @@ function createWindow() {
     Menu.setApplicationMenu(menu);
 
     mainWindow.on('closed', () => {
+        // Clean up all file watchers
+        const fsNode = require('fs');
+        for (const [filePath, watcher] of fsWatchers.entries()) {
+            console.log('Cleaning up file watcher for:', filePath);
+            if (watcher && watcher.type === 'watchFile') {
+                fsNode.unwatchFile(watcher.filePath);
+            }
+        }
+        fsWatchers.clear();
+        
         mainWindow = null;
     });
 }
@@ -669,6 +680,161 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
     }
 });
 
+ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
+    try {
+        if (!tabData || tabData.length === 0) {
+            dialog.showErrorBox('Fehler', 'Keine Tabs zum Exportieren gefunden.');
+            return;
+        }
+        
+        console.log(`Starting batch PDF export for ${tabData.length} files`);
+        let successCount = 0;
+        let errorCount = 0;
+        const errors = [];
+        
+        for (const tab of tabData) {
+            try {
+                console.log(`Exporting PDF for: ${tab.filePath}`);
+                
+                // Send IPC message to renderer to switch tab and render content
+                mainWindow.webContents.send('batch-export-prepare-tab', {
+                    filePath: tab.filePath,
+                    content: tab.content
+                });
+                
+                // Wait for the tab to be prepared and rendered
+                let htmlContent = await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('Timeout waiting for tab preparation'));
+                    }, 10000);
+                    
+                    // Listen for the rendered content
+                    ipcMain.once('batch-export-tab-ready', (event, data) => {
+                        clearTimeout(timeout);
+                        if (data.error) {
+                            reject(new Error(data.error));
+                        } else {
+                            resolve(data.htmlContent);
+                        }
+                    });
+                });
+                
+                // Convert images to base64 for embedding
+                htmlContent = await convertImagesToBase64(htmlContent);
+                
+                // Create a new window for PDF generation
+                const pdfWindow = new BrowserWindow({
+                    width: 800,
+                    height: 1000,
+                    show: false,
+                    webPreferences: {
+                        nodeIntegration: false,
+                        contextIsolation: true,
+                        preload: path.join(__dirname, 'preload.js')
+                    }
+                });
+                
+                // Load HTML with proper print styles
+                await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="UTF-8">
+                        <style>
+                            body {
+                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                                color: #000 !important;
+                                background: #fff !important;
+                                max-width: 800px;
+                                margin: 20px auto;
+                                padding: 20px;
+                                line-height: 1.6;
+                            }
+                            h1, h2, h3, h4, h5, h6 {
+                                color: #000 !important;
+                                margin-top: 24px;
+                                margin-bottom: 16px;
+                            }
+                            h1 { border-bottom: 2px solid #eee; padding-bottom: 8px; }
+                            p { color: #000 !important; margin: 16px 0; }
+                            code {
+                                background: #f4f4f4 !important;
+                                color: #000 !important;
+                                padding: 2px 6px;
+                                border-radius: 3px;
+                                font-family: monospace;
+                            }
+                            pre {
+                                background: #f4f4f4 !important;
+                                color: #000 !important;
+                                padding: 16px;
+                                border-radius: 6px;
+                                overflow-x: auto;
+                                border: 1px solid #ddd;
+                            }
+                            strong { color: #000 !important; }
+                            em { color: #000 !important; }
+                            img {
+                                max-width: 100%;
+                                height: auto;
+                                margin: 16px 0;
+                                border-radius: 4px;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        ${htmlContent}
+                    </body>
+                    </html>
+                `)}`);
+                
+                await pdfWindow.webContents.once('did-finish-load', () => {});
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for rendering
+                
+                const pdfData = await pdfWindow.webContents.printToPDF({
+                    pageSize: 'A4',
+                    printBackground: true,
+                    landscape: false
+                });
+                
+                pdfWindow.close();
+                
+                // Generate PDF path in same directory as MD file
+                const pdfPath = tab.filePath.replace(/\.(md|markdown)$/i, '.pdf');
+                console.log(`Saving PDF to: ${pdfPath}`);
+                
+                await fs.writeFile(pdfPath, pdfData);
+                successCount++;
+                console.log(`Successfully exported: ${pdfPath}`);
+                
+            } catch (fileError) {
+                console.error(`Error exporting ${tab.filePath}:`, fileError);
+                errorCount++;
+                errors.push(`${tab.title}: ${fileError.message}`);
+            }
+        }
+        
+        // Show summary
+        let message = `PDF-Batch-Export abgeschlossen!\n\n`;
+        message += `✅ Erfolgreich exportiert: ${successCount}\n`;
+        if (errorCount > 0) {
+            message += `❌ Fehler: ${errorCount}\n\n`;
+            message += errors.join('\n');
+        }
+        
+        dialog.showMessageBox(mainWindow, {
+            type: errorCount > 0 ? 'warning' : 'info',
+            title: 'PDF-Batch-Export',
+            message: message,
+            buttons: ['OK']
+        });
+        
+    } catch (error) {
+        console.error('Batch PDF export error:', error);
+        dialog.showErrorBox('Fehler', `Batch-PDF-Export fehlgeschlagen: ${error.message}`);
+    }
+});
+
 // Settings handlers
 ipcMain.handle('get-settings', () => {
     return settings;
@@ -704,6 +870,70 @@ ipcMain.on('update-window-title', (event, title) => {
 ipcMain.on('set-document-edited', (event, edited) => {
     documentEdited = edited;
     mainWindow.setDocumentEdited(edited);
+});
+
+// File watching handlers
+ipcMain.on('watch-file', (event, filePath) => {
+    if (!filePath || fsWatchers.has(filePath)) return;
+    
+    try {
+        const fsNode = require('fs');
+        console.log('Setting up file watcher for:', filePath);
+        
+        // Check if file exists first
+        if (!fsNode.existsSync(filePath)) {
+            console.error('File does not exist:', filePath);
+            return;
+        }
+        
+        // Use fs.watchFile with less aggressive polling to avoid file locking issues
+        fsNode.watchFile(filePath, { 
+            persistent: true,
+            interval: 2000  // Check every 2 seconds instead of 500ms to reduce file access
+        }, (curr, prev) => {
+            console.log('File stats changed for:', filePath);
+            console.log('Previous mtime:', prev.mtime, 'Current mtime:', curr.mtime);
+            
+            // Check if file was actually modified (not just accessed)
+            if (curr.mtime > prev.mtime) {
+                console.log('File was modified, reading content...');
+                
+                // Add a small delay to ensure write is complete
+                setTimeout(() => {
+                    fs.readFile(filePath, 'utf-8').then(content => {
+                        console.log('Sending file-changed-externally event');
+                        if (mainWindow && !mainWindow.isDestroyed()) {
+                            mainWindow.webContents.send('file-changed-externally', { filePath, content });
+                        }
+                    }).catch(err => {
+                        console.error('Error reading changed file:', err);
+                    });
+                }, 200);
+            }
+        });
+        
+        // Store the file path for cleanup (fs.watchFile doesn't return a watcher object)
+        const watcher = { filePath, type: 'watchFile' };
+        
+        fsWatchers.set(filePath, watcher);
+        console.log('File watcher added, total watchers:', fsWatchers.size);
+    } catch (error) {
+        console.error('Error setting up file watcher:', error);
+    }
+});
+
+ipcMain.on('unwatch-file', (event, filePath) => {
+    if (fsWatchers.has(filePath)) {
+        console.log('Removing file watcher for:', filePath);
+        const watcher = fsWatchers.get(filePath);
+        if (watcher && watcher.type === 'watchFile') {
+            // Use fs.unwatchFile for fs.watchFile watchers
+            const fsNode = require('fs');
+            fsNode.unwatchFile(watcher.filePath);
+        }
+        fsWatchers.delete(filePath);
+        console.log('File watcher removed, total watchers:', fsWatchers.size);
+    }
 });
 
 // About Dialog
@@ -757,3 +987,10 @@ app.on('activate', () => {
         createWindow();
     }
 });
+
+// Simple test to verify file watching works
+if (process.env.NODE_ENV === 'development') {
+    app.whenReady().then(() => {
+        console.log('App is ready, file watching system initialized');
+    });
+}
