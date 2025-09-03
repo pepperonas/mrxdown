@@ -36,21 +36,22 @@
 
 ### Version 0.2.0 (Aktuell)
 
-[![Download für macOS](https://img.shields.io/badge/macOS-Download-blue?style=for-the-badge&logo=apple)](https://github.com/pepperonas/mrxdown/releases/download/v0.1.2/MrxDown-0.1.2.zip)
-[![Download für Windows](https://img.shields.io/badge/Windows-Download-blue?style=for-the-badge&logo=windows)](https://github.com/pepperonas/mrxdown/releases/download/v0.1.2/MrxDown-0.1.2.exe)
-[![Download für Linux](https://img.shields.io/badge/Linux-Download-blue?style=for-the-badge&logo=linux)](https://github.com/pepperonas/mrxdown/releases/download/v0.1.2/MrxDown-0.1.2.AppImage)
+[![Download für macOS](https://img.shields.io/badge/macOS-Download-blue?style=for-the-badge&logo=apple)](https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.zip)
+[![Download für Windows](https://img.shields.io/badge/Windows-Download-blue?style=for-the-badge&logo=windows)](https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.exe)
+[![Download für Linux](https://img.shields.io/badge/Linux-Download-blue?style=for-the-badge&logo=linux)](https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.AppImage)
 
 | Betriebssystem | Datei                    | Größe   | Installation                                       |
 |----------------|--------------------------|---------|----------------------------------------------------|
-| **macOS**      | `MrxDown-0.1.2.zip`      | ~86 MB  | ZIP entpacken, Rechtsklick → "Öffnen"              |
-| **Windows**    | `MrxDown-0.1.2.exe`      | ~135 MB | Installer ausführen                                |
-| **Linux**      | `MrxDown-0.1.2.AppImage` | ~99 MB  | Ausführbar machen: `chmod +x`                      |
-| **Linux**      | `MrxDown-0.1.2.deb`      | ~134 MB | `sudo dpkg -i MrxDown-0.1.2.deb`                   |
-| **Linux**      | `MrxDown-0.1.2.snap`     | ~84 MB  | `sudo snap install MrxDown-0.1.2.snap --dangerous` |
+| **macOS**      | `MrxDown-0.2.0.zip`      | ~86 MB  | ZIP entpacken, Rechtsklick → "Öffnen"              |
+| **Windows**    | `MrxDown-0.2.0.exe`      | ~135 MB | Installer ausführen                                |
+| **Windows**    | `MrxDown-0.2.0.exe` (Portable) | ~125 MB | Direkt ausführbar, keine Installation            |
+| **Linux**      | `MrxDown-0.2.0.AppImage` | ~99 MB  | Ausführbar machen: `chmod +x`                      |
+| **Linux**      | `MrxDown-0.2.0.deb`      | ~134 MB | `sudo dpkg -i MrxDown-0.2.0.deb`                   |
+| **Linux**      | `MrxDown-0.2.0.snap`     | ~84 MB  | `sudo snap install MrxDown-0.2.0.snap --dangerous` |
 
 ### 🍎 macOS Installation
 
-1. **Download**: [MrxDown-0.1.2.zip](https://github.com/pepperonas/mrxdown/releases/download/v0.1.2/MrxDown-0.1.2.zip)
+1. **Download**: [MrxDown-0.2.0.zip](https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.zip)
 2. **Entpacken**: Doppelklick auf ZIP-Datei
 3. **Öffnen**: Rechtsklick auf MrxDown.app → **"Öffnen"** → **"Öffnen"** bestätigen
 
@@ -64,7 +65,7 @@ curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/install-macos.
 
 ### 🪟 Windows Installation
 
-1. **Download**: [MrxDown-0.1.2.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.1.2/MrxDown-0.1.2.exe)
+1. **Download**: [MrxDown-0.2.0.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.exe) (Installer) oder [MrxDown-0.2.0.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.exe) (Portable)
 2. **Installation**: Installer ausführen und Anweisungen folgen
 3. **Start**: Desktop-Icon oder Startmenü
 
@@ -74,21 +75,21 @@ curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/install-macos.
 
 ```bash
 # Download
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.1.2/MrxDown-0.1.2.AppImage
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.AppImage
 
 # Ausführbar machen
-chmod +x MrxDown-0.1.2.AppImage
+chmod +x MrxDown-0.2.0.AppImage
 
 # Starten
-./MrxDown-0.1.2.AppImage
+./MrxDown-0.2.0.AppImage
 ```
 
 #### DEB (Ubuntu/Debian)
 
 ```bash
 # Download und Installation
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.1.2/MrxDown-0.1.2.deb
-sudo dpkg -i MrxDown-0.1.2.deb
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.deb
+sudo dpkg -i MrxDown-0.2.0.deb
 
 # Falls Abhängigkeiten fehlen:
 sudo apt-get install -f
@@ -98,8 +99,8 @@ sudo apt-get install -f
 
 ```bash
 # Download und Installation
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.1.2/MrxDown-0.1.2.snap
-sudo snap install MrxDown-0.1.2.snap --dangerous
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.snap
+sudo snap install MrxDown-0.2.0.snap --dangerous
 ```
 
 ## ⌨️ Keyboard Shortcuts
@@ -167,26 +168,40 @@ npm run build-all
 
 ## 📋 Changelog
 
-### Version 0.2.0 (2025-08-25)
+### Version 0.2.0 (2025-09-03)
 
 **🚀 Neue Features:**
 - **🔍 Search & Replace**: Vollständige Suchfunktion mit Find/Replace Dialogen
-  - Regex-Unterstützung
-  - Case-sensitive und Whole-word Optionen
+  - Regex-Unterstützung für erweiterte Suchmuster
+  - Case-sensitive und Whole-word Optionen für präzise Suche
   - Keyboard Shortcuts: Cmd+F (Suchen), Cmd+R (Ersetzen)
+  - Highlighting gefundener Treffer im Editor
+  - Replace-All Funktion für Massenersetzungen
 - **👁️ File Watching**: Automatische Erkennung externer Dateiänderungen
-  - Polling-basiertes System (alle 2 Sekunden)
-  - Funktioniert mit allen Editoren (VS Code, TextEdit, etc.)
+  - Polling-basiertes System (alle 2 Sekunden) für zuverlässige Überwachung
+  - Funktioniert mit allen Editoren (VS Code, Vim, TextEdit, Atom, etc.)
   - Intelligente Konflikterkennung bei ungespeicherten Änderungen
-- **🚀 Batch PDF Export**: Raketen-Button für PDF-Massenexport
-  - Alle geöffneten Tabs als PDF exportieren
-  - Automatische Pfadgenerierung im gleichen Verzeichnis
-  - Fortschrittsanzeige und Fehlerbehandlung
+  - User-friendly Dialog zur Auswahl zwischen lokalen/externen Änderungen
+  - Automatisches Reload bei Dateiberechtigungsänderungen
+- **🚀 Batch PDF Export**: Raketen-Button (🚀) für PDF-Massenexport
+  - Alle geöffneten Tabs mit einem Klick als PDF exportieren
+  - Automatische Pfadgenerierung im gleichen Verzeichnis der Quelldateien
+  - Visuelle Fortschrittsanzeige mit Tab-by-Tab Status
+  - Umfassende Fehlerbehandlung und Benutzer-Feedback
+  - Unterstützung für große Tab-Listen ohne Performance-Verlust
 
 **🛠️ Verbesserungen:**
-- **Drag & Drop**: Verbesserte Dateipfad-Behandlung für File Watching
-- **IPC-Kommunikation**: Robuste Renderer-Main-Process Kommunikation
-- **Error Handling**: Umfassende Fehlerbehandlung bei allen neuen Features
+- **Multi-Platform Builds**: Vollständige Unterstützung für Windows (Installer + Portable), macOS (Universal Binary), Linux (AppImage, DEB, Snap)
+- **Drag & Drop**: Verbesserte Dateipfad-Behandlung mit automatischem File Watching Setup
+- **IPC-Kommunikation**: Robuste Renderer-Main-Process Kommunikation mit Error Recovery
+- **Error Handling**: Umfassende Fehlerbehandlung bei allen File-Operations
+- **Performance**: Optimierte Speicherverwaltung bei großen Dateien
+- **UI/UX**: Responsive Design-Verbesserungen für verschiedene Bildschirmgrößen
+
+**🔧 Technische Updates:**
+- **Electron 28.0.0**: Neueste Electron-Version für bessere Sicherheit und Performance
+- **Cross-Platform Testing**: Automatisierte CI/CD-Pipeline für alle Betriebssysteme
+- **Code Signing**: Vorbereitung für macOS Notarisierung und Windows Code Signing
 
 ### Version 0.1.2 (2025-08-19)
 

@@ -31,17 +31,22 @@ jobs:
     - name: Install Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
         
     - name: Install dependencies
-      run: npm ci
+      run: |
+        npm ci
+        npm run postinstall
+      env:
+        ELECTRON_CACHE: ~/.cache/electron
+        ELECTRON_BUILDER_CACHE: ~/.cache/electron-builder
       
     - name: Install Linux dependencies (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
-        sudo apt-get install -y python3-setuptools build-essential libnss3-dev libatk-bridge2.0-dev libdrm2 libxkbcommon-dev libxss1 libasound2-dev libgtk-3-dev libgbm-dev
+        sudo apt-get install -y python3-setuptools build-essential libnss3-dev libatk-bridge2.0-dev libdrm2 libxkbcommon-dev libxss1 libasound2-dev libgtk-3-dev libgbm-dev libxrandr2 libgconf-2-4 libxtst6 libxss1 libxcomposite1 libasound2-dev libatspi2.0-0 libdrm2 libgtk-3-0 libgtk-3-dev xvfb
         
     - name: Install Windows dependencies
       if: matrix.os == 'windows-latest'
@@ -51,28 +56,44 @@ jobs:
     - name: Build app for macOS
       if: matrix.os == 'macos-latest'
       run: |
-        # Build only ZIP for CI to avoid hdiutil issues
-        npx electron-builder --mac --publish=never --config.mac.target=zip
-        # List built artifacts for debugging
+        # Build both ZIP and DMG for release
+        npm run build-mac
+        echo "Build completed, listing artifacts:"
         ls -la dist/
+        # Verify artifacts
+        if [ ! -f dist/*.zip ]; then echo "Warning: ZIP file not found"; fi
+        if [ ! -f dist/*.dmg ]; then echo "Warning: DMG file not found"; fi
+        echo "macOS release build verification completed"
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # Disable code signing for CI builds
         CSC_IDENTITY_AUTO_DISCOVERY: false
+        DEBUG: electron-builder
         
     - name: Build app for Windows
       if: matrix.os == 'windows-latest'
-      run: npm run build-win
+      run: |
+        npm run build-win
+        echo "Build completed, listing artifacts:"
+        dir dist
+        echo "Windows release build verification completed"
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         CSC_IDENTITY_AUTO_DISCOVERY: false
+        DEBUG: electron-builder
         
     - name: Build app for Linux
       if: matrix.os == 'ubuntu-latest'
-      run: npm run build-linux
+      run: |
+        # Use virtual display for Linux builds
+        xvfb-run -a npm run build-linux
+        echo "Build completed, listing artifacts:"
+        ls -la dist/
+        echo "Linux release build verification completed"
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         CSC_IDENTITY_AUTO_DISCOVERY: false
+        DEBUG: electron-builder
+        DISPLAY: :99
         
     - name: Upload artifacts (macOS)
       if: matrix.os == 'macos-latest'
@@ -81,6 +102,10 @@ jobs:
         name: macos-artifacts
         path: |
           dist/*.zip
+          dist/*.dmg
+          dist/*.dmg.blockmap
+        if-no-files-found: warn
+        retention-days: 30
           
     - name: Upload artifacts (Windows)
       if: matrix.os == 'windows-latest'
@@ -89,6 +114,9 @@ jobs:
         name: windows-artifacts
         path: |
           dist/*.exe
+          dist/*.exe.blockmap
+        if-no-files-found: warn
+        retention-days: 30
           
     - name: Upload artifacts (Linux)
       if: matrix.os == 'ubuntu-latest'
@@ -99,6 +127,9 @@ jobs:
           dist/*.AppImage
           dist/*.deb
           dist/*.snap
+          dist/*.rpm
+        if-no-files-found: warn
+        retention-days: 30
   
   create-release:
     needs: release
@@ -110,6 +141,14 @@ jobs:
       
     - name: Download all artifacts
       uses: actions/download-artifact@v4
+      with:
+        merge-multiple: true
+        
+    - name: List downloaded artifacts
+      run: |
+        echo "Downloaded artifacts:"
+        find . -name "*.exe" -o -name "*.zip" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" | sort
+        echo "Total artifact count: $(find . -name "*.exe" -o -name "*.zip" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" | wc -l)"
       
     - name: Create Release
       id: create_release
@@ -171,8 +210,14 @@ jobs:
           
           🔗 [GitHub Repository](https://github.com/pepperonas/mrxdown) | 🌐 [Website](https://pepperonas.com)
         artifacts: |
-          ./macos-artifacts/*
-          ./windows-artifacts/*
-          ./linux-artifacts/*
+          **/*.zip
+          **/*.dmg
+          **/*.exe
+          **/*.AppImage
+          **/*.deb
+          **/*.snap
         token: ${{ secrets.GITHUB_TOKEN }}
+        allowUpdates: true
+        replacesArtifacts: true
+        makeLatest: true
         
