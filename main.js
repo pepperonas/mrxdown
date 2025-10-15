@@ -596,16 +596,24 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
                         font-size: 11pt;
                         orphans: 3;
                         widows: 3;
+                        text-rendering: optimizeLegibility;
                     }
 
                     /* ===== HEADINGS WITH PAGE BREAK CONTROL ===== */
                     h1, h2, h3, h4, h5, h6 {
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+                                     'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+                                     'Noto Color Emoji', sans-serif;
                         color: #1a1a1a !important;
                         font-weight: 600;
                         margin-top: 1.5em;
                         margin-bottom: 0.5em;
                         page-break-after: avoid;
                         page-break-inside: avoid;
+                        text-rendering: optimizeLegibility;
+                        -webkit-font-smoothing: subpixel-antialiased;
+                        font-feature-settings: "kern" 1;
+                        white-space: pre-wrap;
                     }
 
                     h1 {
@@ -815,14 +823,15 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
         `)}`);
 
         await pdfWindow.webContents.once('did-finish-load', () => {});
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Wait longer for rendering
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait even longer for emoji rendering
 
         const pdfData = await pdfWindow.webContents.printToPDF({
             marginsType: 0, // Use custom margins from @page
             pageSize: 'A4',
             printBackground: true,
             landscape: false,
-            preferCSSPageSize: true
+            preferCSSPageSize: true,
+            printSelectionOnly: false
         });
 
         pdfWindow.close();
@@ -929,16 +938,24 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                                 font-size: 11pt;
                                 orphans: 3;
                                 widows: 3;
+                                text-rendering: optimizeLegibility;
                             }
 
                             /* ===== HEADINGS WITH PAGE BREAK CONTROL ===== */
                             h1, h2, h3, h4, h5, h6 {
+                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+                                             'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+                                             'Noto Color Emoji', sans-serif;
                                 color: #1a1a1a !important;
                                 font-weight: 600;
                                 margin-top: 1.5em;
                                 margin-bottom: 0.5em;
                                 page-break-after: avoid;
                                 page-break-inside: avoid;
+                                text-rendering: optimizeLegibility;
+                                -webkit-font-smoothing: subpixel-antialiased;
+                                font-feature-settings: "kern" 1;
+                                white-space: pre-wrap;
                             }
 
                             h1 {
@@ -1148,14 +1165,15 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                 `)}`);
 
                 await pdfWindow.webContents.once('did-finish-load', () => {});
-                await new Promise(resolve => setTimeout(resolve, 1500)); // Wait longer for rendering
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Wait even longer for emoji rendering
 
                 const pdfData = await pdfWindow.webContents.printToPDF({
                     marginsType: 0, // Use custom margins from @page
                     pageSize: 'A4',
                     printBackground: true,
                     landscape: false,
-                    preferCSSPageSize: true
+                    preferCSSPageSize: true,
+                    printSelectionOnly: false
                 });
                 
                 pdfWindow.close();

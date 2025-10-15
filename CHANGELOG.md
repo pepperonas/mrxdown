@@ -14,6 +14,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Header/Footer mit Seitennummerierung
 
+## [0.2.4] - 2025-01-15
+
+### 🐛 Fixed
+- **Emoji-Rendering bei führenden Emojis**: Emojis am Anfang von Überschriften werden jetzt korrekt im PDF exportiert
+- Chromium PDF-Renderer optimiert mit `text-rendering: optimizeLegibility`
+- Subpixel-Antialiasing für bessere Emoji-Darstellung hinzugefügt
+- Font-Feature-Settings für korrektes Kerning aktiviert
+- `white-space: pre-wrap` für Unicode-Zeichenerhaltung
+
+### 🔧 Technical
+- `text-rendering: optimizeLegibility` zu body und h1-h6 hinzugefügt
+- `-webkit-font-smoothing: subpixel-antialiased` für Headings
+- `font-feature-settings: "kern" 1` für optimales Kerning
+- `white-space: pre-wrap` verhindert Unicode-Verlust
+- Beide Export-Modi (Single + Batch) synchronisiert
+
+## [0.2.3] - 2025-01-15
+
+### 🐛 Fixed
+- **Emoji am Anfang von Überschriften**: Emojis am Zeilenanfang (z.B. "📘 Titel") werden jetzt korrekt exportiert
+- Rendering-Delay für PDF-Export von 1500ms auf 2000ms erhöht
+- `printSelectionOnly: false` explizit gesetzt für vollständigen Export
+- Problem betraf Emojis in führender Position bei H1-H6
+
+### 🔧 Technical
+- Längere Rendering-Zeit für komplexe Unicode-Zeichen
+- Beide Export-Modi (Single + Batch) synchronisiert
+- Verbesserte Emoji-Font-Rendering-Pipeline
+
+## [0.2.2] - 2025-01-15
+
+### 🐛 Fixed
+- **Emoji-Rendering in PDF-Überschriften**: Emojis werden jetzt korrekt in allen Überschriften (H1-H6) im PDF-Export dargestellt
+- Expliziter Emoji-Font-Stack für Headings hinzugefügt
+- Problem betraf sowohl Single- als auch Batch-PDF-Export
+- Emojis wie 🎉📝✨❤️ funktionieren jetzt überall perfekt
+
+### 🔧 Technical
+- Font-Family mit vollständigem Emoji-Stack für `h1-h6` ergänzt
+- Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji Support
+- Beide PDF-Export-Funktionen synchronisiert
+
 ## [0.2.1] - 2025-01-15
 
 ### ✨ Added - PDF-Export Optimierungen
