@@ -569,75 +569,242 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
         // Convert images to base64 for embedding
         content = await convertImagesToBase64(content);
 
-        // Load HTML with proper print styles
+        // Load HTML with optimized print styles
         await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
             <!DOCTYPE html>
-            <html>
+            <html lang="de">
             <head>
                 <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <style>
+                    /* ===== BASE TYPOGRAPHY ===== */
+                    @page {
+                        margin: 20mm 15mm;
+                        size: A4 portrait;
+                    }
+
                     body {
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                        color: #000 !important;
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+                                     'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+                                     'Noto Color Emoji', sans-serif;
+                        color: #1a1a1a !important;
                         background: #fff !important;
                         max-width: 800px;
-                        margin: 20px auto;
+                        margin: 0 auto;
                         padding: 20px;
-                        line-height: 1.6;
+                        line-height: 1.7;
+                        font-size: 11pt;
+                        orphans: 3;
+                        widows: 3;
                     }
+
+                    /* ===== HEADINGS WITH PAGE BREAK CONTROL ===== */
                     h1, h2, h3, h4, h5, h6 {
-                        color: #000 !important;
-                        margin-top: 24px;
-                        margin-bottom: 16px;
+                        color: #1a1a1a !important;
+                        font-weight: 600;
+                        margin-top: 1.5em;
+                        margin-bottom: 0.5em;
+                        page-break-after: avoid;
+                        page-break-inside: avoid;
                     }
-                    h1 { border-bottom: 2px solid #eee; padding-bottom: 8px; }
-                    p { color: #000 !important; margin: 16px 0; }
+
+                    h1 {
+                        font-size: 2em;
+                        border-bottom: 2px solid #333;
+                        padding-bottom: 0.3em;
+                        margin-top: 0;
+                        page-break-before: auto;
+                    }
+                    h2 { font-size: 1.6em; border-bottom: 1px solid #ddd; padding-bottom: 0.2em; }
+                    h3 { font-size: 1.4em; }
+                    h4 { font-size: 1.2em; }
+                    h5 { font-size: 1.1em; }
+                    h6 { font-size: 1em; color: #666 !important; }
+
+                    /* ===== OPTIMIZED PARAGRAPHS & LINE BREAKS ===== */
+                    p {
+                        color: #1a1a1a !important;
+                        margin: 0.8em 0;
+                        text-align: justify;
+                        hyphens: auto;
+                    }
+
+                    /* Handle explicit line breaks */
+                    br {
+                        display: block;
+                        content: "";
+                        margin: 0.5em 0;
+                    }
+
+                    /* Empty paragraphs for spacing */
+                    p:empty {
+                        margin: 1em 0;
+                    }
+
+                    /* ===== INLINE FORMATTING ===== */
+                    strong, b {
+                        color: #1a1a1a !important;
+                        font-weight: 700;
+                    }
+
+                    em, i {
+                        color: #1a1a1a !important;
+                        font-style: italic;
+                    }
+
+                    /* ===== CODE BLOCKS WITH BREAK CONTROL ===== */
                     code {
-                        background: #f4f4f4 !important;
-                        color: #000 !important;
+                        background: #f5f5f5 !important;
+                        color: #d14 !important;
                         padding: 2px 6px;
                         border-radius: 3px;
-                        font-family: monospace;
+                        font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
+                        font-size: 0.9em;
+                        border: 1px solid #e0e0e0;
                     }
+
                     pre {
-                        background: #f4f4f4 !important;
-                        color: #000 !important;
+                        background: #f8f8f8 !important;
+                        color: #1a1a1a !important;
                         padding: 16px;
                         border-radius: 6px;
                         overflow-x: auto;
                         border: 1px solid #ddd;
+                        margin: 1em 0;
+                        page-break-inside: avoid;
+                        line-height: 1.5;
                     }
+
+                    pre code {
+                        background: none !important;
+                        color: #1a1a1a !important;
+                        padding: 0;
+                        border: none;
+                        font-size: 0.85em;
+                    }
+
+                    /* ===== BLOCKQUOTES ===== */
                     blockquote {
-                        border-left: 4px solid #ddd;
+                        border-left: 4px solid #666;
                         padding-left: 16px;
-                        color: #666 !important;
-                        margin: 16px 0;
+                        padding-top: 8px;
+                        padding-bottom: 8px;
+                        color: #555 !important;
+                        margin: 1.2em 0;
+                        font-style: italic;
+                        background: #f9f9f9;
+                        page-break-inside: avoid;
                     }
+
+                    /* ===== OPTIMIZED LISTS ===== */
+                    ul, ol {
+                        color: #1a1a1a !important;
+                        margin: 1em 0;
+                        padding-left: 2em;
+                    }
+
+                    li {
+                        color: #1a1a1a !important;
+                        margin-bottom: 0.4em;
+                        line-height: 1.6;
+                        page-break-inside: avoid;
+                    }
+
+                    /* Nested lists */
+                    li > ul, li > ol {
+                        margin-top: 0.3em;
+                        margin-bottom: 0.3em;
+                    }
+
+                    /* Task lists */
+                    li input[type="checkbox"] {
+                        margin-right: 0.5em;
+                    }
+
+                    /* ===== HYPERLINKS WITH URL DISPLAY ===== */
+                    a {
+                        color: #0066cc !important;
+                        text-decoration: none;
+                        word-wrap: break-word;
+                    }
+
+                    /* Show URLs after links in print */
+                    a[href]:after {
+                        content: " (" attr(href) ")";
+                        font-size: 0.85em;
+                        color: #666 !important;
+                        word-break: break-all;
+                    }
+
+                    /* Don't show URL for anchor links */
+                    a[href^="#"]:after {
+                        content: "";
+                    }
+
+                    /* ===== TABLES WITH PAGE BREAK CONTROL ===== */
                     table {
                         border-collapse: collapse;
                         width: 100%;
-                        margin: 16px 0;
+                        margin: 1.2em 0;
+                        page-break-inside: auto;
+                        font-size: 0.9em;
                     }
+
+                    tr {
+                        page-break-inside: avoid;
+                        page-break-after: auto;
+                    }
+
+                    thead {
+                        display: table-header-group;
+                    }
+
                     th, td {
                         border: 1px solid #ddd;
-                        padding: 8px 12px;
+                        padding: 10px 12px;
                         text-align: left;
-                        color: #000 !important;
+                        color: #1a1a1a !important;
                     }
+
                     th {
-                        background: #f4f4f4 !important;
-                        color: #000 !important;
+                        background: #f5f5f5 !important;
+                        color: #1a1a1a !important;
+                        font-weight: 600;
                     }
-                    ul, ol { color: #000 !important; }
-                    li { color: #000 !important; }
-                    strong { color: #000 !important; }
-                    em { color: #000 !important; }
-                    a { color: #0066cc !important; }
+
+                    tr:nth-child(even) {
+                        background: #fafafa !important;
+                    }
+
+                    /* ===== OPTIMIZED IMAGES ===== */
                     img {
                         max-width: 100%;
                         height: auto;
-                        margin: 16px 0;
+                        margin: 1.5em auto;
+                        display: block;
                         border-radius: 4px;
+                        page-break-inside: avoid;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    }
+
+                    /* ===== HORIZONTAL RULES ===== */
+                    hr {
+                        border: none;
+                        border-top: 2px solid #ddd;
+                        margin: 2em 0;
+                        page-break-after: avoid;
+                    }
+
+                    /* ===== PRINT OPTIMIZATION ===== */
+                    @media print {
+                        body {
+                            margin: 0;
+                            padding: 0;
+                        }
+
+                        a {
+                            text-decoration: underline;
+                        }
                     }
                 </style>
             </head>
@@ -648,13 +815,14 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
         `)}`);
 
         await pdfWindow.webContents.once('did-finish-load', () => {});
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for rendering
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Wait longer for rendering
 
         const pdfData = await pdfWindow.webContents.printToPDF({
-            marginsType: 1,
+            marginsType: 0, // Use custom margins from @page
             pageSize: 'A4',
             printBackground: true,
-            landscape: false
+            landscape: false,
+            preferCSSPageSize: true
         });
 
         pdfWindow.close();
@@ -734,51 +902,242 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                     }
                 });
                 
-                // Load HTML with proper print styles
+                // Load HTML with optimized print styles (same as single export)
                 await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
                     <!DOCTYPE html>
-                    <html>
+                    <html lang="de">
                     <head>
                         <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
                         <style>
+                            /* ===== BASE TYPOGRAPHY ===== */
+                            @page {
+                                margin: 20mm 15mm;
+                                size: A4 portrait;
+                            }
+
                             body {
-                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                                color: #000 !important;
+                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+                                             'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+                                             'Noto Color Emoji', sans-serif;
+                                color: #1a1a1a !important;
                                 background: #fff !important;
                                 max-width: 800px;
-                                margin: 20px auto;
+                                margin: 0 auto;
                                 padding: 20px;
-                                line-height: 1.6;
+                                line-height: 1.7;
+                                font-size: 11pt;
+                                orphans: 3;
+                                widows: 3;
                             }
+
+                            /* ===== HEADINGS WITH PAGE BREAK CONTROL ===== */
                             h1, h2, h3, h4, h5, h6 {
-                                color: #000 !important;
-                                margin-top: 24px;
-                                margin-bottom: 16px;
+                                color: #1a1a1a !important;
+                                font-weight: 600;
+                                margin-top: 1.5em;
+                                margin-bottom: 0.5em;
+                                page-break-after: avoid;
+                                page-break-inside: avoid;
                             }
-                            h1 { border-bottom: 2px solid #eee; padding-bottom: 8px; }
-                            p { color: #000 !important; margin: 16px 0; }
+
+                            h1 {
+                                font-size: 2em;
+                                border-bottom: 2px solid #333;
+                                padding-bottom: 0.3em;
+                                margin-top: 0;
+                                page-break-before: auto;
+                            }
+                            h2 { font-size: 1.6em; border-bottom: 1px solid #ddd; padding-bottom: 0.2em; }
+                            h3 { font-size: 1.4em; }
+                            h4 { font-size: 1.2em; }
+                            h5 { font-size: 1.1em; }
+                            h6 { font-size: 1em; color: #666 !important; }
+
+                            /* ===== OPTIMIZED PARAGRAPHS & LINE BREAKS ===== */
+                            p {
+                                color: #1a1a1a !important;
+                                margin: 0.8em 0;
+                                text-align: justify;
+                                hyphens: auto;
+                            }
+
+                            /* Handle explicit line breaks */
+                            br {
+                                display: block;
+                                content: "";
+                                margin: 0.5em 0;
+                            }
+
+                            /* Empty paragraphs for spacing */
+                            p:empty {
+                                margin: 1em 0;
+                            }
+
+                            /* ===== INLINE FORMATTING ===== */
+                            strong, b {
+                                color: #1a1a1a !important;
+                                font-weight: 700;
+                            }
+
+                            em, i {
+                                color: #1a1a1a !important;
+                                font-style: italic;
+                            }
+
+                            /* ===== CODE BLOCKS WITH BREAK CONTROL ===== */
                             code {
-                                background: #f4f4f4 !important;
-                                color: #000 !important;
+                                background: #f5f5f5 !important;
+                                color: #d14 !important;
                                 padding: 2px 6px;
                                 border-radius: 3px;
-                                font-family: monospace;
+                                font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
+                                font-size: 0.9em;
+                                border: 1px solid #e0e0e0;
                             }
+
                             pre {
-                                background: #f4f4f4 !important;
-                                color: #000 !important;
+                                background: #f8f8f8 !important;
+                                color: #1a1a1a !important;
                                 padding: 16px;
                                 border-radius: 6px;
                                 overflow-x: auto;
                                 border: 1px solid #ddd;
+                                margin: 1em 0;
+                                page-break-inside: avoid;
+                                line-height: 1.5;
                             }
-                            strong { color: #000 !important; }
-                            em { color: #000 !important; }
+
+                            pre code {
+                                background: none !important;
+                                color: #1a1a1a !important;
+                                padding: 0;
+                                border: none;
+                                font-size: 0.85em;
+                            }
+
+                            /* ===== BLOCKQUOTES ===== */
+                            blockquote {
+                                border-left: 4px solid #666;
+                                padding-left: 16px;
+                                padding-top: 8px;
+                                padding-bottom: 8px;
+                                color: #555 !important;
+                                margin: 1.2em 0;
+                                font-style: italic;
+                                background: #f9f9f9;
+                                page-break-inside: avoid;
+                            }
+
+                            /* ===== OPTIMIZED LISTS ===== */
+                            ul, ol {
+                                color: #1a1a1a !important;
+                                margin: 1em 0;
+                                padding-left: 2em;
+                            }
+
+                            li {
+                                color: #1a1a1a !important;
+                                margin-bottom: 0.4em;
+                                line-height: 1.6;
+                                page-break-inside: avoid;
+                            }
+
+                            /* Nested lists */
+                            li > ul, li > ol {
+                                margin-top: 0.3em;
+                                margin-bottom: 0.3em;
+                            }
+
+                            /* Task lists */
+                            li input[type="checkbox"] {
+                                margin-right: 0.5em;
+                            }
+
+                            /* ===== HYPERLINKS WITH URL DISPLAY ===== */
+                            a {
+                                color: #0066cc !important;
+                                text-decoration: none;
+                                word-wrap: break-word;
+                            }
+
+                            /* Show URLs after links in print */
+                            a[href]:after {
+                                content: " (" attr(href) ")";
+                                font-size: 0.85em;
+                                color: #666 !important;
+                                word-break: break-all;
+                            }
+
+                            /* Don't show URL for anchor links */
+                            a[href^="#"]:after {
+                                content: "";
+                            }
+
+                            /* ===== TABLES WITH PAGE BREAK CONTROL ===== */
+                            table {
+                                border-collapse: collapse;
+                                width: 100%;
+                                margin: 1.2em 0;
+                                page-break-inside: auto;
+                                font-size: 0.9em;
+                            }
+
+                            tr {
+                                page-break-inside: avoid;
+                                page-break-after: auto;
+                            }
+
+                            thead {
+                                display: table-header-group;
+                            }
+
+                            th, td {
+                                border: 1px solid #ddd;
+                                padding: 10px 12px;
+                                text-align: left;
+                                color: #1a1a1a !important;
+                            }
+
+                            th {
+                                background: #f5f5f5 !important;
+                                color: #1a1a1a !important;
+                                font-weight: 600;
+                            }
+
+                            tr:nth-child(even) {
+                                background: #fafafa !important;
+                            }
+
+                            /* ===== OPTIMIZED IMAGES ===== */
                             img {
                                 max-width: 100%;
                                 height: auto;
-                                margin: 16px 0;
+                                margin: 1.5em auto;
+                                display: block;
                                 border-radius: 4px;
+                                page-break-inside: avoid;
+                                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                            }
+
+                            /* ===== HORIZONTAL RULES ===== */
+                            hr {
+                                border: none;
+                                border-top: 2px solid #ddd;
+                                margin: 2em 0;
+                                page-break-after: avoid;
+                            }
+
+                            /* ===== PRINT OPTIMIZATION ===== */
+                            @media print {
+                                body {
+                                    margin: 0;
+                                    padding: 0;
+                                }
+
+                                a {
+                                    text-decoration: underline;
+                                }
                             }
                         </style>
                     </head>
@@ -787,14 +1146,16 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                     </body>
                     </html>
                 `)}`);
-                
+
                 await pdfWindow.webContents.once('did-finish-load', () => {});
-                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for rendering
-                
+                await new Promise(resolve => setTimeout(resolve, 1500)); // Wait longer for rendering
+
                 const pdfData = await pdfWindow.webContents.printToPDF({
+                    marginsType: 0, // Use custom margins from @page
                     pageSize: 'A4',
                     printBackground: true,
-                    landscape: false
+                    landscape: false,
+                    preferCSSPageSize: true
                 });
                 
                 pdfWindow.close();

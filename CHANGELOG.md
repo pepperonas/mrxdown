@@ -7,14 +7,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+### Planned
 - Syntax highlighting in editor
 - Mermaid diagram support
 - Additional themes
+- PDF-Metadaten (Titel, Autor, Keywords)
+- Header/Footer mit Seitennummerierung
 
-### Changed
-- Performance optimizations
-- UI improvements
+## [0.2.1] - 2025-01-15
+
+### ✨ Added - PDF-Export Optimierungen
+
+#### 📝 Paragraph & Spacing
+- Optimiertes Leerzeilen-Handling mit nativen CSS-Margins
+- Intelligente Behandlung von `<br>` Tags
+- Konsistente Paragraph-Abstände (0.8em)
+- Text-Justification mit automatischer Silbentrennung
+
+#### 😊 Emoji-Unterstützung
+- Vollständiger Emoji-Font-Stack (Apple, Segoe UI, Noto Color Emoji)
+- UTF-8 Encoding für korrekte Darstellung
+- Emojis werden in PDFs korrekt dargestellt 🎉
+
+#### 🔗 Hyperlinks
+- URLs werden automatisch nach Links angezeigt
+- Format: `Link-Text (https://url)`
+- Anchor-Links (#section) werden nicht expandiert
+- Farbcodierung: Links blau (#0066cc), URLs grau (#666)
+
+#### 📋 Listen
+- Optimierte Abstände zwischen Items (0.4em)
+- Verbesserte verschachtelte Listen (0.3em)
+- Task-Listen-Support mit Checkboxen
+- Page-Break-Control für zusammenhängende Items
+
+#### 📄 Seitenumbruch-Kontrolle
+- Überschriften bleiben mit folgendem Content zusammen
+- Code-Blöcke werden nicht über Seiten getrennt
+- Table-Rows bleiben zusammen
+- Blockquotes & Bilder ohne Umbrüche
+
+#### 🖼️ Bilder
+- Automatische Größenanpassung (max-width: 100%)
+- Zentrierung mit margin: auto
+- Professionelle Box-Shadow
+- Border-Radius für moderne Optik
+
+#### 💻 Code-Blocks
+- Optimierte Monospace-Fonts (SF Mono, Monaco, Cascadia Code)
+- Syntax-freundliche Farbcodierung
+- Inline-Code: Rot (#d14) auf hellgrauem Hintergrund
+- Block-Code: Schwarzer Text auf #f8f8f8
+- No-Break für zusammenhängende Blöcke
+
+#### 📊 Tabellen
+- Header-Repeat auf jeder neuen Seite
+- Zebra-Striping (#fafafa)
+- Optimierte Font-Size (0.9em)
+- Page-Break-Control für Rows
+
+#### 🎨 Typografie
+- Professioneller System-Font-Stack
+- Optimierte Zeilenhöhe (1.7)
+- Widows/Orphans-Kontrolle (3 Zeilen)
+- Font-Size: 11pt (PDF-Standard)
+
+### 🐛 Fixed
+- Inkonsistente Abstände zwischen Elementen behoben
+- Seitenumbrüche in Code-Blöcken verhindert
+- Emoji-Darstellung in PDFs korrigiert
+- URL-Anzeige für alle Link-Typen verbessert
+
+### ⚡ Performance
+- Rendering-Zeit: 1000ms → 1500ms (für bessere Qualität)
+- CSS-Größe: 1.2 KB → 3.8 KB (+2.6 KB)
+- Optimierte printToPDF-Parameter
+
+### 📚 Documentation
+- Ausführliche Dokumentation: `PDF_EXPORT_IMPROVEMENTS.md`
+- Test-Datei: `PDF_EXPORT_TEST.md`
+- Changelog aktualisiert
+
+## [0.2.0] - 2025-01-14
+
+### Added
+- 🚀 Batch-PDF-Export für alle offenen Tabs
+- 🔍 Erweiterte Suchen & Ersetzen mit Regex-Support
+- 👁️ File Watching: Automatisches Neuladen bei externen Änderungen
+- 📄 .txt Datei-Unterstützung
 
 ### Fixed
 - 🖼️ **PDF-Export** - Entfernt grauen Rahmen (box-shadow) um Bilder im PDF
