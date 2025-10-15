@@ -34,24 +34,24 @@
 
 ## 🚀 Download & Installation
 
-### Version 0.2.0 (Aktuell)
+### Version 0.2.5 (Aktuell)
 
-[![Download für macOS](https://img.shields.io/badge/macOS-Download-blue?style=for-the-badge&logo=apple)](https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.zip)
-[![Download für Windows](https://img.shields.io/badge/Windows-Download-blue?style=for-the-badge&logo=windows)](https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.exe)
-[![Download für Linux](https://img.shields.io/badge/Linux-Download-blue?style=for-the-badge&logo=linux)](https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.AppImage)
+[![Download für macOS](https://img.shields.io/badge/macOS-Download-blue?style=for-the-badge&logo=apple)](https://github.com/pepperonas/mrxdown/releases/download/v0.2.5/MrxDown-0.2.5.zip)
+[![Download für Windows](https://img.shields.io/badge/Windows-Download-blue?style=for-the-badge&logo=windows)](https://github.com/pepperonas/mrxdown/releases/download/v0.2.5/MrxDown-0.2.5.exe)
+[![Download für Linux](https://img.shields.io/badge/Linux-Download-blue?style=for-the-badge&logo=linux)](https://github.com/pepperonas/mrxdown/releases/download/v0.2.5/MrxDown-0.2.5.AppImage)
 
 | Betriebssystem | Datei                    | Größe   | Installation                                       |
 |----------------|--------------------------|---------|----------------------------------------------------|
-| **macOS**      | `MrxDown-0.2.0.zip`      | ~86 MB  | ZIP entpacken, Rechtsklick → "Öffnen"              |
-| **Windows**    | `MrxDown-0.2.0.exe`      | ~135 MB | Installer ausführen                                |
-| **Windows**    | `MrxDown-0.2.0.exe` (Portable) | ~125 MB | Direkt ausführbar, keine Installation            |
-| **Linux**      | `MrxDown-0.2.0.AppImage` | ~99 MB  | Ausführbar machen: `chmod +x`                      |
-| **Linux**      | `MrxDown-0.2.0.deb`      | ~134 MB | `sudo dpkg -i MrxDown-0.2.0.deb`                   |
-| **Linux**      | `MrxDown-0.2.0.snap`     | ~84 MB  | `sudo snap install MrxDown-0.2.0.snap --dangerous` |
+| **macOS**      | `MrxDown-0.2.5.zip`      | ~95 MB  | ZIP entpacken, Rechtsklick → "Öffnen"              |
+| **Windows**    | `MrxDown-0.2.5.exe`      | ~135 MB | Installer ausführen                                |
+| **Windows**    | `MrxDown-0.2.5.exe` (Portable) | ~125 MB | Direkt ausführbar, keine Installation            |
+| **Linux**      | `MrxDown-0.2.5.AppImage` | ~99 MB  | Ausführbar machen: `chmod +x`                      |
+| **Linux**      | `MrxDown-0.2.5.deb`      | ~134 MB | `sudo dpkg -i MrxDown-0.2.5.deb`                   |
+| **Linux**      | `MrxDown-0.2.5.snap`     | ~84 MB  | `sudo snap install MrxDown-0.2.5.snap --dangerous` |
 
 ### 🍎 macOS Installation
 
-1. **Download**: [MrxDown-0.2.0.zip](https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.zip)
+1. **Download**: [MrxDown-0.2.5.zip](https://github.com/pepperonas/mrxdown/releases/download/v0.2.5/MrxDown-0.2.5.zip)
 2. **Entpacken**: Doppelklick auf ZIP-Datei
 3. **Öffnen**: Rechtsklick auf MrxDown.app → **"Öffnen"** → **"Öffnen"** bestätigen
 
@@ -65,7 +65,7 @@ curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/install-macos.
 
 ### 🪟 Windows Installation
 
-1. **Download**: [MrxDown-0.2.0.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.exe) (Installer) oder [MrxDown-0.2.0.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.exe) (Portable)
+1. **Download**: [MrxDown-0.2.5.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.2.5/MrxDown-0.2.5.exe) (Installer) oder [MrxDown-0.2.5.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.2.5/MrxDown-0.2.5.exe) (Portable)
 2. **Installation**: Installer ausführen und Anweisungen folgen
 3. **Start**: Desktop-Icon oder Startmenü
 
@@ -75,21 +75,21 @@ curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/install-macos.
 
 ```bash
 # Download
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.AppImage
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.2.5/MrxDown-0.2.5.AppImage
 
 # Ausführbar machen
-chmod +x MrxDown-0.2.0.AppImage
+chmod +x MrxDown-0.2.5.AppImage
 
 # Starten
-./MrxDown-0.2.0.AppImage
+./MrxDown-0.2.5.AppImage
 ```
 
 #### DEB (Ubuntu/Debian)
 
 ```bash
 # Download und Installation
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.deb
-sudo dpkg -i MrxDown-0.2.0.deb
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.2.5/MrxDown-0.2.5.deb
+sudo dpkg -i MrxDown-0.2.5.deb
 
 # Falls Abhängigkeiten fehlen:
 sudo apt-get install -f
@@ -99,8 +99,8 @@ sudo apt-get install -f
 
 ```bash
 # Download und Installation
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.2.0/MrxDown-0.2.0.snap
-sudo snap install MrxDown-0.2.0.snap --dangerous
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.2.5/MrxDown-0.2.5.snap
+sudo snap install MrxDown-0.2.5.snap --dangerous
 ```
 
 ## ⌨️ Keyboard Shortcuts
@@ -167,6 +167,32 @@ npm run build-all
 5. Öffne einen Pull Request
 
 ## 📋 Changelog
+
+### Version 0.2.5 (2025-10-15)
+
+**🔧 Optimierungen:**
+- **PDF-Export vereinfacht**: Entfernung der Pandoc-Integration
+  - Vollständige Entfernung aller Pandoc-Abhängigkeiten
+  - Reduzierte Komplexität durch Fokus auf bewährten Chromium PDF-Export
+  - Keine externen Tools mehr erforderlich
+  - Verbesserte Emoji-Darstellung in PDF-Überschriften bereits in v0.2.4 gelöst
+  - Batch-PDF-Export nutzt ausschließlich native Chromium-Engine
+- **Schlankere Dependencies**: Entfernung von `node-pandoc` npm-Paket
+- **Stabilität**: Verbesserte Zuverlässigkeit durch weniger externe Abhängigkeiten
+- **Performance**: Schnellerer PDF-Export durch direkten Chromium-Rendering-Path
+
+**🛠️ Technische Details:**
+- PDF-Export verwendet ausschließlich Chromium's `printToPDF` API
+- Emoji-Support durch native Systemfonts (Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji)
+- Markdown → HTML via marked.js, HTML → PDF via Chromium
+
+### Version 0.2.4 (2025-10-14)
+
+**🐛 Bugfixes:**
+- **Emoji-Rendering in PDFs**: Korrektur der Emoji-Darstellung in PDF-Überschriften
+  - Verwendung von `white-space: pre-wrap` für korrekte Emoji-Anzeige
+  - Optimierte Font-Stack mit nativen Emoji-Fonts
+  - 2 Sekunden Rendering-Delay für vollständige Emoji-Rasterung
 
 ### Version 0.2.0 (2025-09-03)
 

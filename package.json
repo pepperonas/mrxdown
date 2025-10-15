@@ -1,6 +1,6 @@
 {
   "name": "mrxdown",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Ein moderner Markdown-Editor mit Live-Vorschau",
   "main": "main.js",
   "homepage": "https://github.com/pepperonas/mrxdown",
@@ -81,7 +81,10 @@
         "CFBundleDocumentTypes": [
           {
             "CFBundleTypeName": "Markdown Document",
-            "CFBundleTypeExtensions": ["md", "markdown"],
+            "CFBundleTypeExtensions": [
+              "md",
+              "markdown"
+            ],
             "CFBundleTypeRole": "Editor",
             "LSHandlerRank": "Owner"
           }
