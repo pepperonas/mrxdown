@@ -563,8 +563,25 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
 
         // Get the current content from the main window
         let content = await mainWindow.webContents.executeJavaScript(`
-            document.querySelector('#preview').innerHTML
+            (function() {
+                const previewElement = document.querySelector('#preview');
+                if (!previewElement) {
+                    console.error('Preview element not found');
+                    return '';
+                }
+                const html = previewElement.innerHTML;
+                console.log('Preview HTML length:', html.length);
+                return html;
+            })()
         `);
+
+        // Check if content is empty
+        if (!content || content.trim().length === 0) {
+            console.error('PDF Export: Preview content is empty');
+            dialog.showErrorBox('PDF-Export Fehler', 'Der Dokumentinhalt ist leer. Bitte schreiben Sie etwas in den Editor, bevor Sie ein PDF exportieren.');
+            pdfWindow.close();
+            return;
+        }
 
         // Convert images to base64 for embedding
         content = await convertImagesToBase64(content);
@@ -843,7 +860,9 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
             printBackground: true,
             landscape: false,
             preferCSSPageSize: true,
-            printSelectionOnly: false
+            printSelectionOnly: false,
+            generateTaggedPDF: true, // Enable tagged PDF for better accessibility and structure
+            generateDocumentOutline: true // Try to generate document outline from headings
         });
 
         pdfWindow.close();
@@ -1197,7 +1216,9 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                     printBackground: true,
                     landscape: false,
                     preferCSSPageSize: true,
-                    printSelectionOnly: false
+                    printSelectionOnly: false,
+                    generateTaggedPDF: true, // Enable tagged PDF for better accessibility and structure
+                    generateDocumentOutline: true // Try to generate document outline from headings
                 });
                 
                 pdfWindow.close();
