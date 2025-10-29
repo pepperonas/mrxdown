@@ -381,16 +381,90 @@ function renderMarkdown() {
         editor.parentElement.style.width = '';
         const markdown = editor.value;
 
-        // Configure marked to add IDs to headings for anchor links
-        marked.setOptions({
-            headerIds: true,
-            gfm: true,
-            breaks: false
-        });
+        // Configure marked with a custom renderer to add IDs to headings
+        if (typeof marked !== 'undefined') {
+            const renderer = new marked.Renderer();
+            const headingIds = {}; // Track heading IDs to handle duplicates
+
+            // Override heading renderer to add IDs
+            renderer.heading = function(text, level, raw) {
+                // Check if heading starts with emoji BEFORE processing
+                const startsWithEmoji = /^[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(raw.trim());
+
+                // Generate base ID from heading text (GitHub-compatible)
+                // GitHub's algorithm:
+                // 1. Replace spaces with dashes FIRST
+                // 2. Replace emojis with dash (before removing other chars)
+                // 3. Remove special characters (NOT replace with dash)
+                // 4. DON'T collapse multiple dashes
+                let baseId = raw
+                    .toLowerCase()
+                    .trim()
+                    // Step 1: Replace emojis with dash (do this before space replacement)
+                    .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '-')
+                    // Step 2: Replace all whitespace with single dash
+                    .replace(/\s+/g, '-')
+                    // Step 3: Remove all non-word characters (except hyphens and German umlauts)
+                    // This removes &, /, :, etc. WITHOUT replacing them
+                    .replace(/[^\wäöüßÄÖÜ-]/g, '')
+                    // Step 4: Trim leading/trailing hyphens (but keep one if started with emoji)
+                    .replace(/-+$/g, '')
+                    .replace(/^-+/, startsWithEmoji ? '-' : '');
+
+                // Handle duplicate IDs by adding a counter
+                let id = baseId;
+                if (headingIds[baseId]) {
+                    headingIds[baseId]++;
+                    id = `${baseId}-${headingIds[baseId]}`;
+                } else {
+                    headingIds[baseId] = 0;
+                }
+
+                return `<h${level} id="${id}">${text}</h${level}>`;
+            };
+
+            marked.use({
+                gfm: true,
+                breaks: false,
+                headerIds: false,  // Disable automatic ID generation
+                mangle: false,     // Don't mangle IDs
+                renderer: renderer
+            });
+        }
 
         const html = marked.parse(markdown);
         preview.innerHTML = DOMPurify.sanitize(html, {
             ADD_ATTR: ['id'] // Allow id attribute for heading anchors
+        });
+
+        // Post-processing: Fix heading IDs to match GitHub algorithm
+        // This runs AFTER rendering to ensure IDs are correct regardless of marked.js behavior
+        const headings = preview.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        const idCounts = {};
+
+        headings.forEach(heading => {
+            const text = heading.textContent || '';
+            const startsWithEmoji = /^[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(text.trim());
+
+            // Generate ID using GitHub algorithm
+            let id = text
+                .toLowerCase()
+                .trim()
+                .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '-')
+                .replace(/\s+/g, '-')
+                .replace(/[^\wäöüßÄÖÜ-]/g, '')
+                .replace(/-+$/g, '')
+                .replace(/^-+/, startsWithEmoji ? '-' : '');
+
+            // Handle duplicates
+            if (idCounts[id] !== undefined) {
+                idCounts[id]++;
+                id = `${id}-${idCounts[id]}`;
+            } else {
+                idCounts[id] = 0;
+            }
+
+            heading.id = id;
         });
     }
 }
@@ -678,9 +752,28 @@ function generateHTMLExport() {
     const activeTab = tabs.find(tab => tab.id === activeTabId);
     const title = activeTab ? activeTab.title : 'Export';
 
-    // Get the preview content with IDs preserved
-    const previewClone = preview.cloneNode(true);
-    const images = previewClone.querySelectorAll('img');
+    // Get the preview element
+    const previewElement = document.getElementById('preview');
+    console.log('Preview element:', previewElement);
+    console.log('Preview innerHTML length:', previewElement ? previewElement.innerHTML.length : 0);
+
+    if (!previewElement || !previewElement.innerHTML || previewElement.innerHTML.trim().length === 0) {
+        console.error('Preview is empty!');
+        alert('Der Preview-Bereich ist leer. Bitte stellen Sie sicher, dass Markdown-Inhalt vorhanden ist.');
+        return null;
+    }
+
+    // Get just the HTML content, not a clone
+    const htmlContent = previewElement.innerHTML;
+
+    // Debug: Check if headings have IDs
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    const headingsWithIds = tempDiv.querySelectorAll('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]');
+    console.log('Headings with IDs in export:', headingsWithIds.length);
+    headingsWithIds.forEach(h => console.log(`${h.tagName}: id="${h.id}"`));
+
+    const images = tempDiv.querySelectorAll('img');
 
     images.forEach(img => {
         const src = img.src;
@@ -766,7 +859,7 @@ function generateHTMLExport() {
     </style>
 </head>
 <body>
-    ${previewClone.innerHTML}
+    ${htmlContent}
 </body>
 </html>`;
 }
@@ -1322,13 +1415,15 @@ function handleBatchExportPrepareTab(filePath, content) {
             return;
         }
         
-        // Switch to the tab
+        // Save current tab state before switching
+        saveCurrentTabState();
+
+        // Switch to the tab (this will load the correct content)
         switchTab(targetTab.id);
-        
-        // Update the content if needed
-        targetTab.content = content;
-        editor.value = content;
-        
+
+        // DON'T overwrite the content - use what's already in the tab
+        // The switchTab function already loads the correct content
+
         // Render markdown and wait a moment
         renderMarkdown();
         

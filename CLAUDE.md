@@ -64,7 +64,7 @@ The application follows Electron's secure two-process architecture:
 14. **File Watching**: Automatic detection and reloading of external file changes
 15. **Search & Replace**: Advanced search functionality with regex support, case-sensitive options, whole-word matching, and real-time match counting
 16. **Batch PDF Export**: Export all open tabs as PDF files to their respective directories with rocket button (🚀)
-17. **Interactive PDF Export**: PDFs with working internal anchor links and automatic heading IDs for navigation
+17. **HTML Export with Anchor Links**: Fully functional anchor navigation in HTML exports with GitHub-compatible heading IDs
 
 ### File Structure
 ```
@@ -102,3 +102,68 @@ mrxdown/
 - The application is fully responsive and supports both desktop and mobile layouts
 - All features are accessible via keyboard shortcuts
 - The app supports German localization throughout
+
+## Important Technical Learnings
+
+### HTML Export Anchor Links (renderer.js:389-477)
+
+**Problem:** HTML exports didn't have working anchor links - headings had incorrect IDs that didn't match the GitHub-style anchor links in the markdown.
+
+**Root Cause:** marked.js with `gfm: true` enables automatic ID generation that uses a different algorithm than GitHub's, causing mismatches like:
+- Link: `#routing--switching` (double dash from `&`)
+- Heading ID: `id="routing-switching"` (single dash - WRONG!)
+
+**Solution:** Two-layer approach to ensure correct IDs:
+
+1. **Custom Renderer (renderer.js:389-424):**
+   - Override `marked.Renderer().heading()` function
+   - Disable marked.js auto-IDs: `headerIds: false, mangle: false`
+   - Generate IDs using GitHub's algorithm
+
+2. **Post-Processing (renderer.js:448-476):**
+   - **Critical:** After rendering, re-process all headings with JavaScript
+   - Use `querySelectorAll('h1, h2, h3, h4, h5, h6')` to fix IDs
+   - This runs in browser context, bypassing Electron's aggressive file caching
+
+**GitHub-Compatible ID Generation Algorithm:**
+```javascript
+1. Convert to lowercase
+2. Replace emojis with `-` (📋 → -)
+3. Replace spaces with `-`
+4. REMOVE special characters like &, /, : (DON'T replace with dash!)
+5. Keep: letters, numbers, hyphens, German umlauts (äöüßÄÖÜ)
+6. DON'T collapse multiple dashes (this is key!)
+7. Trim trailing dashes
+8. Keep ONE leading dash for emoji headings
+```
+
+**Examples:**
+```javascript
+// Special characters create DOUBLE dashes
+"Routing & Switching"     → "routing--switching"  // & removed, leaving --
+"DNS & DHCP"              → "dns--dhcp"           // NOT dns-dhcp!
+"ISO 27001/27002"         → "iso-27001--27002"    // / removed, leaving --
+
+// Emoji headings keep leading dash
+"📋 Inhaltsverzeichnis"   → "-inhaltsverzeichnis"
+
+// Normal headings
+"1. Grundlagen"           → "1-grundlagen"
+```
+
+**Duplicate Handling:**
+```javascript
+First:  id="section-name"
+Second: id="section-name-1"
+Third:  id="section-name-2"
+```
+
+**Why Post-Processing Was Necessary:**
+- Electron caches `renderer.js` aggressively
+- marked.js `gfm: true` overrides custom renderers
+- Post-processing in browser context always runs fresh
+- Ensures IDs are correct regardless of caching issues
+
+**Critical Details:**
+- `ADD_ATTR: ['id']` in DOMPurify preserves ID attributes
+- Electron's `printToPDF()` does NOT support clickable internal links in PDFs
