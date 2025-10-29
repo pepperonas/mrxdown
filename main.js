@@ -744,9 +744,21 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
                         word-break: break-all;
                     }
 
-                    /* Don't show URL for anchor links */
+                    /* Don't show URL for anchor links (internal page links) */
                     a[href^="#"]:after {
                         content: "";
+                    }
+
+                    /* Style internal anchor links */
+                    a[href^="#"] {
+                        color: #0066cc !important;
+                        text-decoration: underline;
+                        cursor: pointer;
+                    }
+
+                    /* Ensure heading IDs are preserved for anchor navigation */
+                    h1[id], h2[id], h3[id], h4[id], h5[id], h6[id] {
+                        scroll-margin-top: 2em;
                     }
 
                     /* ===== TABLES WITH PAGE BREAK CONTROL ===== */
@@ -1086,9 +1098,21 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                                 word-break: break-all;
                             }
 
-                            /* Don't show URL for anchor links */
+                            /* Don't show URL for anchor links (internal page links) */
                             a[href^="#"]:after {
                                 content: "";
+                            }
+
+                            /* Style internal anchor links */
+                            a[href^="#"] {
+                                color: #0066cc !important;
+                                text-decoration: underline;
+                                cursor: pointer;
+                            }
+
+                            /* Ensure heading IDs are preserved for anchor navigation */
+                            h1[id], h2[id], h3[id], h4[id], h5[id], h6[id] {
+                                scroll-margin-top: 2em;
                             }
 
                             /* ===== TABLES WITH PAGE BREAK CONTROL ===== */

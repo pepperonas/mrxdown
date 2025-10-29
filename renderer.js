@@ -369,7 +369,7 @@ function handleEditorKeydown(e) {
 function renderMarkdown() {
     const activeTab = tabs.find(tab => tab.id === activeTabId);
     const isTextFile = activeTab && activeTab.filePath && activeTab.filePath.toLowerCase().endsWith('.txt');
-    
+
     if (isTextFile) {
         // For .txt files, hide preview and show only editor
         preview.style.display = 'none';
@@ -380,8 +380,18 @@ function renderMarkdown() {
         preview.style.display = 'block';
         editor.parentElement.style.width = '';
         const markdown = editor.value;
+
+        // Configure marked to add IDs to headings for anchor links
+        marked.setOptions({
+            headerIds: true,
+            gfm: true,
+            breaks: false
+        });
+
         const html = marked.parse(markdown);
-        preview.innerHTML = DOMPurify.sanitize(html);
+        preview.innerHTML = DOMPurify.sanitize(html, {
+            ADD_ATTR: ['id'] // Allow id attribute for heading anchors
+        });
     }
 }
 
@@ -667,11 +677,11 @@ function exportHTML() {
 function generateHTMLExport() {
     const activeTab = tabs.find(tab => tab.id === activeTabId);
     const title = activeTab ? activeTab.title : 'Export';
-    
-    // Convert all images to base64 for embedding
+
+    // Get the preview content with IDs preserved
     const previewClone = preview.cloneNode(true);
     const images = previewClone.querySelectorAll('img');
-    
+
     images.forEach(img => {
         const src = img.src;
         // Keep base64 images as is, convert file:// URLs to base64
@@ -734,6 +744,24 @@ function generateHTMLExport() {
             height: auto;
             margin: 16px 0;
             border-radius: 4px;
+        }
+        /* Style anchor links */
+        a[href^="#"] {
+            color: #688db1;
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: border-color 0.3s ease;
+        }
+        a[href^="#"]:hover {
+            border-bottom-color: #688db1;
+        }
+        /* Smooth scroll for anchor navigation */
+        html {
+            scroll-behavior: smooth;
+        }
+        /* Ensure headings with IDs are accessible */
+        h1[id], h2[id], h3[id], h4[id], h5[id], h6[id] {
+            scroll-margin-top: 2em;
         }
     </style>
 </head>
@@ -862,6 +890,30 @@ function showSettings() {
 
 // Global Shortcuts
 function handleGlobalShortcuts(e) {
+    // ESC to close dialogs
+    if (e.key === 'Escape') {
+        if (searchModal && searchModal.classList.contains('visible')) {
+            e.preventDefault();
+            closeSearchDialog();
+            return;
+        }
+        if (replaceModal && replaceModal.classList.contains('visible')) {
+            e.preventDefault();
+            closeReplaceDialog();
+            return;
+        }
+        if (aboutModal && aboutModal.classList.contains('visible')) {
+            e.preventDefault();
+            closeAboutDialog();
+            return;
+        }
+        if (tableEditor && tableEditor.classList.contains('visible')) {
+            e.preventDefault();
+            closeTableEditor();
+            return;
+        }
+    }
+
     if (e.metaKey || e.ctrlKey) {
         switch (e.key) {
             case 'n':
@@ -906,9 +958,9 @@ function handleGlobalShortcuts(e) {
                 break;
             case 'f':
                 e.preventDefault();
-                showFindDialog();
+                showSearchDialog();
                 break;
-            case 'h':
+            case 'r':
                 e.preventDefault();
                 showReplaceDialog();
                 break;
@@ -943,14 +995,14 @@ function handleGlobalShortcuts(e) {
                 e.preventDefault();
                 // Cycle through tabs
                 const currentIndex = tabs.findIndex(tab => tab.id === activeTabId);
-                const nextIndex = e.shiftKey ? 
-                    (currentIndex - 1 + tabs.length) % tabs.length : 
+                const nextIndex = e.shiftKey ?
+                    (currentIndex - 1 + tabs.length) % tabs.length :
                     (currentIndex + 1) % tabs.length;
                 switchTab(tabs[nextIndex].id);
                 break;
         }
     }
-    
+
     // F11 for fullscreen
     if (e.key === 'F11') {
         e.preventDefault();
@@ -1312,6 +1364,10 @@ function showSearchDialog() {
         if (searchInput) {
             searchInput.focus();
             searchInput.select();
+            // Trigger search to update count
+            if (searchInput.value) {
+                updateSearchResults();
+            }
         }
     }
 }
@@ -1330,6 +1386,10 @@ function showReplaceDialog() {
         if (replaceSearchInput) {
             replaceSearchInput.focus();
             replaceSearchInput.select();
+            // Trigger search to update count
+            if (replaceSearchInput.value) {
+                updateReplaceResults();
+            }
         }
     }
 }
@@ -1338,6 +1398,56 @@ function closeReplaceDialog() {
     if (replaceModal) {
         replaceModal.classList.remove('visible');
         clearSearchHighlights();
+    }
+}
+
+function updateSearchResults() {
+    const searchInput = document.getElementById('searchInput');
+    const searchTerm = searchInput?.value || '';
+    const resultInfo = document.getElementById('searchResultInfo');
+
+    if (!searchTerm) {
+        if (resultInfo) resultInfo.textContent = '';
+        return;
+    }
+
+    currentSearchTerm = searchTerm;
+    searchMatches = performSearch(searchTerm);
+
+    if (resultInfo) {
+        if (searchMatches.length === 0) {
+            resultInfo.textContent = 'Keine Treffer gefunden';
+            resultInfo.style.color = 'var(--accent-red)';
+        } else {
+            const current = currentMatchIndex >= 0 ? currentMatchIndex + 1 : 0;
+            resultInfo.textContent = `${searchMatches.length} Treffer gefunden${current > 0 ? ` (${current}/${searchMatches.length})` : ''}`;
+            resultInfo.style.color = 'var(--text-secondary)';
+        }
+    }
+}
+
+function updateReplaceResults() {
+    const replaceSearchInput = document.getElementById('replaceSearchInput');
+    const searchTerm = replaceSearchInput?.value || '';
+    const resultInfo = document.getElementById('replaceResultInfo');
+
+    if (!searchTerm) {
+        if (resultInfo) resultInfo.textContent = '';
+        return;
+    }
+
+    currentSearchTerm = searchTerm;
+    searchMatches = performSearch(searchTerm, true);
+
+    if (resultInfo) {
+        if (searchMatches.length === 0) {
+            resultInfo.textContent = 'Keine Treffer gefunden';
+            resultInfo.style.color = 'var(--accent-red)';
+        } else {
+            const current = currentMatchIndex >= 0 ? currentMatchIndex + 1 : 0;
+            resultInfo.textContent = `${searchMatches.length} Treffer gefunden${current > 0 ? ` (${current}/${searchMatches.length})` : ''}`;
+            resultInfo.style.color = 'var(--text-secondary)';
+        }
     }
 }
 
@@ -1410,73 +1520,80 @@ function clearSearchHighlights() {
 function findNext() {
     const searchInput = document.getElementById('searchInput');
     const searchTerm = searchInput?.value || '';
-    
+
     if (!searchTerm) return;
-    
+
     if (searchTerm !== currentSearchTerm) {
-        currentSearchTerm = searchTerm;
-        searchMatches = performSearch(searchTerm);
-        currentMatchIndex = -1;
+        updateSearchResults();
     }
-    
+
     if (searchMatches.length === 0) {
-        alert('Keine Treffer gefunden');
+        updateSearchResults();
         return;
     }
-    
+
     currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
     const match = searchMatches[currentMatchIndex];
-    
+
     editor.focus();
     editor.setSelectionRange(match.start, match.end);
+    editor.scrollTop = editor.scrollHeight * (match.start / editor.value.length) - (editor.clientHeight / 2);
+
+    // Update the counter
+    updateSearchResults();
 }
 
 function findPrevious() {
     const searchInput = document.getElementById('searchInput');
     const searchTerm = searchInput?.value || '';
-    
+
     if (!searchTerm) return;
-    
+
     if (searchTerm !== currentSearchTerm) {
-        currentSearchTerm = searchTerm;
-        searchMatches = performSearch(searchTerm);
+        updateSearchResults();
         currentMatchIndex = searchMatches.length;
     }
-    
+
     if (searchMatches.length === 0) {
-        alert('Keine Treffer gefunden');
+        updateSearchResults();
         return;
     }
-    
+
     currentMatchIndex = currentMatchIndex <= 0 ? searchMatches.length - 1 : currentMatchIndex - 1;
     const match = searchMatches[currentMatchIndex];
-    
+
     editor.focus();
     editor.setSelectionRange(match.start, match.end);
+    editor.scrollTop = editor.scrollHeight * (match.start / editor.value.length) - (editor.clientHeight / 2);
+
+    // Update the counter
+    updateSearchResults();
 }
 
 function findNextReplace() {
     const replaceSearchInput = document.getElementById('replaceSearchInput');
     const searchTerm = replaceSearchInput?.value || '';
-    
+
     if (!searchTerm) return;
-    
+
     if (searchTerm !== currentSearchTerm) {
-        currentSearchTerm = searchTerm;
-        searchMatches = performSearch(searchTerm, true);
-        currentMatchIndex = -1;
+        updateReplaceResults();
     }
-    
+
     if (searchMatches.length === 0) {
-        alert('Keine Treffer gefunden');
+        updateReplaceResults();
         return;
     }
-    
+
     currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
     const match = searchMatches[currentMatchIndex];
-    
+
     editor.focus();
     editor.setSelectionRange(match.start, match.end);
+    editor.scrollTop = editor.scrollHeight * (match.start / editor.value.length) - (editor.clientHeight / 2);
+
+    // Update the counter
+    updateReplaceResults();
 }
 
 function replaceNext() {
@@ -1484,18 +1601,18 @@ function replaceNext() {
     const replaceInput = document.getElementById('replaceInput');
     const searchTerm = replaceSearchInput?.value || '';
     const replaceTerm = replaceInput?.value || '';
-    
+
     if (!searchTerm) return;
-    
+
     // Get current selection
     const selectionStart = editor.selectionStart;
     const selectionEnd = editor.selectionEnd;
     const selectedText = editor.value.substring(selectionStart, selectionEnd);
-    
+
     // Check if current selection matches search term
     const options = getSearchOptions(true);
     let matches = false;
-    
+
     if (options.regex) {
         try {
             const flags = options.caseSensitive ? '' : 'i';
@@ -1505,29 +1622,29 @@ function replaceNext() {
             matches = selectedText === searchTerm;
         }
     } else {
-        matches = options.caseSensitive ? 
-            selectedText === searchTerm : 
+        matches = options.caseSensitive ?
+            selectedText === searchTerm :
             selectedText.toLowerCase() === searchTerm.toLowerCase();
     }
-    
+
     if (matches) {
         // Replace current selection
         const newValue = editor.value.substring(0, selectionStart) + replaceTerm + editor.value.substring(selectionEnd);
         editor.value = newValue;
         editor.setSelectionRange(selectionStart, selectionStart + replaceTerm.length);
-        
+
         // Mark tab as modified
         const activeTab = tabs.find(tab => tab.id === activeTabId);
         if (activeTab) {
             markTabAsModified(activeTabId, true);
         }
-        
+
         renderMarkdown();
-        
+
         // Reset search to account for text change
         currentSearchTerm = '';
     }
-    
+
     // Find next match
     findNextReplace();
 }
@@ -1537,38 +1654,43 @@ function replaceAll() {
     const replaceInput = document.getElementById('replaceInput');
     const searchTerm = replaceSearchInput?.value || '';
     const replaceTerm = replaceInput?.value || '';
-    
+
     if (!searchTerm) return;
-    
+
     const matches = performSearch(searchTerm, true);
     if (matches.length === 0) {
-        alert('Keine Treffer gefunden');
+        updateReplaceResults();
         return;
     }
-    
+
     const confirmReplace = confirm(`${matches.length} Treffer gefunden. Alle ersetzen?`);
     if (!confirmReplace) return;
-    
+
     let newValue = editor.value;
-    
+
     // Replace from end to start to maintain indices
     for (let i = matches.length - 1; i >= 0; i--) {
         const match = matches[i];
         newValue = newValue.substring(0, match.start) + replaceTerm + newValue.substring(match.end);
     }
-    
+
     editor.value = newValue;
-    
+
     // Mark tab as modified
     const activeTab = tabs.find(tab => tab.id === activeTabId);
     if (activeTab) {
         markTabAsModified(activeTabId, true);
     }
-    
+
     renderMarkdown();
     clearSearchHighlights();
-    
-    alert(`${matches.length} Ersetzungen vorgenommen`);
+
+    // Show success message
+    const resultInfo = document.getElementById('replaceResultInfo');
+    if (resultInfo) {
+        resultInfo.textContent = `${matches.length} Ersetzungen vorgenommen`;
+        resultInfo.style.color = 'var(--accent-green)';
+    }
 }
 
 

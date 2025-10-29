@@ -62,8 +62,9 @@ The application follows Electron's secure two-process architecture:
 12. **Zen Mode**: Distraction-free writing mode
 13. **Auto-save**: Configurable auto-save functionality
 14. **File Watching**: Automatic detection and reloading of external file changes
-15. **Search & Replace**: Advanced search functionality with regex support, case-sensitive options, and whole-word matching
+15. **Search & Replace**: Advanced search functionality with regex support, case-sensitive options, whole-word matching, and real-time match counting
 16. **Batch PDF Export**: Export all open tabs as PDF files to their respective directories with rocket button (🚀)
+17. **Interactive PDF Export**: PDFs with working internal anchor links and automatic heading IDs for navigation
 
 ### File Structure
 ```
@@ -82,7 +83,7 @@ mrxdown/
 - **File Operations**: Cmd/Ctrl + N (New), O (Open), S (Save), Shift+S (Save As)
 - **Formatting**: Cmd/Ctrl + B (Bold), I (Italic), K (Link), ` (Code), T (Table)
 - **Headings**: Cmd/Ctrl + 1-6 (H1-H6)
-- **Search**: Cmd/Ctrl + F (Find), R (Replace)
+- **Search**: Cmd/Ctrl + F (Find), Cmd/Ctrl + R (Replace)
 - **View**: Cmd/Ctrl + \ (Sidebar), Shift+Z (Zen Mode)
 - **Export**: Cmd/Ctrl + E (HTML), Cmd/Ctrl + P (PDF)
 - **Tabs**: Cmd/Ctrl + Tab (Next), Shift+Tab (Previous)

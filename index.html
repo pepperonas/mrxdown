@@ -1306,7 +1306,7 @@
         <div class="modal">
             <div class="modal-header">
                 <h2 class="modal-title">MrxDown</h2>
-                <div class="modal-version">Version 0.1.3</div>
+                <div class="modal-version">Version 0.3.0</div>
             </div>
             <div class="modal-content">
                 <div class="modal-section">
@@ -1342,11 +1342,12 @@
             </div>
             <div class="modal-content">
                 <div class="search-controls">
-                    <input type="text" class="search-input" id="searchInput" placeholder="Suchbegriff eingeben...">
+                    <input type="text" class="search-input" id="searchInput" placeholder="Suchbegriff eingeben..." oninput="updateSearchResults()">
+                    <div class="search-result-info" id="searchResultInfo"></div>
                     <div class="search-options">
-                        <label><input type="checkbox" id="searchCaseSensitive"> Groß-/Kleinschreibung</label>
-                        <label><input type="checkbox" id="searchRegex"> Reguläre Ausdrücke</label>
-                        <label><input type="checkbox" id="searchWholeWord"> Ganze Wörter</label>
+                        <label><input type="checkbox" id="searchCaseSensitive" onchange="updateSearchResults()"> Groß-/Kleinschreibung</label>
+                        <label><input type="checkbox" id="searchRegex" onchange="updateSearchResults()"> Reguläre Ausdrücke</label>
+                        <label><input type="checkbox" id="searchWholeWord" onchange="updateSearchResults()"> Ganze Wörter</label>
                     </div>
                     <div class="search-buttons">
                         <button class="modal-button" onclick="findNext()">Weiter suchen</button>
@@ -1366,12 +1367,13 @@
             </div>
             <div class="modal-content">
                 <div class="search-controls">
-                    <input type="text" class="search-input" id="replaceSearchInput" placeholder="Suchbegriff eingeben...">
+                    <input type="text" class="search-input" id="replaceSearchInput" placeholder="Suchbegriff eingeben..." oninput="updateReplaceResults()">
                     <input type="text" class="search-input" id="replaceInput" placeholder="Ersetzen durch...">
+                    <div class="search-result-info" id="replaceResultInfo"></div>
                     <div class="search-options">
-                        <label><input type="checkbox" id="replaceCaseSensitive"> Groß-/Kleinschreibung</label>
-                        <label><input type="checkbox" id="replaceRegex"> Reguläre Ausdrücke</label>
-                        <label><input type="checkbox" id="replaceWholeWord"> Ganze Wörter</label>
+                        <label><input type="checkbox" id="replaceCaseSensitive" onchange="updateReplaceResults()"> Groß-/Kleinschreibung</label>
+                        <label><input type="checkbox" id="replaceRegex" onchange="updateReplaceResults()"> Reguläre Ausdrücke</label>
+                        <label><input type="checkbox" id="replaceWholeWord" onchange="updateReplaceResults()"> Ganze Wörter</label>
                     </div>
                     <div class="search-buttons">
                         <button class="modal-button" onclick="replaceNext()">Ersetzen</button>
