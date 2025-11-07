@@ -649,7 +649,7 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
                     /* ===== OPTIMIZED PARAGRAPHS & LINE BREAKS ===== */
                     p {
                         color: #1a1a1a !important;
-                        margin: 0.8em 0;
+                        margin: 0.4em 0;
                         text-align: justify;
                         hyphens: auto;
                     }
@@ -658,12 +658,12 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
                     br {
                         display: block;
                         content: "";
-                        margin: 0.5em 0;
+                        margin: 0.2em 0;
                     }
 
                     /* Empty paragraphs for spacing */
                     p:empty {
-                        margin: 1em 0;
+                        margin: 0.6em 0;
                     }
 
                     /* ===== INLINE FORMATTING ===== */
@@ -989,7 +989,7 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                             /* ===== OPTIMIZED PARAGRAPHS & LINE BREAKS ===== */
                             p {
                                 color: #1a1a1a !important;
-                                margin: 0.8em 0;
+                                margin: 0.4em 0;
                                 text-align: justify;
                                 hyphens: auto;
                             }
@@ -998,12 +998,12 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                             br {
                                 display: block;
                                 content: "";
-                                margin: 0.5em 0;
+                                margin: 0.2em 0;
                             }
 
                             /* Empty paragraphs for spacing */
                             p:empty {
-                                margin: 1em 0;
+                                margin: 0.6em 0;
                             }
 
                             /* ===== INLINE FORMATTING ===== */
