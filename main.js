@@ -746,24 +746,11 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
                         margin-right: 0.5em;
                     }
 
-                    /* ===== HYPERLINKS WITH URL DISPLAY ===== */
+                    /* ===== HYPERLINKS ===== */
                     a {
                         color: #0066cc !important;
-                        text-decoration: none;
+                        text-decoration: underline;
                         word-wrap: break-word;
-                    }
-
-                    /* Show URLs after links in print */
-                    a[href]:after {
-                        content: " (" attr(href) ")";
-                        font-size: 0.85em;
-                        color: #666 !important;
-                        word-break: break-all;
-                    }
-
-                    /* Don't show URL for anchor links (internal page links) */
-                    a[href^="#"]:after {
-                        content: "";
                     }
 
                     /* Style internal anchor links */
@@ -1100,24 +1087,11 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                                 margin-right: 0.5em;
                             }
 
-                            /* ===== HYPERLINKS WITH URL DISPLAY ===== */
+                            /* ===== HYPERLINKS ===== */
                             a {
                                 color: #0066cc !important;
-                                text-decoration: none;
+                                text-decoration: underline;
                                 word-wrap: break-word;
-                            }
-
-                            /* Show URLs after links in print */
-                            a[href]:after {
-                                content: " (" attr(href) ")";
-                                font-size: 0.85em;
-                                color: #666 !important;
-                                word-break: break-all;
-                            }
-
-                            /* Don't show URL for anchor links (internal page links) */
-                            a[href^="#"]:after {
-                                content: "";
                             }
 
                             /* Style internal anchor links */
