@@ -14,6 +14,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Header/Footer mit Seitennummerierung
 
+## [0.3.0] - 2025-01-07
+
+### 🐛 Fixed
+- **PDF-Export Bilddarstellung**: Entfernung des grauen Rands/Schattens um Bilder
+  - Entfernung von `box-shadow: 0 2px 8px rgba(0,0,0,0.1)` aus PDF-Styling
+  - Entfernung von `border-radius: 4px` für saubere Bildkanten
+  - Fix gilt für einzelnen PDF-Export (`print-to-pdf`) und Batch-PDF-Export (`batch-print-to-pdf`)
+  - Bilder werden jetzt ohne visuelle Artefakte exportiert
+  - Betrifft beide Export-Modi in main.js (Zeilen 817-823 und 1171-1177)
+
+### 🎨 Changed
+- **HTML-Export**: Optimierung der Bilddarstellung in HTML-Exporten
+  - Entfernung von `border-radius: 4px` in generateHTMLExport() (renderer.js:835-839)
+  - Konsistente Bilddarstellung über alle Export-Formate
+  - Saubere, professionelle PDF-Ausgabe ohne störende Schatten
+
+### 🔧 Technical
+- Beide PDF-Export-Funktionen synchronisiert
+- HTML-Export-Styling vereinfacht
+- Verbesserte Bildqualität in allen Exportformaten
+
 ## [0.2.4] - 2025-01-15
 
 ### 🐛 Fixed

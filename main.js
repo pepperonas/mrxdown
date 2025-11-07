@@ -819,9 +819,7 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
                         height: auto;
                         margin: 1.5em auto;
                         display: block;
-                        border-radius: 4px;
                         page-break-inside: avoid;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                     }
 
                     /* ===== HORIZONTAL RULES ===== */
@@ -1175,9 +1173,7 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                                 height: auto;
                                 margin: 1.5em auto;
                                 display: block;
-                                border-radius: 4px;
                                 page-break-inside: avoid;
-                                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                             }
 
                             /* ===== HORIZONTAL RULES ===== */

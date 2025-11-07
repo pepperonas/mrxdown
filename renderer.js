@@ -836,7 +836,6 @@ function generateHTMLExport() {
             max-width: 100%;
             height: auto;
             margin: 16px 0;
-            border-radius: 4px;
         }
         /* Style anchor links */
         a[href^="#"] {
