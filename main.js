@@ -804,8 +804,7 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
                     img {
                         max-width: 100%;
                         height: auto;
-                        margin: 1.5em auto;
-                        display: block;
+                        margin: 1.5em 0;
                         page-break-inside: avoid;
                     }
 
@@ -1145,8 +1144,7 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                             img {
                                 max-width: 100%;
                                 height: auto;
-                                margin: 1.5em auto;
-                                display: block;
+                                margin: 1.5em 0;
                                 page-break-inside: avoid;
                             }
 
