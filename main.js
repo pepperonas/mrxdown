@@ -658,7 +658,7 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
                     br {
                         display: block;
                         content: "";
-                        margin: 0.5em 0;
+                        margin: 0;
                     }
 
                     /* Empty paragraphs for spacing */
@@ -998,7 +998,7 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                             br {
                                 display: block;
                                 content: "";
-                                margin: 0.5em 0;
+                                margin: 0;
                             }
 
                             /* Empty paragraphs for spacing */
