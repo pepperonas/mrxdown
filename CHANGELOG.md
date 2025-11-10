@@ -14,6 +14,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Header/Footer mit Seitennummerierung
 
+## [0.3.1] - 2025-01-10
+
+### 🐛 Fixed
+- **PDF-Export `<br>` Tag Rendering**: `<br>` Tags werden jetzt korrekt im PDF gerendert
+  - `<br>` Tags werden automatisch in `<div class="line-break">` mit height: 0 umgewandelt
+  - Chromium's PDF-Engine rendert diese garantiert
+  - Fix gilt für marked.js HTML-Ausgabe (DOMPurify: `ADD_TAGS: ['br']`)
+  - Betrifft single PDF-Export und Batch-PDF-Export
+
+### 🎨 Changed
+- **PDF-Export Zeilenabstände**: Optimierung der Abstände zwischen Absätzen
+  - Paragraph margins standardmäßig auf 0 gesetzt
+  - Abstand nur zwischen aufeinanderfolgenden Absätzen (`p + p`)
+  - Kein Abstand direkt nach Überschriften
+  - Kompakte Darstellung von Adressblöcken mit Zeilenumbrüchen
+  - Line-height an Live-Preview angepasst (body: 1.7, headings: 2rem/1rem margins)
+
+### 🔧 Technical
+- marked.js Konfiguration: `sanitize: false`, `pedantic: false` für Inline-HTML
+- DOMPurify: `ADD_TAGS: ['br']`, `KEEP_CONTENT: true`
+- PDF CSS-Optimierung für heading margins (2rem top, 1rem bottom)
+- Post-Processing: `<br>` → `<div class="line-break">`  replacement
+
 ## [0.3.0] - 2025-01-07
 
 ### 🐛 Fixed

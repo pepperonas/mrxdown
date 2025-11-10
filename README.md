@@ -34,24 +34,24 @@
 
 ## 🚀 Download & Installation
 
-### Version 0.3.0 (Aktuell)
+### Version 0.3.1 (Aktuell)
 
-[![Download für macOS](https://img.shields.io/badge/macOS-Download-blue?style=for-the-badge&logo=apple)](https://github.com/pepperonas/mrxdown/releases/download/v0.3.0/MrxDown-0.3.0.zip)
-[![Download für Windows](https://img.shields.io/badge/Windows-Download-blue?style=for-the-badge&logo=windows)](https://github.com/pepperonas/mrxdown/releases/download/v0.3.0/MrxDown-0.3.0.exe)
-[![Download für Linux](https://img.shields.io/badge/Linux-Download-blue?style=for-the-badge&logo=linux)](https://github.com/pepperonas/mrxdown/releases/download/v0.3.0/MrxDown-0.3.0.AppImage)
+[![Download für macOS](https://img.shields.io/badge/macOS-Download-blue?style=for-the-badge&logo=apple)](https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.zip)
+[![Download für Windows](https://img.shields.io/badge/Windows-Download-blue?style=for-the-badge&logo=windows)](https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.exe)
+[![Download für Linux](https://img.shields.io/badge/Linux-Download-blue?style=for-the-badge&logo=linux)](https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.AppImage)
 
 | Betriebssystem | Datei                    | Größe   | Installation                                       |
 |----------------|--------------------------|---------|----------------------------------------------------|
-| **macOS**      | `MrxDown-0.3.0.zip`      | ~95 MB  | ZIP entpacken, Rechtsklick → "Öffnen"              |
-| **Windows**    | `MrxDown-0.3.0.exe`      | ~135 MB | Installer ausführen                                |
-| **Windows**    | `MrxDown-0.3.0.exe` (Portable) | ~125 MB | Direkt ausführbar, keine Installation            |
-| **Linux**      | `MrxDown-0.3.0.AppImage` | ~99 MB  | Ausführbar machen: `chmod +x`                      |
-| **Linux**      | `MrxDown-0.3.0.deb`      | ~134 MB | `sudo dpkg -i MrxDown-0.3.0.deb`                   |
-| **Linux**      | `MrxDown-0.3.0.snap`     | ~84 MB  | `sudo snap install MrxDown-0.3.0.snap --dangerous` |
+| **macOS**      | `MrxDown-0.3.1.zip`      | ~95 MB  | ZIP entpacken, Rechtsklick → "Öffnen"              |
+| **Windows**    | `MrxDown-0.3.1.exe`      | ~135 MB | Installer ausführen                                |
+| **Windows**    | `MrxDown-0.3.1.exe` (Portable) | ~125 MB | Direkt ausführbar, keine Installation            |
+| **Linux**      | `MrxDown-0.3.1.AppImage` | ~99 MB  | Ausführbar machen: `chmod +x`                      |
+| **Linux**      | `MrxDown-0.3.1.deb`      | ~134 MB | `sudo dpkg -i MrxDown-0.3.1.deb`                   |
+| **Linux**      | `MrxDown-0.3.1.snap`     | ~84 MB  | `sudo snap install MrxDown-0.3.1.snap --dangerous` |
 
 ### 🍎 macOS Installation
 
-1. **Download**: [MrxDown-0.3.0.zip](https://github.com/pepperonas/mrxdown/releases/download/v0.3.0/MrxDown-0.3.0.zip)
+1. **Download**: [MrxDown-0.3.1.zip](https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.zip)
 2. **Entpacken**: Doppelklick auf ZIP-Datei
 3. **Öffnen**: Rechtsklick auf MrxDown.app → **"Öffnen"** → **"Öffnen"** bestätigen
 
@@ -65,7 +65,7 @@ curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/install-macos.
 
 ### 🪟 Windows Installation
 
-1. **Download**: [MrxDown-0.3.0.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.3.0/MrxDown-0.3.0.exe) (Installer) oder [MrxDown-0.3.0.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.3.0/MrxDown-0.3.0.exe) (Portable)
+1. **Download**: [MrxDown-0.3.1.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.exe) (Installer) oder [MrxDown-0.3.1.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.exe) (Portable)
 2. **Installation**: Installer ausführen und Anweisungen folgen
 3. **Start**: Desktop-Icon oder Startmenü
 
@@ -75,21 +75,21 @@ curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/install-macos.
 
 ```bash
 # Download
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.3.0/MrxDown-0.3.0.AppImage
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.AppImage
 
 # Ausführbar machen
-chmod +x MrxDown-0.3.0.AppImage
+chmod +x MrxDown-0.3.1.AppImage
 
 # Starten
-./MrxDown-0.3.0.AppImage
+./MrxDown-0.3.1.AppImage
 ```
 
 #### DEB (Ubuntu/Debian)
 
 ```bash
 # Download und Installation
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.3.0/MrxDown-0.3.0.deb
-sudo dpkg -i MrxDown-0.3.0.deb
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.deb
+sudo dpkg -i MrxDown-0.3.1.deb
 
 # Falls Abhängigkeiten fehlen:
 sudo apt-get install -f
@@ -99,8 +99,8 @@ sudo apt-get install -f
 
 ```bash
 # Download und Installation
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.3.0/MrxDown-0.3.0.snap
-sudo snap install MrxDown-0.3.0.snap --dangerous
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.snap
+sudo snap install MrxDown-0.3.1.snap --dangerous
 ```
 
 ## ⌨️ Keyboard Shortcuts

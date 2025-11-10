@@ -586,6 +586,10 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
         // Convert images to base64 for embedding
         content = await convertImagesToBase64(content);
 
+        // CRITICAL FIX: Replace <br> tags with divs for guaranteed PDF rendering
+        // Chromium's PDF engine sometimes ignores <br> tags, so we convert them to divs with fixed height
+        content = content.replace(/<br\s*\/?>/gi, '<div class="line-break"></div>');
+
         // Load HTML with optimized print styles
         await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
             <!DOCTYPE html>
@@ -623,8 +627,8 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
                                      'Noto Color Emoji', sans-serif;
                         color: #1a1a1a !important;
                         font-weight: 600;
-                        margin-top: 1.5em;
-                        margin-bottom: 0.5em;
+                        margin-top: 2rem;
+                        margin-bottom: 1rem;
                         page-break-after: avoid;
                         page-break-inside: avoid;
                         text-rendering: optimizeLegibility;
@@ -634,31 +638,59 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
                     }
 
                     h1 {
-                        font-size: 2em;
+                        font-size: 2.25rem;
                         border-bottom: 2px solid #333;
-                        padding-bottom: 0.3em;
+                        padding-bottom: 0.5rem;
                         margin-top: 0;
                         page-break-before: auto;
                     }
-                    h2 { font-size: 1.6em; border-bottom: 1px solid #ddd; padding-bottom: 0.2em; }
-                    h3 { font-size: 1.4em; }
-                    h4 { font-size: 1.2em; }
-                    h5 { font-size: 1.1em; }
-                    h6 { font-size: 1em; color: #666 !important; }
+                    h2 { font-size: 1.875rem; }
+                    h3 { font-size: 1.5rem; }
+                    h4 { font-size: 1.25rem; }
+                    h5 { font-size: 1.125rem; }
+                    h6 { font-size: 1rem; color: #666 !important; }
 
                     /* ===== OPTIMIZED PARAGRAPHS & LINE BREAKS ===== */
                     p {
                         color: #1a1a1a !important;
-                        margin: 0.8em 0;
+                        margin: 0;
                         text-align: justify;
                         hyphens: auto;
                     }
 
-                    /* Handle explicit line breaks */
+                    /* Add spacing between separate paragraphs (not within address blocks) */
+                    p + p {
+                        margin-top: 1rem;
+                    }
+
+                    /* Reset spacing after headings */
+                    h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p {
+                        margin-top: 0;
+                    }
+
+                    /* Handle explicit line breaks - converted from <br> tags */
+                    .line-break {
+                        display: block;
+                        height: 0;
+                        line-height: 0;
+                        margin: 0;
+                        padding: 0;
+                        min-height: 0;
+                    }
+
+                    /* Fallback for any remaining br tags */
                     br {
                         display: block;
-                        content: "";
+                        height: 0;
+                        line-height: 0;
                         margin: 0;
+                    }
+
+                    /* Ensure br tags inside paragraphs work */
+                    p br, p .line-break {
+                        display: block;
+                        height: 0;
+                        min-height: 0;
                     }
 
                     /* Empty paragraphs for spacing */
@@ -724,14 +756,13 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
                     /* ===== OPTIMIZED LISTS ===== */
                     ul, ol {
                         color: #1a1a1a !important;
-                        margin: 1em 0;
-                        padding-left: 2em;
+                        margin-bottom: 1rem;
+                        padding-left: 1.5rem;
                     }
 
                     li {
                         color: #1a1a1a !important;
-                        margin-bottom: 0.4em;
-                        line-height: 1.6;
+                        margin-bottom: 0.5rem;
                         page-break-inside: avoid;
                     }
 
@@ -913,7 +944,10 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                 
                 // Convert images to base64 for embedding
                 htmlContent = await convertImagesToBase64(htmlContent);
-                
+
+                // CRITICAL FIX: Replace <br> tags with divs for guaranteed PDF rendering
+                htmlContent = htmlContent.replace(/<br\s*\/?>/gi, '<div class="line-break"></div>');
+
                 // Create a new window for PDF generation
                 const pdfWindow = new BrowserWindow({
                     width: 800,
@@ -963,8 +997,8 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                                              'Noto Color Emoji', sans-serif;
                                 color: #1a1a1a !important;
                                 font-weight: 600;
-                                margin-top: 1.5em;
-                                margin-bottom: 0.5em;
+                                margin-top: 2rem;
+                                margin-bottom: 1rem;
                                 page-break-after: avoid;
                                 page-break-inside: avoid;
                                 text-rendering: optimizeLegibility;
@@ -974,31 +1008,59 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                             }
 
                             h1 {
-                                font-size: 2em;
+                                font-size: 2.25rem;
                                 border-bottom: 2px solid #333;
-                                padding-bottom: 0.3em;
+                                padding-bottom: 0.5rem;
                                 margin-top: 0;
                                 page-break-before: auto;
                             }
-                            h2 { font-size: 1.6em; border-bottom: 1px solid #ddd; padding-bottom: 0.2em; }
-                            h3 { font-size: 1.4em; }
-                            h4 { font-size: 1.2em; }
-                            h5 { font-size: 1.1em; }
-                            h6 { font-size: 1em; color: #666 !important; }
+                            h2 { font-size: 1.875rem; }
+                            h3 { font-size: 1.5rem; }
+                            h4 { font-size: 1.25rem; }
+                            h5 { font-size: 1.125rem; }
+                            h6 { font-size: 1rem; color: #666 !important; }
 
                             /* ===== OPTIMIZED PARAGRAPHS & LINE BREAKS ===== */
                             p {
                                 color: #1a1a1a !important;
-                                margin: 0.8em 0;
+                                margin: 0;
                                 text-align: justify;
                                 hyphens: auto;
                             }
 
-                            /* Handle explicit line breaks */
+                            /* Add spacing between separate paragraphs (not within address blocks) */
+                            p + p {
+                                margin-top: 1rem;
+                            }
+
+                            /* Reset spacing after headings */
+                            h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p {
+                                margin-top: 0;
+                            }
+
+                            /* Handle explicit line breaks - converted from <br> tags */
+                            .line-break {
+                                display: block;
+                                height: 0;
+                                line-height: 0;
+                                margin: 0;
+                                padding: 0;
+                                min-height: 0;
+                            }
+
+                            /* Fallback for any remaining br tags */
                             br {
                                 display: block;
-                                content: "";
+                                height: 0;
+                                line-height: 0;
                                 margin: 0;
+                            }
+
+                            /* Ensure br tags inside paragraphs work */
+                            p br, p .line-break {
+                                display: block;
+                                height: 0;
+                                min-height: 0;
                             }
 
                             /* Empty paragraphs for spacing */
@@ -1064,14 +1126,13 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                             /* ===== OPTIMIZED LISTS ===== */
                             ul, ol {
                                 color: #1a1a1a !important;
-                                margin: 1em 0;
-                                padding-left: 2em;
+                                margin-bottom: 1rem;
+                                padding-left: 1.5rem;
                             }
 
                             li {
                                 color: #1a1a1a !important;
-                                margin-bottom: 0.4em;
-                                line-height: 1.6;
+                                margin-bottom: 0.5rem;
                                 page-break-inside: avoid;
                             }
 

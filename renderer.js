@@ -428,14 +428,23 @@ function renderMarkdown() {
                 breaks: false,
                 headerIds: false,  // Disable automatic ID generation
                 mangle: false,     // Don't mangle IDs
-                renderer: renderer
+                renderer: renderer,
+                sanitize: false,   // Don't sanitize HTML (we use DOMPurify instead)
+                pedantic: false    // Allow inline HTML
             });
         }
 
         const html = marked.parse(markdown);
-        preview.innerHTML = DOMPurify.sanitize(html, {
-            ADD_ATTR: ['id'] // Allow id attribute for heading anchors
+        console.log('Marked HTML output:', html.substring(0, 500)); // Debug
+
+        const sanitized = DOMPurify.sanitize(html, {
+            ADD_ATTR: ['id'], // Allow id attribute for heading anchors
+            ADD_TAGS: ['br'], // Explicitly allow br tags
+            KEEP_CONTENT: true
         });
+        console.log('Sanitized HTML:', sanitized.substring(0, 500)); // Debug
+
+        preview.innerHTML = sanitized;
 
         // Post-processing: Fix heading IDs to match GitHub algorithm
         // This runs AFTER rendering to ensure IDs are correct regardless of marked.js behavior
