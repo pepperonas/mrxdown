@@ -671,26 +671,15 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
                     /* Handle explicit line breaks - converted from <br> tags */
                     .line-break {
                         display: block;
-                        height: 0;
-                        line-height: 0;
-                        margin: 0;
-                        padding: 0;
-                        min-height: 0;
+                        height: 1em;
+                        line-height: 1em;
                     }
 
                     /* Fallback for any remaining br tags */
                     br {
                         display: block;
-                        height: 0;
-                        line-height: 0;
-                        margin: 0;
-                    }
-
-                    /* Ensure br tags inside paragraphs work */
-                    p br, p .line-break {
-                        display: block;
-                        height: 0;
-                        min-height: 0;
+                        height: 1em;
+                        line-height: 1em;
                     }
 
                     /* Empty paragraphs for spacing */
@@ -1041,26 +1030,15 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                             /* Handle explicit line breaks - converted from <br> tags */
                             .line-break {
                                 display: block;
-                                height: 0;
-                                line-height: 0;
-                                margin: 0;
-                                padding: 0;
-                                min-height: 0;
+                                height: 1em;
+                                line-height: 1em;
                             }
 
                             /* Fallback for any remaining br tags */
                             br {
                                 display: block;
-                                height: 0;
-                                line-height: 0;
-                                margin: 0;
-                            }
-
-                            /* Ensure br tags inside paragraphs work */
-                            p br, p .line-break {
-                                display: block;
-                                height: 0;
-                                min-height: 0;
+                                height: 1em;
+                                line-height: 1em;
                             }
 
                             /* Empty paragraphs for spacing */
