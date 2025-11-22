@@ -586,9 +586,7 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
         // Convert images to base64 for embedding
         content = await convertImagesToBase64(content);
 
-        // CRITICAL FIX: Replace <br> tags with divs for guaranteed PDF rendering
-        // Chromium's PDF engine sometimes ignores <br> tags, so we convert them to divs with fixed height
-        content = content.replace(/<br\s*\/?>/gi, '<div class="line-break"></div>');
+        // Keep <br> tags - styled via CSS
 
         // Load HTML with optimized print styles
         await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
@@ -671,7 +669,7 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
                     /* Handle explicit line breaks - converted from <br> tags */
                     .line-break {
                         display: block;
-                        content: "";
+                        height: 0;
                     }
 
                     /* Multiple line breaks create visible spacing */
@@ -682,7 +680,7 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
                     /* Fallback for any remaining br tags */
                     br {
                         display: block;
-                        content: "";
+                        height: 0;
                     }
 
                     br + br {
@@ -941,8 +939,7 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                 // Convert images to base64 for embedding
                 htmlContent = await convertImagesToBase64(htmlContent);
 
-                // CRITICAL FIX: Replace <br> tags with divs for guaranteed PDF rendering
-                htmlContent = htmlContent.replace(/<br\s*\/?>/gi, '<div class="line-break"></div>');
+                // Keep <br> tags - styled via CSS
 
                 // Create a new window for PDF generation
                 const pdfWindow = new BrowserWindow({
@@ -1037,7 +1034,7 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                             /* Handle explicit line breaks - converted from <br> tags */
                             .line-break {
                                 display: block;
-                                content: "";
+                                height: 0;
                             }
 
                             /* Multiple line breaks create visible spacing */
@@ -1048,7 +1045,7 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                             /* Fallback for any remaining br tags */
                             br {
                                 display: block;
-                                content: "";
+                                height: 0;
                             }
 
                             br + br {
