@@ -671,15 +671,22 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
                     /* Handle explicit line breaks - converted from <br> tags */
                     .line-break {
                         display: block;
+                        content: "";
+                    }
+
+                    /* Multiple line breaks create visible spacing */
+                    .line-break + .line-break {
                         height: 1em;
-                        line-height: 1em;
                     }
 
                     /* Fallback for any remaining br tags */
                     br {
                         display: block;
+                        content: "";
+                    }
+
+                    br + br {
                         height: 1em;
-                        line-height: 1em;
                     }
 
                     /* Empty paragraphs for spacing */
@@ -1030,15 +1037,22 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                             /* Handle explicit line breaks - converted from <br> tags */
                             .line-break {
                                 display: block;
+                                content: "";
+                            }
+
+                            /* Multiple line breaks create visible spacing */
+                            .line-break + .line-break {
                                 height: 1em;
-                                line-height: 1em;
                             }
 
                             /* Fallback for any remaining br tags */
                             br {
                                 display: block;
+                                content: "";
+                            }
+
+                            br + br {
                                 height: 1em;
-                                line-height: 1em;
                             }
 
                             /* Empty paragraphs for spacing */
