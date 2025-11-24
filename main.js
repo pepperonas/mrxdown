@@ -1415,8 +1415,223 @@ Entwickelt mit Electron`,
     });
 }
 
+// CLI Support - convert markdown to PDF from command line
+async function runCLI(inputFile) {
+    const marked = require('marked');
+
+    try {
+        // Resolve absolute path
+        const absolutePath = path.isAbsolute(inputFile)
+            ? inputFile
+            : path.resolve(process.cwd(), inputFile);
+
+        // Check if file exists
+        try {
+            await fs.access(absolutePath);
+        } catch {
+            console.error(`Fehler: Datei nicht gefunden: ${absolutePath}`);
+            app.exit(1);
+            return;
+        }
+
+        // Check if it's a markdown file
+        const ext = path.extname(absolutePath).toLowerCase();
+        if (ext !== '.md' && ext !== '.markdown') {
+            console.error(`Fehler: Keine Markdown-Datei: ${absolutePath}`);
+            app.exit(1);
+            return;
+        }
+
+        console.log(`Konvertiere: ${absolutePath}`);
+
+        // Read markdown content
+        const markdownContent = await fs.readFile(absolutePath, 'utf-8');
+
+        // Convert to HTML
+        const htmlContent = marked.parse(markdownContent);
+
+        // Convert images to base64
+        currentFilePath = absolutePath;
+        const htmlWithImages = await convertImagesToBase64(htmlContent);
+
+        // Create hidden window for PDF generation
+        const pdfWindow = new BrowserWindow({
+            width: 800,
+            height: 1000,
+            show: false,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true
+            }
+        });
+
+        // Load HTML with print styles (same as regular PDF export)
+        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    @page {
+                        size: A4;
+                        margin: 20mm 15mm 20mm 15mm;
+                    }
+
+                    * {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+
+                    body {
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                        font-size: 11pt;
+                        line-height: 1.6;
+                        color: #1a1a1a;
+                        margin: 0;
+                        padding: 0;
+                    }
+
+                    h1, h2, h3, h4, h5, h6 {
+                        color: #1a1a1a !important;
+                        margin-top: 1.5em;
+                        margin-bottom: 0.5em;
+                        page-break-after: avoid;
+                    }
+
+                    h1 { font-size: 2rem; border-bottom: 2px solid #333; padding-bottom: 0.5rem; margin-top: 0; }
+                    h2 { font-size: 1.5rem; }
+                    h3 { font-size: 1.25rem; }
+
+                    p {
+                        color: #1a1a1a !important;
+                        margin: 0;
+                        text-align: justify;
+                    }
+
+                    p + p {
+                        margin-top: 1rem;
+                    }
+
+                    br {
+                        display: block;
+                        height: 0;
+                    }
+
+                    br + br {
+                        height: 1em;
+                    }
+
+                    strong, b { font-weight: 700; }
+                    em, i { font-style: italic; }
+
+                    code {
+                        background: #f5f5f5 !important;
+                        padding: 2px 6px;
+                        border-radius: 3px;
+                        font-family: monospace;
+                        font-size: 0.9em;
+                    }
+
+                    pre {
+                        background: #f8f8f8 !important;
+                        padding: 16px;
+                        border-radius: 6px;
+                        overflow-x: auto;
+                        margin: 1em 0;
+                    }
+
+                    blockquote {
+                        border-left: 4px solid #666;
+                        padding-left: 16px;
+                        color: #555 !important;
+                        margin: 1.2em 0;
+                        font-style: italic;
+                    }
+
+                    ul, ol {
+                        margin-bottom: 1rem;
+                        padding-left: 1.5rem;
+                    }
+
+                    li { margin-bottom: 0.5rem; }
+
+                    a {
+                        color: #0066cc !important;
+                        text-decoration: underline;
+                    }
+
+                    table {
+                        border-collapse: collapse;
+                        width: 100%;
+                        margin: 1.2em 0;
+                    }
+
+                    th, td {
+                        border: 1px solid #ddd;
+                        padding: 10px 12px;
+                        text-align: left;
+                    }
+
+                    th { background: #f5f5f5 !important; font-weight: 600; }
+
+                    img {
+                        max-width: 100%;
+                        height: auto;
+                        margin: 1.5em 0;
+                    }
+
+                    hr {
+                        border: none;
+                        border-top: 2px solid #ddd;
+                        margin: 2em 0;
+                    }
+                </style>
+            </head>
+            <body>
+                ${htmlWithImages}
+            </body>
+            </html>
+        `)}`);
+
+        // Wait for content to load
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Generate PDF
+        const pdfData = await pdfWindow.webContents.printToPDF({
+            marginsType: 0,
+            pageSize: 'A4',
+            printBackground: true,
+            landscape: false,
+            preferCSSPageSize: true
+        });
+
+        pdfWindow.close();
+
+        // Save PDF with same name as input file
+        const outputPath = absolutePath.replace(/\.(md|markdown)$/i, '.pdf');
+        await fs.writeFile(outputPath, pdfData);
+
+        console.log(`PDF erstellt: ${outputPath}`);
+        app.exit(0);
+
+    } catch (error) {
+        console.error(`Fehler bei der Konvertierung: ${error.message}`);
+        app.exit(1);
+    }
+}
+
+// Check for CLI arguments
+const args = process.argv.slice(2);
+const cliFile = args.find(arg => !arg.startsWith('-') && (arg.endsWith('.md') || arg.endsWith('.markdown')));
+
 // App lifecycle
-app.whenReady().then(createWindow);
+if (cliFile) {
+    // CLI mode - convert to PDF
+    app.whenReady().then(() => runCLI(cliFile));
+} else {
+    // GUI mode
+    app.whenReady().then(createWindow);
+}
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
