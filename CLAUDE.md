@@ -65,6 +65,7 @@ The application follows Electron's secure two-process architecture:
 15. **Search & Replace**: Advanced search functionality with regex support, case-sensitive options, whole-word matching, and real-time match counting
 16. **Batch PDF Export**: Export all open tabs as PDF files to their respective directories with rocket button (🚀)
 17. **HTML Export with Anchor Links**: Fully functional anchor navigation in HTML exports with GitHub-compatible heading IDs
+18. **CLI Support**: Command-line markdown to PDF conversion without GUI
 
 ### File Structure
 ```
@@ -73,11 +74,27 @@ mrxdown/
 ├── preload.js        # Secure IPC bridge
 ├── index.html        # Main UI structure
 ├── renderer.js       # Frontend logic
+├── mrxdown-cli.sh    # CLI wrapper script
 ├── package.json      # Project configuration
 ├── README.md         # Project documentation
 ├── CLAUDE.md         # Development guide
 └── .gitignore        # Git ignore rules
 ```
+
+### CLI Usage
+
+**Installation:**
+```bash
+curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/mrxdown-cli.sh -o /usr/local/bin/mrxdown
+chmod +x /usr/local/bin/mrxdown
+```
+
+**Usage:**
+```bash
+mrxdown /path/to/file.md
+```
+
+Creates `file.pdf` in the same directory as the input file. Runs in headless mode without opening the GUI.
 
 ### Keyboard Shortcuts
 - **File Operations**: Cmd/Ctrl + N (New), O (Open), S (Save), Shift+S (Save As)

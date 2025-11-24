@@ -31,41 +31,46 @@
 - **🔍 Search & Replace** - Erweiterte Suchfunktion mit Regex-Unterstützung
 - **👁️ File Watching** - Automatische Erkennung externer Dateiänderungen
 - **⌨️ Keyboard Shortcuts** - Umfassende Tastaturkürzel
+- **🖥️ CLI Support** - Markdown zu PDF direkt vom Terminal
 
 ## 🚀 Download & Installation
 
-### Version 0.3.1 (Aktuell)
+### Version 0.3.6 (Aktuell)
 
-[![Download für macOS](https://img.shields.io/badge/macOS-Download-blue?style=for-the-badge&logo=apple)](https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.zip)
-[![Download für Windows](https://img.shields.io/badge/Windows-Download-blue?style=for-the-badge&logo=windows)](https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.exe)
-[![Download für Linux](https://img.shields.io/badge/Linux-Download-blue?style=for-the-badge&logo=linux)](https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.AppImage)
+[![Download für macOS](https://img.shields.io/badge/macOS-Download-blue?style=for-the-badge&logo=apple)](https://github.com/pepperonas/mrxdown/releases/download/v0.3.6/MrxDown-0.3.6.zip)
+[![Download für Windows](https://img.shields.io/badge/Windows-Download-blue?style=for-the-badge&logo=windows)](https://github.com/pepperonas/mrxdown/releases/download/v0.3.6/MrxDown-0.3.6.exe)
+[![Download für Linux](https://img.shields.io/badge/Linux-Download-blue?style=for-the-badge&logo=linux)](https://github.com/pepperonas/mrxdown/releases/download/v0.3.6/MrxDown-0.3.6.AppImage)
 
 | Betriebssystem | Datei                    | Größe   | Installation                                       |
 |----------------|--------------------------|---------|----------------------------------------------------|
-| **macOS**      | `MrxDown-0.3.1.zip`      | ~95 MB  | ZIP entpacken, Rechtsklick → "Öffnen"              |
-| **Windows**    | `MrxDown-0.3.1.exe`      | ~135 MB | Installer ausführen                                |
-| **Windows**    | `MrxDown-0.3.1.exe` (Portable) | ~125 MB | Direkt ausführbar, keine Installation            |
-| **Linux**      | `MrxDown-0.3.1.AppImage` | ~99 MB  | Ausführbar machen: `chmod +x`                      |
-| **Linux**      | `MrxDown-0.3.1.deb`      | ~134 MB | `sudo dpkg -i MrxDown-0.3.1.deb`                   |
-| **Linux**      | `MrxDown-0.3.1.snap`     | ~84 MB  | `sudo snap install MrxDown-0.3.1.snap --dangerous` |
+| **macOS**      | `MrxDown-0.3.6.zip`      | ~100 MB | ZIP entpacken, Rechtsklick → "Öffnen"              |
+| **Windows**    | `MrxDown-0.3.6.exe`      | ~135 MB | Installer ausführen                                |
+| **Windows**    | `MrxDown-0.3.6.exe` (Portable) | ~125 MB | Direkt ausführbar, keine Installation            |
+| **Linux**      | `MrxDown-0.3.6.AppImage` | ~99 MB  | Ausführbar machen: `chmod +x`                      |
+| **Linux**      | `MrxDown-0.3.6.deb`      | ~134 MB | `sudo dpkg -i MrxDown-0.3.6.deb`                   |
+| **Linux**      | `MrxDown-0.3.6.snap`     | ~84 MB  | `sudo snap install MrxDown-0.3.6.snap --dangerous` |
 
 ### 🍎 macOS Installation
 
-1. **Download**: [MrxDown-0.3.1.zip](https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.zip)
+1. **Download**: [MrxDown-0.3.6.zip](https://github.com/pepperonas/mrxdown/releases/download/v0.3.6/MrxDown-0.3.6.zip)
 2. **Entpacken**: Doppelklick auf ZIP-Datei
 3. **Öffnen**: Rechtsklick auf MrxDown.app → **"Öffnen"** → **"Öffnen"** bestätigen
 
 > **💡 Tipp**: Nach dem ersten "Öffnen" funktioniert die App dauerhaft normal!
 
-**🚀 Automatische Installation:**
+**🖥️ CLI einrichten (optional):**
 
 ```bash
-curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/install-macos.sh | bash
+# Script herunterladen und installieren
+curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/mrxdown-cli.sh -o /usr/local/bin/mrxdown
+chmod +x /usr/local/bin/mrxdown
 ```
+
+Danach: `mrxdown /path/to/datei.md` → erstellt `datei.pdf`
 
 ### 🪟 Windows Installation
 
-1. **Download**: [MrxDown-0.3.1.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.exe) (Installer) oder [MrxDown-0.3.1.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.exe) (Portable)
+1. **Download**: [MrxDown-0.3.6.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.3.6/MrxDown-0.3.6.exe) (Installer) oder Portable
 2. **Installation**: Installer ausführen und Anweisungen folgen
 3. **Start**: Desktop-Icon oder Startmenü
 
@@ -75,21 +80,21 @@ curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/install-macos.
 
 ```bash
 # Download
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.AppImage
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.3.6/MrxDown-0.3.6.AppImage
 
 # Ausführbar machen
-chmod +x MrxDown-0.3.1.AppImage
+chmod +x MrxDown-0.3.6.AppImage
 
 # Starten
-./MrxDown-0.3.1.AppImage
+./MrxDown-0.3.6.AppImage
 ```
 
 #### DEB (Ubuntu/Debian)
 
 ```bash
 # Download und Installation
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.deb
-sudo dpkg -i MrxDown-0.3.1.deb
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.3.6/MrxDown-0.3.6.deb
+sudo dpkg -i MrxDown-0.3.6.deb
 
 # Falls Abhängigkeiten fehlen:
 sudo apt-get install -f
@@ -99,8 +104,8 @@ sudo apt-get install -f
 
 ```bash
 # Download und Installation
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.3.1/MrxDown-0.3.1.snap
-sudo snap install MrxDown-0.3.1.snap --dangerous
+wget https://github.com/pepperonas/mrxdown/releases/download/v0.3.6/MrxDown-0.3.6.snap
+sudo snap install MrxDown-0.3.6.snap --dangerous
 ```
 
 ## ⌨️ Keyboard Shortcuts
@@ -167,6 +172,19 @@ npm run build-all
 5. Öffne einen Pull Request
 
 ## 📋 Changelog
+
+### Version 0.3.6 (2025-11-24)
+
+**🚀 Neue Features:**
+- **🖥️ CLI Support**: Markdown zu PDF direkt vom Terminal
+  - `mrxdown /path/to/datei.md` erstellt `datei.pdf`
+  - Headless-Modus ohne GUI-Start
+  - CLI-Script: `curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/mrxdown-cli.sh -o /usr/local/bin/mrxdown && chmod +x /usr/local/bin/mrxdown`
+
+**🐛 Bugfixes:**
+- **PDF-Export Zeilenabstände**: Korrekte Behandlung von `<br>` Tags
+  - Einzelne `<br>`: kompakte Zeilenumbrüche (für Kontaktdaten)
+  - Doppelte `<br><br>`: sichtbare Leerzeilen (für Abstände)
 
 ### Version 0.3.0 (2025-01-07)
 
