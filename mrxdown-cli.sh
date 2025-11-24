@@ -15,6 +15,5 @@ else
     FILE="$1"
 fi
 
-# Run from within the app bundle context
-cd /Applications/MrxDown.app/Contents/MacOS
-./MrxDown "$FILE"
+# Run the app with proper flags for headless operation
+/Applications/MrxDown.app/Contents/MacOS/MrxDown --disable-gpu-sandbox --no-sandbox "$FILE"
