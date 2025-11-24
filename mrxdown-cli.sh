@@ -15,5 +15,5 @@ else
     FILE="$1"
 fi
 
-# Run the app with proper flags for headless operation
-/Applications/MrxDown.app/Contents/MacOS/MrxDown --disable-gpu-sandbox --no-sandbox "$FILE"
+# Launch app properly via macOS open command
+open -W -a MrxDown --args "$FILE"
