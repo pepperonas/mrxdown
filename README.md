@@ -173,18 +173,19 @@ npm run build-all
 
 ## 📋 Changelog
 
-### Version 0.3.6 (2025-11-24)
+### Version 0.3.6 (2025-12-06)
 
 **🚀 Neue Features:**
 - **🖥️ CLI Support**: Markdown zu PDF direkt vom Terminal
   - `mrxdown /path/to/datei.md` erstellt `datei.pdf`
-  - Headless-Modus ohne GUI-Start
+  - Echter Headless-Modus ohne GUI-Start (direkter Electron-Binary-Aufruf)
   - CLI-Script: `curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/mrxdown-cli.sh -o /usr/local/bin/mrxdown && chmod +x /usr/local/bin/mrxdown`
 
 **🐛 Bugfixes:**
 - **PDF-Export Zeilenabstände**: Korrekte Behandlung von `<br>` Tags
   - Einzelne `<br>`: kompakte Zeilenumbrüche (für Kontaktdaten)
   - Doppelte `<br><br>`: sichtbare Leerzeilen (für Abstände)
+- **CLI Headless-Modus**: Verwendet jetzt temporäre HTML-Dateien statt data URLs (keine Längenbeschränkung)
 
 ### Version 0.3.0 (2025-01-07)
 

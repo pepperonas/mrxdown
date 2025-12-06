@@ -15,5 +15,9 @@ else
     FILE="$1"
 fi
 
-# Launch app properly via macOS open command
-open -W -a MrxDown --args "$FILE"
+# Run Electron directly with sandbox flags for headless operation
+/Applications/MrxDown.app/Contents/MacOS/MrxDown \
+    --no-sandbox \
+    --disable-gpu \
+    --disable-software-rasterizer \
+    "$FILE"

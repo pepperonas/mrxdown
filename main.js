@@ -1418,6 +1418,7 @@ Entwickelt mit Electron`,
 // CLI Support - convert markdown to PDF from command line
 async function runCLI(inputFile) {
     const marked = require('marked');
+    const os = require('os');
 
     try {
         // Resolve absolute path
@@ -1454,19 +1455,9 @@ async function runCLI(inputFile) {
         currentFilePath = absolutePath;
         const htmlWithImages = await convertImagesToBase64(htmlContent);
 
-        // Create hidden window for PDF generation
-        const pdfWindow = new BrowserWindow({
-            width: 800,
-            height: 1000,
-            show: false,
-            webPreferences: {
-                nodeIntegration: false,
-                contextIsolation: true
-            }
-        });
-
-        // Load HTML with print styles (same as regular PDF export)
-        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+        // Create temporary HTML file (data URLs are too long for Electron)
+        const tempHtmlPath = path.join(os.tmpdir(), `mrxdown-cli-${Date.now()}.html`);
+        const fullHtml = `
             <!DOCTYPE html>
             <html>
             <head>
@@ -1591,7 +1582,24 @@ async function runCLI(inputFile) {
                 ${htmlWithImages}
             </body>
             </html>
-        `)}`);
+        `;
+
+        // Write HTML to temp file
+        await fs.writeFile(tempHtmlPath, fullHtml, 'utf-8');
+
+        // Create hidden window for PDF generation
+        const pdfWindow = new BrowserWindow({
+            width: 800,
+            height: 1000,
+            show: false,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true
+            }
+        });
+
+        // Load HTML from temp file
+        await pdfWindow.loadFile(tempHtmlPath);
 
         // Wait for content to load
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -1606,6 +1614,9 @@ async function runCLI(inputFile) {
         });
 
         pdfWindow.close();
+
+        // Clean up temp file
+        await fs.unlink(tempHtmlPath).catch(() => {});
 
         // Save PDF with same name as input file
         const outputPath = absolutePath.replace(/\.(md|markdown)$/i, '.pdf');
