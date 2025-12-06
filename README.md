@@ -66,7 +66,9 @@ curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/mrxdown-cli.sh
 chmod +x /usr/local/bin/mrxdown
 ```
 
-Danach: `mrxdown /path/to/datei.md` → erstellt `datei.pdf`
+Danach:
+- `mrxdown /path/to/datei.md` → erstellt `datei.pdf`
+- `mrxdown /path/to/ordner/` → konvertiert alle `.md` Dateien im Ordner
 
 ### 🪟 Windows Installation
 
@@ -178,6 +180,7 @@ npm run build-all
 **🚀 Neue Features:**
 - **🖥️ CLI Support**: Markdown zu PDF direkt vom Terminal
   - `mrxdown /path/to/datei.md` erstellt `datei.pdf`
+  - `mrxdown /path/to/ordner/` konvertiert alle `.md` Dateien im Ordner
   - Echter Headless-Modus ohne GUI-Start (direkter Electron-Binary-Aufruf)
   - CLI-Script: `curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/mrxdown-cli.sh -o /usr/local/bin/mrxdown && chmod +x /usr/local/bin/mrxdown`
 

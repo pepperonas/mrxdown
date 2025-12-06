@@ -1631,14 +1631,176 @@ async function runCLI(inputFile) {
     }
 }
 
+// CLI Batch mode - convert all markdown files in a directory
+async function runCLIBatch(inputDir) {
+    const fsSync = require('fs');
+    const marked = require('marked');
+    const os = require('os');
+
+    try {
+        // Resolve absolute path
+        const absolutePath = path.isAbsolute(inputDir)
+            ? inputDir
+            : path.resolve(process.cwd(), inputDir);
+
+        // Check if directory exists
+        try {
+            const stat = await fs.stat(absolutePath);
+            if (!stat.isDirectory()) {
+                console.error(`Fehler: Kein Verzeichnis: ${absolutePath}`);
+                app.exit(1);
+                return;
+            }
+        } catch {
+            console.error(`Fehler: Verzeichnis nicht gefunden: ${absolutePath}`);
+            app.exit(1);
+            return;
+        }
+
+        // Find all markdown files
+        const files = await fs.readdir(absolutePath);
+        const mdFiles = files.filter(f => f.endsWith('.md') || f.endsWith('.markdown'));
+
+        if (mdFiles.length === 0) {
+            console.log(`Keine Markdown-Dateien in ${absolutePath} gefunden.`);
+            app.exit(0);
+            return;
+        }
+
+        console.log(`Gefunden: ${mdFiles.length} Markdown-Datei(en) in ${absolutePath}`);
+
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const mdFile of mdFiles) {
+            const filePath = path.join(absolutePath, mdFile);
+            try {
+                console.log(`Konvertiere: ${mdFile}`);
+
+                // Read markdown content
+                const markdownContent = await fs.readFile(filePath, 'utf-8');
+
+                // Convert to HTML
+                const htmlContent = marked.parse(markdownContent);
+
+                // Convert images to base64
+                currentFilePath = filePath;
+                const htmlWithImages = await convertImagesToBase64(htmlContent);
+
+                // Create temporary HTML file
+                const tempHtmlPath = path.join(os.tmpdir(), `mrxdown-cli-${Date.now()}.html`);
+                const fullHtml = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="UTF-8">
+                        <style>
+                            @page { size: A4; margin: 20mm 15mm 20mm 15mm; }
+                            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11pt; line-height: 1.6; color: #1a1a1a; margin: 0; padding: 0; }
+                            h1, h2, h3, h4, h5, h6 { color: #1a1a1a !important; margin-top: 1.5em; margin-bottom: 0.5em; page-break-after: avoid; }
+                            h1 { font-size: 2rem; border-bottom: 2px solid #333; padding-bottom: 0.5rem; margin-top: 0; }
+                            h2 { font-size: 1.5rem; }
+                            h3 { font-size: 1.25rem; }
+                            p { color: #1a1a1a !important; margin: 0; text-align: justify; }
+                            p + p { margin-top: 1rem; }
+                            br { display: block; height: 0; }
+                            br + br { height: 1em; }
+                            strong, b { font-weight: 700; }
+                            em, i { font-style: italic; }
+                            code { background: #f5f5f5 !important; padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 0.9em; }
+                            pre { background: #f8f8f8 !important; padding: 16px; border-radius: 6px; overflow-x: auto; margin: 1em 0; }
+                            blockquote { border-left: 4px solid #666; padding-left: 16px; color: #555 !important; margin: 1.2em 0; font-style: italic; }
+                            ul, ol { margin-bottom: 1rem; padding-left: 1.5rem; }
+                            li { margin-bottom: 0.5rem; }
+                            a { color: #0066cc !important; text-decoration: underline; }
+                            table { border-collapse: collapse; width: 100%; margin: 1.2em 0; }
+                            th, td { border: 1px solid #ddd; padding: 10px 12px; text-align: left; }
+                            th { background: #f5f5f5 !important; font-weight: 600; }
+                            img { max-width: 100%; height: auto; margin: 1.5em 0; }
+                            hr { border: none; border-top: 2px solid #ddd; margin: 2em 0; }
+                        </style>
+                    </head>
+                    <body>
+                        ${htmlWithImages}
+                    </body>
+                    </html>
+                `;
+
+                await fs.writeFile(tempHtmlPath, fullHtml, 'utf-8');
+
+                // Create hidden window for PDF generation
+                const pdfWindow = new BrowserWindow({
+                    width: 800,
+                    height: 1000,
+                    show: false,
+                    webPreferences: { nodeIntegration: false, contextIsolation: true }
+                });
+
+                await pdfWindow.loadFile(tempHtmlPath);
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                const pdfData = await pdfWindow.webContents.printToPDF({
+                    marginsType: 0,
+                    pageSize: 'A4',
+                    printBackground: true,
+                    landscape: false,
+                    preferCSSPageSize: true
+                });
+
+                pdfWindow.close();
+                await fs.unlink(tempHtmlPath).catch(() => {});
+
+                const outputPath = filePath.replace(/\.(md|markdown)$/i, '.pdf');
+                await fs.writeFile(outputPath, pdfData);
+
+                console.log(`  ✓ ${mdFile.replace(/\.(md|markdown)$/i, '.pdf')}`);
+                successCount++;
+
+            } catch (error) {
+                console.error(`  ✗ ${mdFile}: ${error.message}`);
+                errorCount++;
+            }
+        }
+
+        console.log(`\nFertig: ${successCount} erfolgreich, ${errorCount} fehlgeschlagen`);
+        app.exit(errorCount > 0 ? 1 : 0);
+
+    } catch (error) {
+        console.error(`Fehler: ${error.message}`);
+        app.exit(1);
+    }
+}
+
 // Check for CLI arguments
 const args = process.argv.slice(2);
-const cliFile = args.find(arg => !arg.startsWith('-') && (arg.endsWith('.md') || arg.endsWith('.markdown')));
+const cliArg = args.find(arg => !arg.startsWith('-'));
 
 // App lifecycle
-if (cliFile) {
-    // CLI mode - convert to PDF
-    app.whenReady().then(() => runCLI(cliFile));
+if (cliArg) {
+    const fsSync = require('fs');
+    const absolutePath = path.isAbsolute(cliArg) ? cliArg : path.resolve(process.cwd(), cliArg);
+
+    try {
+        const stat = fsSync.statSync(absolutePath);
+        if (stat.isDirectory()) {
+            // CLI mode - batch convert directory
+            app.whenReady().then(() => runCLIBatch(cliArg));
+        } else if (cliArg.endsWith('.md') || cliArg.endsWith('.markdown')) {
+            // CLI mode - convert single file
+            app.whenReady().then(() => runCLI(cliArg));
+        } else {
+            // GUI mode
+            app.whenReady().then(createWindow);
+        }
+    } catch {
+        // File doesn't exist, try as single file (will show error)
+        if (cliArg.endsWith('.md') || cliArg.endsWith('.markdown')) {
+            app.whenReady().then(() => runCLI(cliArg));
+        } else {
+            app.whenReady().then(createWindow);
+        }
+    }
 } else {
     // GUI mode
     app.whenReady().then(createWindow);
