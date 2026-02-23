@@ -57,6 +57,14 @@ document.addEventListener('DOMContentLoaded', () => {
     window.replaceNext = replaceNext;
     window.replaceAll = replaceAll;
     window.findNextReplace = findNextReplace;
+    window.deleteLine = deleteLine;
+    window.duplicateLine = duplicateLine;
+    window.moveLineUp = moveLineUp;
+    window.moveLineDown = moveLineDown;
+    window.selectCurrentLine = selectCurrentLine;
+    window.toggleComment = toggleComment;
+    window.indentSelection = indentSelection;
+    window.unindentSelection = unindentSelection;
 });
 
 function initializeApp() {
@@ -345,19 +353,53 @@ function handleEditorInput() {
 }
 
 function handleEditorKeydown(e) {
-    // Handle Tab key
+    // Handle Tab / Shift+Tab key
     if (e.key === 'Tab') {
         e.preventDefault();
         const start = editor.selectionStart;
         const end = editor.selectionEnd;
-        const spaces = '    '; // 4 spaces
-        
-        editor.value = editor.value.substring(0, start) + spaces + editor.value.substring(end);
-        editor.selectionStart = editor.selectionEnd = start + spaces.length;
-        
+
+        if (start !== end) {
+            // Selection exists — indent/unindent block
+            if (e.shiftKey) {
+                unindentSelection();
+            } else {
+                indentSelection();
+            }
+        } else if (e.shiftKey) {
+            unindentSelection();
+        } else {
+            replaceRange(start, end, '    ');
+            editor.selectionStart = editor.selectionEnd = start + 4;
+        }
         handleEditorInput();
+        return;
     }
-    
+
+    // Smart Enter — auto-continue lists
+    if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        const pos = editor.selectionStart;
+        const text = editor.value;
+        const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+        const currentLine = text.substring(lineStart, pos);
+
+        const smartText = getSmartEnterText(currentLine);
+        if (smartText !== null) {
+            e.preventDefault();
+            if (smartText === '') {
+                // Empty list item — remove it and insert newline
+                replaceRange(lineStart, pos, '');
+                // After removing, insert a newline at the new position
+                const newPos = editor.selectionStart;
+                replaceRange(newPos, newPos, '\n');
+            } else {
+                replaceRange(pos, pos, '\n' + smartText);
+            }
+            handleEditorInput();
+            return;
+        }
+    }
+
     // Handle Ctrl+Enter for new line
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
@@ -538,33 +580,37 @@ function syncScroll(event) {
     }
 }
 
+// Undo-safe text replacement using execCommand to preserve browser undo stack
+function replaceRange(start, end, newText) {
+    editor.focus();
+    editor.selectionStart = start;
+    editor.selectionEnd = end;
+    document.execCommand('insertText', false, newText);
+}
+
 // Formatting Functions
 function insertAtCursor(text) {
     const start = editor.selectionStart;
     const end = editor.selectionEnd;
-    const before = editor.value.substring(0, start);
-    const after = editor.value.substring(end);
-    
-    editor.value = before + text + after;
+    replaceRange(start, end, text);
     editor.selectionStart = editor.selectionEnd = start + text.length;
-    editor.focus();
 }
 
 function wrapSelection(prefix, suffix = '') {
     const start = editor.selectionStart;
     const end = editor.selectionEnd;
     const selectedText = editor.value.substring(start, end);
-    
+
     if (selectedText) {
         const wrappedText = prefix + selectedText + suffix;
-        editor.value = editor.value.substring(0, start) + wrappedText + editor.value.substring(end);
+        replaceRange(start, end, wrappedText);
         editor.selectionStart = start + prefix.length;
         editor.selectionEnd = start + prefix.length + selectedText.length;
     } else {
         insertAtCursor(prefix + suffix);
         editor.selectionStart = editor.selectionEnd = start + prefix.length;
     }
-    
+
     editor.focus();
 }
 
@@ -604,15 +650,206 @@ function insertHeading(level) {
     const start = editor.selectionStart;
     const lineStart = editor.value.lastIndexOf('\n', start - 1) + 1;
     const lineEnd = editor.value.indexOf('\n', start);
-    const currentLine = editor.value.substring(lineStart, lineEnd === -1 ? editor.value.length : lineEnd);
-    
+    const actualLineEnd = lineEnd === -1 ? editor.value.length : lineEnd;
+    const currentLine = editor.value.substring(lineStart, actualLineEnd);
+
     const headingPrefix = '#'.repeat(level) + ' ';
     const newLine = currentLine.replace(/^#+\s*/, '') || 'Überschrift';
-    
-    editor.value = editor.value.substring(0, lineStart) + headingPrefix + newLine + editor.value.substring(lineEnd === -1 ? editor.value.length : lineEnd);
+
+    replaceRange(lineStart, actualLineEnd, headingPrefix + newLine);
     editor.selectionStart = editor.selectionEnd = lineStart + headingPrefix.length + newLine.length;
     editor.focus();
 }
+
+// --- Line Utilities ---
+
+function getCurrentLineRange(pos) {
+    const text = editor.value;
+    const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+    let lineEnd = text.indexOf('\n', pos);
+    if (lineEnd === -1) lineEnd = text.length;
+    return { lineStart, lineEnd };
+}
+
+function getSelectedLinesRange() {
+    const text = editor.value;
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = text.indexOf('\n', end - (end > start && text[end - 1] === '\n' ? 1 : 0));
+    if (lineEnd === -1) lineEnd = text.length;
+    return { lineStart, lineEnd };
+}
+
+// --- Line Operations ---
+
+function deleteLine() {
+    const text = editor.value;
+    const { lineStart, lineEnd } = getSelectedLinesRange();
+
+    // Determine what to delete: include the trailing newline or leading newline
+    let delStart = lineStart;
+    let delEnd = lineEnd;
+    if (delEnd < text.length) {
+        delEnd++; // include trailing \n
+    } else if (delStart > 0) {
+        delStart--; // include leading \n
+    }
+
+    replaceRange(delStart, delEnd, '');
+    editor.selectionStart = editor.selectionEnd = delStart;
+    handleEditorInput();
+}
+
+function moveLineUp() {
+    const text = editor.value;
+    const { lineStart, lineEnd } = getSelectedLinesRange();
+
+    if (lineStart === 0) return; // already at top
+
+    const prevLineStart = text.lastIndexOf('\n', lineStart - 2) + 1;
+    const selectedBlock = text.substring(lineStart, lineEnd);
+    const prevLine = text.substring(prevLineStart, lineStart - 1); // exclude \n
+
+    const selStartOffset = editor.selectionStart - lineStart;
+    const selEndOffset = editor.selectionEnd - lineStart;
+
+    const newText = selectedBlock + '\n' + prevLine;
+    replaceRange(prevLineStart, lineEnd, newText);
+
+    editor.selectionStart = prevLineStart + selStartOffset;
+    editor.selectionEnd = prevLineStart + selEndOffset;
+    handleEditorInput();
+}
+
+function moveLineDown() {
+    const text = editor.value;
+    const { lineStart, lineEnd } = getSelectedLinesRange();
+
+    if (lineEnd >= text.length) return; // already at bottom
+
+    let nextLineEnd = text.indexOf('\n', lineEnd + 1);
+    if (nextLineEnd === -1) nextLineEnd = text.length;
+    const nextLine = text.substring(lineEnd + 1, nextLineEnd);
+    const selectedBlock = text.substring(lineStart, lineEnd);
+
+    const selStartOffset = editor.selectionStart - lineStart;
+    const selEndOffset = editor.selectionEnd - lineStart;
+    const newStart = lineStart + nextLine.length + 1;
+
+    const newText = nextLine + '\n' + selectedBlock;
+    replaceRange(lineStart, nextLineEnd, newText);
+
+    editor.selectionStart = newStart + selStartOffset;
+    editor.selectionEnd = newStart + selEndOffset;
+    handleEditorInput();
+}
+
+function duplicateLine() {
+    const text = editor.value;
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+
+    if (start !== end) {
+        // Duplicate selection
+        const selected = text.substring(start, end);
+        replaceRange(end, end, selected);
+        editor.selectionStart = end;
+        editor.selectionEnd = end + selected.length;
+    } else {
+        // Duplicate current line
+        const { lineStart, lineEnd } = getCurrentLineRange(start);
+        const line = text.substring(lineStart, lineEnd);
+        const offset = start - lineStart;
+        replaceRange(lineEnd, lineEnd, '\n' + line);
+        editor.selectionStart = editor.selectionEnd = lineEnd + 1 + offset;
+    }
+    handleEditorInput();
+}
+
+function selectCurrentLine() {
+    const { lineStart, lineEnd } = getCurrentLineRange(editor.selectionStart);
+    editor.selectionStart = lineStart;
+    editor.selectionEnd = lineEnd;
+    editor.focus();
+}
+
+// --- Indent / Unindent ---
+
+function indentSelection() {
+    const text = editor.value;
+    const { lineStart, lineEnd } = getSelectedLinesRange();
+    const block = text.substring(lineStart, lineEnd);
+    const indented = indentLines(block);
+
+    const selStart = editor.selectionStart;
+    const selEnd = editor.selectionEnd;
+
+    replaceRange(lineStart, lineEnd, indented);
+
+    // Adjust selection: first line gets 4 chars added at start
+    const firstLineOffset = selStart === lineStart ? 4 : 4;
+    editor.selectionStart = selStart + firstLineOffset;
+    editor.selectionEnd = selEnd + (indented.length - block.length);
+}
+
+function unindentSelection() {
+    const text = editor.value;
+    const { lineStart, lineEnd } = getSelectedLinesRange();
+    const block = text.substring(lineStart, lineEnd);
+    const unindented = unindentLines(block);
+
+    const selStart = editor.selectionStart;
+    const selEnd = editor.selectionEnd;
+    const diff = block.length - unindented.length;
+
+    replaceRange(lineStart, lineEnd, unindented);
+
+    // Adjust selection
+    const firstLine = block.split('\n')[0];
+    const firstLineSpaces = Math.min(firstLine.match(/^ */)[0].length, 4);
+    editor.selectionStart = Math.max(lineStart, selStart - firstLineSpaces);
+    editor.selectionEnd = Math.max(editor.selectionStart, selEnd - diff);
+}
+
+// indentLines() and unindentLines() are provided by editor-utils.js
+
+// --- Toggle Comment ---
+
+function toggleComment() {
+    const text = editor.value;
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+
+    if (start !== end) {
+        // Wrap selection in comment
+        const selected = text.substring(start, end);
+        const toggled = toggleBlockComment(selected);
+        replaceRange(start, end, toggled);
+        editor.selectionStart = start;
+        editor.selectionEnd = start + toggled.length;
+    } else {
+        // Toggle comment on current line
+        const { lineStart, lineEnd } = getCurrentLineRange(start);
+        const line = text.substring(lineStart, lineEnd);
+        const toggled = toggleLineComment(line);
+        replaceRange(lineStart, lineEnd, toggled);
+        editor.selectionStart = editor.selectionEnd = lineStart + toggled.length;
+    }
+    handleEditorInput();
+}
+
+// toggleLineComment() is provided by editor-utils.js
+
+function toggleBlockComment(text) {
+    const trimmed = text.trim();
+    if (trimmed.startsWith('<!--') && trimmed.endsWith('-->')) {
+        return text.replace(/^\s*<!--\s?/, '').replace(/\s?-->\s*$/, '');
+    }
+    return '<!-- ' + text + ' -->';
+}
+
+// getSmartEnterText() is provided by editor-utils.js
 
 function insertImage() {
     const url = prompt('Bild-URL eingeben:');
@@ -692,11 +929,29 @@ function handleMenuAction(action, data = {}) {
                 openRecentFile(data.filePath);
             }
             break;
+        case 'delete-line':
+            deleteLine();
+            return; // deleteLine calls handleEditorInput
+        case 'duplicate-line':
+            duplicateLine();
+            return;
+        case 'move-line-up':
+            moveLineUp();
+            return;
+        case 'move-line-down':
+            moveLineDown();
+            return;
+        case 'toggle-comment':
+            toggleComment();
+            return;
+        case 'select-line':
+            selectCurrentLine();
+            return;
         case 'show-about':
             showAboutDialog(data.version);
             break;
     }
-    
+
     handleEditorInput();
 }
 
@@ -1047,7 +1302,23 @@ function handleGlobalShortcuts(e) {
                 break;
             case 'k':
                 e.preventDefault();
-                insertLink();
+                if (e.shiftKey) {
+                    deleteLine();
+                } else {
+                    insertLink();
+                }
+                break;
+            case 'd':
+                e.preventDefault();
+                duplicateLine();
+                break;
+            case 'l':
+                e.preventDefault();
+                selectCurrentLine();
+                break;
+            case '/':
+                e.preventDefault();
+                toggleComment();
                 break;
             case 't':
                 e.preventDefault();
@@ -1101,6 +1372,17 @@ function handleGlobalShortcuts(e) {
                     (currentIndex + 1) % tabs.length;
                 switchTab(tabs[nextIndex].id);
                 break;
+        }
+    }
+
+    // Alt+Arrow shortcuts for line movement
+    if (e.altKey && !e.metaKey && !e.ctrlKey) {
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            moveLineUp();
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            moveLineDown();
         }
     }
 
@@ -1731,9 +2013,8 @@ function replaceNext() {
     }
 
     if (matches) {
-        // Replace current selection
-        const newValue = editor.value.substring(0, selectionStart) + replaceTerm + editor.value.substring(selectionEnd);
-        editor.value = newValue;
+        // Replace current selection (undo-safe)
+        replaceRange(selectionStart, selectionEnd, replaceTerm);
         editor.setSelectionRange(selectionStart, selectionStart + replaceTerm.length);
 
         // Mark tab as modified
@@ -1769,15 +2050,14 @@ function replaceAll() {
     const confirmReplace = confirm(`${matches.length} Treffer gefunden. Alle ersetzen?`);
     if (!confirmReplace) return;
 
+    // Build new value by replacing from end to start to maintain indices
     let newValue = editor.value;
-
-    // Replace from end to start to maintain indices
     for (let i = matches.length - 1; i >= 0; i--) {
         const match = matches[i];
         newValue = newValue.substring(0, match.start) + replaceTerm + newValue.substring(match.end);
     }
 
-    editor.value = newValue;
+    replaceRange(0, editor.value.length, newValue);
 
     // Mark tab as modified
     const activeTab = tabs.find(tab => tab.id === activeTabId);

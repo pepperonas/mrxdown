@@ -249,6 +249,49 @@ function createWindow() {
                     click: () => {
                         mainWindow.webContents.send('menu-action', { action: 'replace' });
                     }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Zeile löschen',
+                    accelerator: 'CmdOrCtrl+Shift+K',
+                    click: () => {
+                        mainWindow.webContents.send('menu-action', { action: 'delete-line' });
+                    }
+                },
+                {
+                    label: 'Zeile duplizieren',
+                    accelerator: 'CmdOrCtrl+D',
+                    click: () => {
+                        mainWindow.webContents.send('menu-action', { action: 'duplicate-line' });
+                    }
+                },
+                {
+                    label: 'Zeile nach oben',
+                    accelerator: 'Alt+Up',
+                    click: () => {
+                        mainWindow.webContents.send('menu-action', { action: 'move-line-up' });
+                    }
+                },
+                {
+                    label: 'Zeile nach unten',
+                    accelerator: 'Alt+Down',
+                    click: () => {
+                        mainWindow.webContents.send('menu-action', { action: 'move-line-down' });
+                    }
+                },
+                {
+                    label: 'Kommentar umschalten',
+                    accelerator: 'CmdOrCtrl+/',
+                    click: () => {
+                        mainWindow.webContents.send('menu-action', { action: 'toggle-comment' });
+                    }
+                },
+                {
+                    label: 'Zeile markieren',
+                    accelerator: 'CmdOrCtrl+L',
+                    click: () => {
+                        mainWindow.webContents.send('menu-action', { action: 'select-line' });
+                    }
                 }
             ]
         },

@@ -39,3 +39,7 @@ temp/
 # Cache
 .cache/
 .parcel-cache/
+
+# Claude
+.claude/
+.serena/

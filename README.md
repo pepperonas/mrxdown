@@ -5,10 +5,14 @@
 
 **Ein moderner Markdown-Editor mit Live-Vorschau**
 
+[![Build](https://img.shields.io/github/actions/workflow/status/pepperonas/mrxdown/build.yml?branch=main&label=build)](https://github.com/pepperonas/mrxdown/actions/workflows/build.yml)
+[![Tests](https://img.shields.io/github/actions/workflow/status/pepperonas/mrxdown/build.yml?branch=main&label=tests)](https://github.com/pepperonas/mrxdown/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/pepperonas/mrxdown)](https://github.com/pepperonas/mrxdown/releases)
+[![Downloads](https://img.shields.io/github/downloads/pepperonas/mrxdown/total)](https://github.com/pepperonas/mrxdown/releases)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)](https://github.com/pepperonas/mrxdown/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Electron](https://img.shields.io/badge/electron-28.0.0-47848f)](https://electronjs.org/)
+[![Code Size](https://img.shields.io/github/languages/code-size/pepperonas/mrxdown)](https://github.com/pepperonas/mrxdown)
 
   <br>
 
@@ -127,6 +131,18 @@ sudo snap install MrxDown-0.4.0.snap --dangerous
 - `Cmd/Ctrl + T` - Tabelle einfügen
 - `Cmd/Ctrl + \`` - Code formatieren
 
+### Editor
+
+- `Cmd/Ctrl + D` - Zeile/Auswahl duplizieren
+- `Cmd/Ctrl + Shift + K` - Zeile löschen
+- `Cmd/Ctrl + L` - Zeile markieren
+- `Cmd/Ctrl + /` - Kommentar umschalten
+- `Alt + ↑` - Zeile nach oben verschieben
+- `Alt + ↓` - Zeile nach unten verschieben
+- `Tab` - Einrücken (mit Auswahl: Block einrücken)
+- `Shift + Tab` - Ausrücken
+- `Enter` - Smart Enter (Listen automatisch fortsetzen)
+
 ### Überschriften
 
 - `Cmd/Ctrl + 1-6` - Überschrift H1-H6
@@ -174,6 +190,26 @@ npm run build-all
 5. Öffne einen Pull Request
 
 ## 📋 Changelog
+
+### Version 0.5.0 (2026-02-23)
+
+**Editor-Verbesserungen:**
+- **Undo/Redo repariert**: Alle Textmanipulationen (Bold, Italic, Heading, Tab, Suchen/Ersetzen) erhalten jetzt den Browser-Undo-Stack via `document.execCommand`
+- **Zeile duplizieren** (`Cmd+D`): Aktuelle Zeile oder Auswahl duplizieren
+- **Zeile löschen** (`Cmd+Shift+K`): Aktuelle Zeile entfernen
+- **Zeile verschieben** (`Alt+↑/↓`): Zeile(n) nach oben/unten verschieben
+- **Zeile markieren** (`Cmd+L`): Gesamte aktuelle Zeile selektieren
+- **Block einrücken/ausrücken** (`Tab`/`Shift+Tab`): Mit Auswahl ein-/ausrücken
+- **Kommentar umschalten** (`Cmd+/`): HTML-Kommentar `<!-- -->` um Zeile/Auswahl
+- **Smart Enter**: Listen automatisch fortsetzen (`-`, `*`, `1.`, `2.`, ...), leerer Listenpunkt beendet Liste
+
+**Tests & Qualität:**
+- Jest-Testsuite mit 58 Tests (Heading-ID, Smart Enter, Indent, Comment)
+- Testbare Logik in `editor-utils.js` extrahiert
+- CI: Tests laufen automatisch vor dem Build
+
+**Cleanup:**
+- 6 redundante Dateien entfernt (PDF_EXPORT_*.md/pdf, test-anchors.md, INSTALL_MAC.md, install-macos.sh)
 
 ### Version 0.4.0 (2025-12-06)
 
@@ -284,6 +320,10 @@ npm run build-all
 ### Version 1.0.0
 
 - [x] PDF-Export
+- [x] Undo/Redo Support
+- [x] Editor-Operationen (Zeile verschieben, duplizieren, löschen)
+- [x] Smart Enter (Listen-Fortsetzung)
+- [x] Automatisierte Tests
 - [ ] Syntax-Highlighting im Editor
 - [ ] Mermaid-Diagramm-Support
 - [ ] Zusätzliche Themes
