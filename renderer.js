@@ -2,7 +2,6 @@
 let tabs = [];
 let activeTabId = 0;
 let nextTabId = 1;
-let isZenMode = false;
 let sidebarVisible = true;
 let lineNumbers = false;
 let wordWrap = true;
@@ -41,7 +40,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Make functions globally available for onclick handlers
     window.handleMenuAction = handleMenuAction;
     window.toggleSidebar = toggleSidebar;
-    window.toggleZenMode = toggleZenMode;
     window.closeTab = closeTab;
     window.toggleLineNumbers = toggleLineNumbers;
     window.toggleWordWrap = toggleWordWrap;
@@ -1420,9 +1418,6 @@ function handleMenuAction(action, data = {}) {
         case 'toggle-sidebar':
             toggleSidebar();
             break;
-        case 'toggle-zen-mode':
-            toggleZenMode();
-            break;
         case 'open-recent':
             if (data.filePath) {
                 openRecentFile(data.filePath);
@@ -1777,52 +1772,6 @@ function toggleSidebar() {
     sidebar.classList.toggle('hidden', !sidebarVisible);
 }
 
-function toggleZenMode() {
-    isZenMode = !isZenMode;
-    document.body.classList.toggle('zen-mode', isZenMode);
-
-    // Show exit hint when entering zen mode
-    if (isZenMode) {
-        showZenModeHint();
-    } else {
-        const hint = document.getElementById('zenModeHint');
-        if (hint) hint.remove();
-    }
-}
-
-function showZenModeHint() {
-    // Remove existing hint
-    const existing = document.getElementById('zenModeHint');
-    if (existing) existing.remove();
-
-    const hint = document.createElement('div');
-    hint.id = 'zenModeHint';
-    hint.textContent = 'ESC zum Beenden';
-    hint.style.cssText = `
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(52, 56, 69, 0.9);
-        color: rgba(209, 213, 219, 0.8);
-        padding: 8px 20px;
-        border-radius: 8px;
-        font-size: 13px;
-        z-index: 10000;
-        pointer-events: none;
-        transition: opacity 1s ease;
-    `;
-    document.body.appendChild(hint);
-
-    // Fade out after 3 seconds
-    setTimeout(() => {
-        hint.style.opacity = '0';
-        setTimeout(() => {
-            hint.remove();
-        }, 1000);
-    }, 3000);
-}
-
 function toggleLineNumbers() {
     lineNumbers = !lineNumbers;
     editor.setLineNumbers(lineNumbers);
@@ -1930,13 +1879,8 @@ function saveSettings() {
 
 // Global Shortcuts
 function handleGlobalShortcuts(e) {
-    // ESC to close dialogs or exit zen mode
+    // ESC to close dialogs
     if (e.key === 'Escape') {
-        if (isZenMode) {
-            e.preventDefault();
-            toggleZenMode();
-            return;
-        }
         if (autocompleteVisible) {
             e.preventDefault();
             hideAutocomplete();
@@ -2047,10 +1991,6 @@ function handleGlobalShortcuts(e) {
                 }
                 break;
             case 'z':
-                if (e.shiftKey) {
-                    e.preventDefault();
-                    toggleZenMode();
-                }
                 break;
             case '1':
             case '2':
@@ -2092,11 +2032,6 @@ function handleGlobalShortcuts(e) {
         }
     }
 
-    // F11 for fullscreen
-    if (e.key === 'F11') {
-        e.preventDefault();
-        toggleZenMode();
-    }
 }
 
 // Utility Functions

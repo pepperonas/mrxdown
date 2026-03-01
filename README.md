@@ -30,7 +30,7 @@
 | **Sidebar** | Datei-Explorer mit Ordnerstruktur + Dokument-Gliederung (Outline) |
 | **Suche** | Nicht-modale Suche & Ersetzen mit Regex, Groß/Klein, Ganze Wörter |
 | **Export** | HTML mit eingebetteten Bildern, PDF, Batch-PDF aller Tabs |
-| **Schreiben** | Zen-Modus, Smart Enter (Listen), Auto-Save, Session Recovery |
+| **Schreiben** | Smart Enter (Listen), Auto-Save, Session Recovery |
 | **Dateien** | Drag & Drop (Dateien + Ordner), File Watching, Recent Files, Einstellungen |
 | **Editor-Ops** | Zeile duplizieren/löschen/verschieben, Block ein-/ausrücken, Kommentar-Toggle |
 | **CLI** | Headless Markdown-zu-PDF Konvertierung vom Terminal |
@@ -117,7 +117,6 @@ mrxdown /path/to/ordner/        # Alle .md Dateien im Ordner → PDF
 | `Cmd/Ctrl + F` | Suchen |
 | `Cmd/Ctrl + R` | Ersetzen |
 | `Cmd/Ctrl + \` | Sidebar umschalten |
-| `Cmd/Ctrl + Shift + Z` | Zen-Modus |
 | `Cmd/Ctrl + Tab` | Nächster Tab |
 | `Cmd/Ctrl + Shift + Tab` | Vorheriger Tab |
 
@@ -135,6 +134,7 @@ npm run build-all  # Für alle Plattformen bauen
 ### Technischer Stack
 
 - **Electron 28** — Desktop-App-Framework
+- **CodeMirror 6** — Editor mit Syntax-Highlighting
 - **Marked.js** — Markdown-Parser (lokal gebundelt)
 - **DOMPurify** — HTML-Sanitization (lokal gebundelt)
 - **Jest** — Testsuite mit 65 Tests
@@ -220,7 +220,7 @@ npm run build-all  # Für alle Plattformen bauen
 - [x] Smart Enter (Listen-Fortsetzung)
 - [x] Automatisierte Tests
 - [x] Light/Dark Theme
-- [ ] Syntax-Highlighting im Editor
+- [x] Syntax-Highlighting im Editor (CodeMirror 6)
 - [ ] Mermaid-Diagramm-Support
 
 ### Version 1.1.0

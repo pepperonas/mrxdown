@@ -502,11 +502,6 @@ function getMenuTemplate() {
                     accelerator: 'CmdOrCtrl+\\',
                     click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'toggle-sidebar' }); }
                 },
-                {
-                    label: 'Zen-Modus',
-                    accelerator: 'CmdOrCtrl+Shift+Z',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'toggle-zen-mode' }); }
-                },
                 { type: 'separator' },
                 { role: 'reload', label: 'Neu laden' },
                 { role: 'forceReload', label: 'Erzwungen neu laden' },
@@ -1186,7 +1181,6 @@ Features:
 • Tabs und Drag & Drop
 • Syntax-Highlighting
 • Export-Funktionen
-• Zen-Modus
 • Tabellen-Editor
 
 Entwickelt mit Electron`,

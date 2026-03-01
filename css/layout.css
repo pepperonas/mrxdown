@@ -290,31 +290,6 @@ body {
     display: none !important;
 }
 
-/* Zen Mode */
-.zen-mode .sidebar {
-    display: none;
-}
-
-.zen-mode .toolbar {
-    display: none;
-}
-
-.zen-mode .tab-bar {
-    display: none;
-}
-
-.zen-mode .status-bar {
-    display: none;
-}
-
-.zen-mode .preview-pane {
-    display: none;
-}
-
-.zen-mode .editor-header {
-    display: none;
-}
-
 /* Animations */
 @keyframes fadeIn {
     from {
