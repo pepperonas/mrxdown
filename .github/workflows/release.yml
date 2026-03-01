@@ -154,61 +154,50 @@ jobs:
       id: create_release
       uses: ncipollo/release-action@v1
       with:
-        tag: ${{ github.ref }}
-        name: MrxDown ${{ github.ref }}
+        tag: ${{ github.ref_name }}
+        name: MrxDown ${{ github.ref_name }}
         draft: false
         prerelease: false
         body: |
-          ## 🎉 MrxDown ${{ github.ref }} - Multi-Platform Release
-          
-          ### 📥 Downloads
-          
+          ## MrxDown ${{ github.ref_name }} - Multi-Platform Release
+
+          ### Downloads
+
           **macOS**
-          - **ZIP** für Intel & Apple Silicon Macs (Universal Binary)
-          
+          - ZIP + DMG fuer Intel & Apple Silicon Macs
+
           **Windows**
-          - NSIS Installer für Windows 10/11
+          - NSIS Installer fuer Windows 10/11
           - Portable Version (keine Installation erforderlich)
-          
+
           **Linux**
           - AppImage (universal)
-          - DEB-Package für Ubuntu/Debian
+          - DEB-Package fuer Ubuntu/Debian
           - Snap-Package
-          
-          ### ✨ Features
-          
-          - 🌙 Modern Dark Theme
-          - 📑 Multi-Tab Support
-          - 🖱️ Drag & Drop
-          - ⚡ Live-Vorschau
-          - 📊 Tabellen-Editor
-          - 🔧 Formatierungs-Toolbar
-          - 📂 Datei-Explorer
-          - 🧘 Zen-Modus
-          - 💾 Auto-Save
-          - 📤 HTML-Export
-          - ⌨️ Keyboard Shortcuts
-          
-          ### 🔧 Installation
-          
-          1. Lade die entsprechende Version für dein System herunter
+
+          ### Features
+
+          - CodeMirror 6 Editor mit Syntax-Highlighting
+          - Lucide SVG Icons
+          - Dark & Light Theme
+          - Multi-Tab Support mit Drag & Drop
+          - Live-Vorschau mit Scroll-Sync
+          - Tabellen-Editor
+          - Formatierungs-Toolbar
+          - Datei-Explorer mit Outline
+          - Auto-Save & Session Recovery
+          - HTML- und PDF-Export
+          - CLI fuer Batch-Konvertierung
+
+          ### Installation
+
+          1. Lade die entsprechende Version fuer dein System herunter
           2. Installiere die Anwendung
           3. Starte MrxDown und beginne mit dem Schreiben!
-          
-          ### 🐛 Bekannte Probleme
-          
-          - Siehe [Issues](https://github.com/pepperonas/mrxdown/issues)
-          
-          ### 📞 Support
-          
-          - **Issues**: [GitHub Issues](https://github.com/pepperonas/mrxdown/issues)
-          - **Diskussionen**: [GitHub Discussions](https://github.com/pepperonas/mrxdown/discussions)
-          
+
           ---
-          
-          **Entwickelt von Martin Pfeffer © 2025**
-          
-          🔗 [GitHub Repository](https://github.com/pepperonas/mrxdown) | 🌐 [Website](https://pepperonas.com)
+
+          **Entwickelt von Martin Pfeffer (c) 2025-2026**
         artifacts: |
           **/*.zip
           **/*.dmg
