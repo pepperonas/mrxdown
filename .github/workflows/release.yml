@@ -56,18 +56,13 @@ jobs:
     - name: Build app for macOS
       if: matrix.os == 'macos-latest'
       run: |
-        # Build both ZIP and DMG for release
-        npm run build-mac
+        npx electron-builder --mac zip --publish=never
         echo "Build completed, listing artifacts:"
         ls -la dist/
-        # Verify artifacts
-        if [ ! -f dist/*.zip ]; then echo "Warning: ZIP file not found"; fi
-        if [ ! -f dist/*.dmg ]; then echo "Warning: DMG file not found"; fi
         echo "macOS release build verification completed"
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         CSC_IDENTITY_AUTO_DISCOVERY: false
-        DEBUG: electron-builder
         
     - name: Build app for Windows
       if: matrix.os == 'windows-latest'
@@ -102,8 +97,6 @@ jobs:
         name: macos-artifacts
         path: |
           dist/*.zip
-          dist/*.dmg
-          dist/*.dmg.blockmap
         if-no-files-found: warn
         retention-days: 30
           
@@ -200,7 +193,6 @@ jobs:
           **Entwickelt von Martin Pfeffer (c) 2025-2026**
         artifacts: |
           **/*.zip
-          **/*.dmg
           **/*.exe
           **/*.AppImage
           **/*.deb

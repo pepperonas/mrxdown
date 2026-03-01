@@ -68,16 +68,13 @@ jobs:
     - name: Build app for macOS
       if: matrix.os == 'macos-latest'
       run: |
-        npm run build-mac
-        # List built artifacts for debugging
+        npx electron-builder --mac zip --publish=never
         echo "Build completed, listing artifacts:"
         ls -la dist/
-        # Verify that expected files exist
         if [ ! -f dist/*.zip ]; then echo "Error: ZIP file not found"; exit 1; fi
         echo "macOS build verification successful"
       env:
         CSC_IDENTITY_AUTO_DISCOVERY: false
-        DEBUG: electron-builder
         
     - name: Build app for Windows
       if: matrix.os == 'windows-latest'
