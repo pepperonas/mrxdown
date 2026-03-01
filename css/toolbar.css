@@ -34,7 +34,11 @@
     box-shadow: var(--shadow);
     z-index: 100;
     -webkit-app-region: drag;
-    padding-left: 80px; /* Space for macOS traffic lights */
+}
+
+/* Space for macOS traffic lights — class added dynamically on macOS */
+body.platform-darwin .toolbar {
+    padding-left: 80px;
 }
 
 .toolbar > * {

@@ -320,8 +320,12 @@ function createApplicationMenu() {
 }
 
 function getMenuTemplate() {
-    return [
-        {
+    const isMac = process.platform === 'darwin';
+    const template = [];
+
+    // macOS app menu (first menu item is handled specially by macOS)
+    if (isMac) {
+        template.push({
             label: 'MrxDown',
             submenu: [
                 {
@@ -339,195 +343,220 @@ function getMenuTemplate() {
                 { type: 'separator' },
                 { role: 'quit' }
             ]
+        });
+    }
+
+    // File menu — on Windows, add About + Quit here since there's no app menu
+    const fileSubmenu = [
+        {
+            label: 'Neue Datei',
+            accelerator: 'CmdOrCtrl+N',
+            click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'new-file' }); }
         },
         {
-            label: 'Datei',
-            submenu: [
-                {
-                    label: 'Neue Datei',
-                    accelerator: 'CmdOrCtrl+N',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'new-file' }); }
-                },
-                {
-                    label: 'Neues Fenster',
-                    accelerator: 'CmdOrCtrl+Shift+N',
-                    click: () => { createWindow(); }
-                },
-                { type: 'separator' },
-                {
-                    label: 'Öffnen...',
-                    accelerator: 'CmdOrCtrl+O',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'open-file' }); }
-                },
-                {
-                    label: 'Zuletzt verwendet',
-                    id: 'recent-files',
-                    submenu: buildRecentFilesSubmenu()
-                },
-                { type: 'separator' },
-                {
-                    label: 'Speichern',
-                    accelerator: 'CmdOrCtrl+S',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'save-file' }); }
-                },
-                {
-                    label: 'Speichern unter...',
-                    accelerator: 'CmdOrCtrl+Shift+S',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'save-file-as' }); }
-                },
-                { type: 'separator' },
-                {
-                    label: 'Als HTML exportieren',
-                    accelerator: 'CmdOrCtrl+E',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'export-html' }); }
-                },
-                {
-                    label: 'Als PDF exportieren',
-                    accelerator: 'CmdOrCtrl+P',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'export-pdf' }); }
-                }
-            ]
+            label: 'Neues Fenster',
+            accelerator: 'CmdOrCtrl+Shift+N',
+            click: () => { createWindow(); }
+        },
+        { type: 'separator' },
+        {
+            label: 'Öffnen...',
+            accelerator: 'CmdOrCtrl+O',
+            click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'open-file' }); }
         },
         {
-            label: 'Bearbeiten',
-            submenu: [
-                { role: 'undo', label: 'Rückgängig' },
-                { role: 'redo', label: 'Wiederholen' },
-                { type: 'separator' },
-                { role: 'cut', label: 'Ausschneiden' },
-                { role: 'copy', label: 'Kopieren' },
-                { role: 'paste', label: 'Einfügen' },
-                { role: 'selectAll', label: 'Alles auswählen' },
-                { type: 'separator' },
-                {
-                    label: 'Suchen',
-                    accelerator: 'CmdOrCtrl+F',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'find' }); }
-                },
-                {
-                    label: 'Ersetzen',
-                    accelerator: 'CmdOrCtrl+R',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'replace' }); }
-                },
-                { type: 'separator' },
-                {
-                    label: 'Zeile löschen',
-                    accelerator: 'CmdOrCtrl+Shift+K',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'delete-line' }); }
-                },
-                {
-                    label: 'Zeile duplizieren',
-                    accelerator: 'CmdOrCtrl+D',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'duplicate-line' }); }
-                },
-                {
-                    label: 'Zeile nach oben',
-                    accelerator: 'Alt+Up',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'move-line-up' }); }
-                },
-                {
-                    label: 'Zeile nach unten',
-                    accelerator: 'Alt+Down',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'move-line-down' }); }
-                },
-                {
-                    label: 'Kommentar umschalten',
-                    accelerator: 'CmdOrCtrl+/',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'toggle-comment' }); }
-                },
-                {
-                    label: 'Zeile markieren',
-                    accelerator: 'CmdOrCtrl+L',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'select-line' }); }
-                }
-            ]
+            label: 'Zuletzt verwendet',
+            id: 'recent-files',
+            submenu: buildRecentFilesSubmenu()
+        },
+        { type: 'separator' },
+        {
+            label: 'Speichern',
+            accelerator: 'CmdOrCtrl+S',
+            click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'save-file' }); }
         },
         {
-            label: 'Format',
-            submenu: [
-                {
-                    label: 'Fett',
-                    accelerator: 'CmdOrCtrl+B',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'format-bold' }); }
-                },
-                {
-                    label: 'Kursiv',
-                    accelerator: 'CmdOrCtrl+I',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'format-italic' }); }
-                },
-                {
-                    label: 'Code',
-                    accelerator: 'CmdOrCtrl+`',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'format-code' }); }
-                },
-                { type: 'separator' },
-                {
-                    label: 'Link einfügen',
-                    accelerator: 'CmdOrCtrl+K',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'insert-link' }); }
-                },
-                {
-                    label: 'Bild einfügen',
-                    accelerator: 'CmdOrCtrl+Shift+I',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'insert-image' }); }
-                },
-                {
-                    label: 'Tabelle einfügen',
-                    accelerator: 'CmdOrCtrl+T',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'insert-table' }); }
-                },
-                { type: 'separator' },
-                {
-                    label: 'Überschrift 1',
-                    accelerator: 'CmdOrCtrl+1',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'heading-1' }); }
-                },
-                {
-                    label: 'Überschrift 2',
-                    accelerator: 'CmdOrCtrl+2',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'heading-2' }); }
-                },
-                {
-                    label: 'Überschrift 3',
-                    accelerator: 'CmdOrCtrl+3',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'heading-3' }); }
-                }
-            ]
+            label: 'Speichern unter...',
+            accelerator: 'CmdOrCtrl+Shift+S',
+            click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'save-file-as' }); }
+        },
+        { type: 'separator' },
+        {
+            label: 'Als HTML exportieren',
+            accelerator: 'CmdOrCtrl+E',
+            click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'export-html' }); }
         },
         {
-            label: 'Ansicht',
-            submenu: [
-                {
-                    label: 'Sidebar umschalten',
-                    accelerator: 'CmdOrCtrl+\\',
-                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'toggle-sidebar' }); }
-                },
-                { type: 'separator' },
-                { role: 'reload', label: 'Neu laden' },
-                { role: 'forceReload', label: 'Erzwungen neu laden' },
-                { role: 'toggleDevTools', label: 'Entwicklertools' },
-                { type: 'separator' },
-                { role: 'resetZoom', label: 'Tatsächliche Größe' },
-                { role: 'zoomIn', label: 'Vergrößern' },
-                { role: 'zoomOut', label: 'Verkleinern' },
-                { type: 'separator' },
-                { role: 'togglefullscreen', label: 'Vollbild' }
-            ]
-        },
-        {
-            label: 'Fenster',
-            submenu: [
-                { role: 'minimize', label: 'Minimieren' },
-                { role: 'close', label: 'Schließen' },
-                { type: 'separator' },
-                { role: 'front', label: 'Alle nach vorne' }
-            ]
+            label: 'Als PDF exportieren',
+            accelerator: 'CmdOrCtrl+P',
+            click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'export-pdf' }); }
         }
     ];
+
+    if (!isMac) {
+        fileSubmenu.push(
+            { type: 'separator' },
+            {
+                label: 'Über MrxDown',
+                click: () => {
+                    if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'show-about', version: packageJson.version });
+                }
+            },
+            { type: 'separator' },
+            { role: 'quit', label: 'Beenden' }
+        );
+    }
+
+    template.push({ label: 'Datei', submenu: fileSubmenu });
+
+    template.push({
+        label: 'Bearbeiten',
+        submenu: [
+            { role: 'undo', label: 'Rückgängig' },
+            { role: 'redo', label: 'Wiederholen' },
+            { type: 'separator' },
+            { role: 'cut', label: 'Ausschneiden' },
+            { role: 'copy', label: 'Kopieren' },
+            { role: 'paste', label: 'Einfügen' },
+            { role: 'selectAll', label: 'Alles auswählen' },
+            { type: 'separator' },
+            {
+                label: 'Suchen',
+                accelerator: 'CmdOrCtrl+F',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'find' }); }
+            },
+            {
+                label: 'Ersetzen',
+                accelerator: 'CmdOrCtrl+R',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'replace' }); }
+            },
+            { type: 'separator' },
+            {
+                label: 'Zeile löschen',
+                accelerator: 'CmdOrCtrl+Shift+K',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'delete-line' }); }
+            },
+            {
+                label: 'Zeile duplizieren',
+                accelerator: 'CmdOrCtrl+D',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'duplicate-line' }); }
+            },
+            {
+                label: 'Zeile nach oben',
+                accelerator: 'Alt+Up',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'move-line-up' }); }
+            },
+            {
+                label: 'Zeile nach unten',
+                accelerator: 'Alt+Down',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'move-line-down' }); }
+            },
+            {
+                label: 'Kommentar umschalten',
+                accelerator: 'CmdOrCtrl+/',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'toggle-comment' }); }
+            },
+            {
+                label: 'Zeile markieren',
+                accelerator: 'CmdOrCtrl+L',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'select-line' }); }
+            }
+        ]
+    });
+
+    template.push({
+        label: 'Format',
+        submenu: [
+            {
+                label: 'Fett',
+                accelerator: 'CmdOrCtrl+B',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'format-bold' }); }
+            },
+            {
+                label: 'Kursiv',
+                accelerator: 'CmdOrCtrl+I',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'format-italic' }); }
+            },
+            {
+                label: 'Code',
+                accelerator: 'CmdOrCtrl+`',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'format-code' }); }
+            },
+            { type: 'separator' },
+            {
+                label: 'Link einfügen',
+                accelerator: 'CmdOrCtrl+K',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'insert-link' }); }
+            },
+            {
+                label: 'Bild einfügen',
+                accelerator: 'CmdOrCtrl+Shift+I',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'insert-image' }); }
+            },
+            {
+                label: 'Tabelle einfügen',
+                accelerator: 'CmdOrCtrl+T',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'insert-table' }); }
+            },
+            { type: 'separator' },
+            {
+                label: 'Überschrift 1',
+                accelerator: 'CmdOrCtrl+1',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'heading-1' }); }
+            },
+            {
+                label: 'Überschrift 2',
+                accelerator: 'CmdOrCtrl+2',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'heading-2' }); }
+            },
+            {
+                label: 'Überschrift 3',
+                accelerator: 'CmdOrCtrl+3',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'heading-3' }); }
+            }
+        ]
+    });
+
+    template.push({
+        label: 'Ansicht',
+        submenu: [
+            {
+                label: 'Sidebar umschalten',
+                accelerator: 'CmdOrCtrl+\\',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'toggle-sidebar' }); }
+            },
+            { type: 'separator' },
+            { role: 'reload', label: 'Neu laden' },
+            { role: 'forceReload', label: 'Erzwungen neu laden' },
+            { role: 'toggleDevTools', label: 'Entwicklertools' },
+            { type: 'separator' },
+            { role: 'resetZoom', label: 'Tatsächliche Größe' },
+            { role: 'zoomIn', label: 'Vergrößern' },
+            { role: 'zoomOut', label: 'Verkleinern' },
+            { type: 'separator' },
+            { role: 'togglefullscreen', label: 'Vollbild' }
+        ]
+    });
+
+    // Window menu — macOS uses 'front', Windows/Linux use 'zoom'
+    const windowSubmenu = [
+        { role: 'minimize', label: 'Minimieren' },
+        { role: 'close', label: 'Schließen' }
+    ];
+    if (isMac) {
+        windowSubmenu.push(
+            { type: 'separator' },
+            { role: 'front', label: 'Alle nach vorne' }
+        );
+    }
+    template.push({ label: 'Fenster', submenu: windowSubmenu });
+
+    return template;
 }
 
 function createWindow() {
-    mainWindow = new BrowserWindow({
+    const isMac = process.platform === 'darwin';
+    const windowOptions = {
         width: 1400,
         height: 900,
         minWidth: 900,
@@ -537,20 +566,31 @@ function createWindow() {
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.js')
         },
-        titleBarStyle: 'hiddenInset',
-        trafficLightPosition: { x: 20, y: 20 },
         backgroundColor: '#2B2E3B',
         icon: path.join(__dirname, 'assets/icon.png')
-    });
+    };
+
+    if (isMac) {
+        windowOptions.titleBarStyle = 'hiddenInset';
+        windowOptions.trafficLightPosition = { x: 20, y: 20 };
+    }
+
+    mainWindow = new BrowserWindow(windowOptions);
 
     mainWindow.loadFile('index.html');
+
+    // Add platform class to body for platform-specific CSS
+    mainWindow.webContents.on('did-finish-load', () => {
+        mainWindow.webContents.executeJavaScript(
+            `document.body.classList.add('platform-${process.platform}')`
+        );
+    });
 
     // Enable drag and drop
     mainWindow.webContents.on('will-navigate', (event, url) => {
         event.preventDefault();
     });
 
-    // macOS Menu
     createApplicationMenu();
 
     mainWindow.on('close', async (event) => {

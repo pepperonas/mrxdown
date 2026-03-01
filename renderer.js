@@ -1337,7 +1337,8 @@ async function insertImage() {
             const activeTab = tabs.find(tab => tab.id === activeTabId);
             let insertPath = imagePath;
             if (activeTab && activeTab.filePath) {
-                const fileDir = activeTab.filePath.substring(0, activeTab.filePath.lastIndexOf('/'));
+                const lastSep = Math.max(activeTab.filePath.lastIndexOf('/'), activeTab.filePath.lastIndexOf('\\'));
+                const fileDir = lastSep > 0 ? activeTab.filePath.substring(0, lastSep) : '';
                 if (imagePath.startsWith(fileDir)) {
                     insertPath = imagePath.substring(fileDir.length + 1);
                 }
@@ -1491,7 +1492,8 @@ function openFileContent(filePath, content) {
         window.electronAPI.watchFile(filePath);
 
         // Load the file tree for the directory of the opened file
-        const dirPath = filePath.substring(0, filePath.lastIndexOf('/'));
+        const lastSep = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+        const dirPath = lastSep > 0 ? filePath.substring(0, lastSep) : '';
         if (dirPath) {
             loadFileTree(dirPath);
         }
@@ -2037,7 +2039,7 @@ function handleGlobalShortcuts(e) {
 // Utility Functions
 function getFileName(filePath) {
     if (!filePath) return 'Unbenannt';
-    return filePath.split('/').pop() || filePath.split('\\').pop() || filePath;
+    return filePath.split(/[/\\]/).pop() || filePath;
 }
 
 function handleWindowResize() {
