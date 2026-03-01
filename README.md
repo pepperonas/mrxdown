@@ -19,303 +19,198 @@
   <img src="assets/mockup-1.png" alt="MrxDown Screenshot" width="800">
 </div>
 
-## ✨ Features
+## Features
 
-- **🌙 Modern Dark Theme** - Elegant Material Design-basierte Benutzeroberfläche
-- **📑 Multi-Tab Support** - Arbeite mit mehreren Markdown-Dateien gleichzeitig
-- **🖱️ Drag & Drop** - Einfaches Öffnen von Dateien per Drag & Drop
-- **⚡ Live-Vorschau** - Echtzeit-Markdown-Rendering mit Scroll-Synchronisation
-- **📊 Tabellen-Editor** - Interaktive Tabellen-Erstellung mit GUI
-- **🔧 Formatierungs-Toolbar** - Schnelle Formatierung mit Icon-Buttons
-- **📂 Datei-Explorer** - Integrierte Sidebar für Dateinavigation
-- **🧘 Zen-Modus** - Ablenkungsfreies Schreiben
-- **💾 Auto-Save** - Automatisches Speichern (konfigurierbar)
-- **📤 Export-Funktionen** - HTML-Export mit eingebetteten Bildern & PDF-Export ohne Artefakte
-- **🚀 Batch PDF Export** - Alle geöffneten Tabs auf einmal als PDF exportieren
-- **🔍 Search & Replace** - Erweiterte Suchfunktion mit Regex-Unterstützung
-- **👁️ File Watching** - Automatische Erkennung externer Dateiänderungen
-- **⌨️ Keyboard Shortcuts** - Umfassende Tastaturkürzel
-- **🖥️ CLI Support** - Markdown zu PDF direkt vom Terminal
+| Kategorie | Feature |
+|-----------|---------|
+| **Editor** | Live-Vorschau mit Scroll-Sync, Syntax-Highlighting, Zeilennummern, Autocomplete |
+| **Formatierung** | Toolbar mit Fett, Kursiv, Durchgestrichen, Code, Links, Tabellen, H1-H6 |
+| **Themes** | Dark & Light Theme mit Toggle-Button |
+| **Tabs** | Multi-Tab-Editor mit Drag-to-Reorder, Tab schließen / alle / andere |
+| **Sidebar** | Datei-Explorer mit Ordnerstruktur + Dokument-Gliederung (Outline) |
+| **Suche** | Nicht-modale Suche & Ersetzen mit Regex, Groß/Klein, Ganze Wörter |
+| **Export** | HTML mit eingebetteten Bildern, PDF, Batch-PDF aller Tabs |
+| **Schreiben** | Zen-Modus, Smart Enter (Listen), Auto-Save, Session Recovery |
+| **Dateien** | Drag & Drop (Dateien + Ordner), File Watching, Recent Files, Einstellungen |
+| **Editor-Ops** | Zeile duplizieren/löschen/verschieben, Block ein-/ausrücken, Kommentar-Toggle |
+| **CLI** | Headless Markdown-zu-PDF Konvertierung vom Terminal |
 
-## 🚀 Download & Installation
+## Download & Installation
 
-### Version 0.4.0 (Aktuell)
+### Aktuelle Version
 
-[![Download für macOS](https://img.shields.io/badge/macOS-Download-blue?style=for-the-badge&logo=apple)](https://github.com/pepperonas/mrxdown/releases/download/v0.4.0/MrxDown-0.4.0.zip)
-[![Download für Windows](https://img.shields.io/badge/Windows-Download-blue?style=for-the-badge&logo=windows)](https://github.com/pepperonas/mrxdown/releases/download/v0.4.0/MrxDown-0.4.0.exe)
-[![Download für Linux](https://img.shields.io/badge/Linux-Download-blue?style=for-the-badge&logo=linux)](https://github.com/pepperonas/mrxdown/releases/download/v0.4.0/MrxDown-0.4.0.AppImage)
+[![Download für macOS](https://img.shields.io/badge/macOS-Download-blue?style=for-the-badge&logo=apple)](https://github.com/pepperonas/mrxdown/releases/latest)
+[![Download für Windows](https://img.shields.io/badge/Windows-Download-blue?style=for-the-badge&logo=windows)](https://github.com/pepperonas/mrxdown/releases/latest)
+[![Download für Linux](https://img.shields.io/badge/Linux-Download-blue?style=for-the-badge&logo=linux)](https://github.com/pepperonas/mrxdown/releases/latest)
 
-| Betriebssystem | Datei                    | Größe   | Installation                                       |
-|----------------|--------------------------|---------|----------------------------------------------------|
-| **macOS**      | `MrxDown-0.4.0.zip`      | ~100 MB | ZIP entpacken, Rechtsklick → "Öffnen"              |
-| **Windows**    | `MrxDown-0.4.0.exe`      | ~135 MB | Installer ausführen                                |
-| **Windows**    | `MrxDown-0.4.0.exe` (Portable) | ~125 MB | Direkt ausführbar, keine Installation            |
-| **Linux**      | `MrxDown-0.4.0.AppImage` | ~99 MB  | Ausführbar machen: `chmod +x`                      |
-| **Linux**      | `MrxDown-0.4.0.deb`      | ~134 MB | `sudo dpkg -i MrxDown-0.4.0.deb`                   |
-| **Linux**      | `MrxDown-0.4.0.snap`     | ~84 MB  | `sudo snap install MrxDown-0.4.0.snap --dangerous` |
+| Betriebssystem | Format | Installation |
+|----------------|--------|--------------|
+| **macOS** | `.zip` / `.dmg` | Entpacken, Rechtsklick → "Öffnen" |
+| **Windows** | `.exe` (Installer) | Installer ausführen |
+| **Windows** | `.exe` (Portable) | Direkt ausführbar |
+| **Linux** | `.AppImage` | `chmod +x` und starten |
+| **Linux** | `.deb` | `sudo dpkg -i MrxDown-*.deb` |
+| **Linux** | `.snap` | `sudo snap install MrxDown-*.snap --dangerous` |
 
-### 🍎 macOS Installation
-
-1. **Download**: [MrxDown-0.4.0.zip](https://github.com/pepperonas/mrxdown/releases/download/v0.4.0/MrxDown-0.4.0.zip)
-2. **Entpacken**: Doppelklick auf ZIP-Datei
-3. **Öffnen**: Rechtsklick auf MrxDown.app → **"Öffnen"** → **"Öffnen"** bestätigen
-
-> **💡 Tipp**: Nach dem ersten "Öffnen" funktioniert die App dauerhaft normal!
-
-**🖥️ CLI einrichten (optional):**
+### macOS
 
 ```bash
-# Script herunterladen und installieren
+# Oder von der Releases-Seite herunterladen
+# Nach dem Download: Rechtsklick → "Öffnen" → "Öffnen" bestätigen
+```
+
+> **Tipp**: Nach dem ersten "Öffnen" funktioniert die App dauerhaft normal.
+
+### CLI einrichten (optional)
+
+```bash
 curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/mrxdown-cli.sh -o /usr/local/bin/mrxdown
 chmod +x /usr/local/bin/mrxdown
 ```
 
-Danach:
-- `mrxdown /path/to/datei.md` → erstellt `datei.pdf`
-- `mrxdown /path/to/ordner/` → konvertiert alle `.md` Dateien im Ordner
-
-### 🪟 Windows Installation
-
-1. **Download**: [MrxDown-0.4.0.exe](https://github.com/pepperonas/mrxdown/releases/download/v0.4.0/MrxDown-0.4.0.exe) (Installer) oder Portable
-2. **Installation**: Installer ausführen und Anweisungen folgen
-3. **Start**: Desktop-Icon oder Startmenü
-
-### 🐧 Linux Installation
-
-#### AppImage (Universal)
-
 ```bash
-# Download
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.4.0/MrxDown-0.4.0.AppImage
-
-# Ausführbar machen
-chmod +x MrxDown-0.4.0.AppImage
-
-# Starten
-./MrxDown-0.4.0.AppImage
+mrxdown /path/to/datei.md       # Einzelne Datei → PDF
+mrxdown /path/to/ordner/        # Alle .md Dateien im Ordner → PDF
 ```
 
-#### DEB (Ubuntu/Debian)
-
-```bash
-# Download und Installation
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.4.0/MrxDown-0.4.0.deb
-sudo dpkg -i MrxDown-0.4.0.deb
-
-# Falls Abhängigkeiten fehlen:
-sudo apt-get install -f
-```
-
-#### Snap
-
-```bash
-# Download und Installation
-wget https://github.com/pepperonas/mrxdown/releases/download/v0.4.0/MrxDown-0.4.0.snap
-sudo snap install MrxDown-0.4.0.snap --dangerous
-```
-
-## ⌨️ Keyboard Shortcuts
+## Keyboard Shortcuts
 
 ### Dateien
 
-- `Cmd/Ctrl + N` - Neue Datei
-- `Cmd/Ctrl + O` - Datei öffnen
-- `Cmd/Ctrl + S` - Speichern
-- `Cmd/Ctrl + Shift + S` - Speichern unter
+| Shortcut | Aktion |
+|----------|--------|
+| `Cmd/Ctrl + N` | Neue Datei |
+| `Cmd/Ctrl + O` | Datei öffnen |
+| `Cmd/Ctrl + S` | Speichern |
+| `Cmd/Ctrl + Shift + S` | Speichern unter |
+| `Cmd/Ctrl + E` | Als HTML exportieren |
+| `Cmd/Ctrl + P` | Als PDF exportieren |
 
 ### Formatierung
 
-- `Cmd/Ctrl + B` - **Fett**
-- `Cmd/Ctrl + I` - *Kursiv*
-- `Cmd/Ctrl + K` - Link einfügen
-- `Cmd/Ctrl + T` - Tabelle einfügen
-- `Cmd/Ctrl + \`` - Code formatieren
+| Shortcut | Aktion |
+|----------|--------|
+| `Cmd/Ctrl + B` | **Fett** |
+| `Cmd/Ctrl + I` | *Kursiv* |
+| `Cmd/Ctrl + Shift + X` | ~~Durchgestrichen~~ |
+| `Cmd/Ctrl + K` | Link einfügen |
+| `Cmd/Ctrl + T` | Tabelle einfügen |
+| `` Cmd/Ctrl + ` `` | `Code` formatieren |
+| `Cmd/Ctrl + 1-6` | Überschrift H1-H6 |
 
 ### Editor
 
-- `Cmd/Ctrl + D` - Zeile/Auswahl duplizieren
-- `Cmd/Ctrl + Shift + K` - Zeile löschen
-- `Cmd/Ctrl + L` - Zeile markieren
-- `Cmd/Ctrl + /` - Kommentar umschalten
-- `Alt + ↑` - Zeile nach oben verschieben
-- `Alt + ↓` - Zeile nach unten verschieben
-- `Tab` - Einrücken (mit Auswahl: Block einrücken)
-- `Shift + Tab` - Ausrücken
-- `Enter` - Smart Enter (Listen automatisch fortsetzen)
-
-### Überschriften
-
-- `Cmd/Ctrl + 1-6` - Überschrift H1-H6
+| Shortcut | Aktion |
+|----------|--------|
+| `Cmd/Ctrl + D` | Zeile/Auswahl duplizieren |
+| `Cmd/Ctrl + Shift + K` | Zeile löschen |
+| `Cmd/Ctrl + L` | Zeile markieren |
+| `Cmd/Ctrl + /` | Kommentar umschalten |
+| `Alt + ↑/↓` | Zeile verschieben |
+| `Tab` / `Shift + Tab` | Einrücken / Ausrücken |
+| `Enter` | Smart Enter (Listen fortsetzen) |
 
 ### Navigation
 
-- `Cmd/Ctrl + F` - Suchen
-- `Cmd/Ctrl + R` - Ersetzen
-- `Cmd/Ctrl + \\` - Sidebar umschalten
-- `Cmd/Ctrl + Shift + Z` - Zen-Modus
-- `Cmd/Ctrl + Tab` - Zwischen Tabs wechseln
+| Shortcut | Aktion |
+|----------|--------|
+| `Cmd/Ctrl + F` | Suchen |
+| `Cmd/Ctrl + R` | Ersetzen |
+| `Cmd/Ctrl + \` | Sidebar umschalten |
+| `Cmd/Ctrl + Shift + Z` | Zen-Modus |
+| `Cmd/Ctrl + Tab` | Nächster Tab |
+| `Cmd/Ctrl + Shift + Tab` | Vorheriger Tab |
 
-## 🏗️ Entwicklung
-
-### Aus dem Quellcode starten
+## Entwicklung
 
 ```bash
-# Repository klonen
 git clone https://github.com/pepperonas/mrxdown.git
 cd mrxdown
-
-# Abhängigkeiten installieren
 npm install
-
-# Anwendung starten
-npm start
-
-# Für alle Plattformen bauen
-npm run build-all
+npm start          # App starten
+npm test           # 65 Tests ausführen
+npm run build-all  # Für alle Plattformen bauen
 ```
 
 ### Technischer Stack
 
-- **Electron 28.0.0** - Desktop-App-Framework
-- **Marked.js** - Markdown-Parser
-- **DOMPurify** - HTML-Sanitization
-- **Material Design** - Design-System
+- **Electron 28** — Desktop-App-Framework
+- **Marked.js** — Markdown-Parser (lokal gebundelt)
+- **DOMPurify** — HTML-Sanitization (lokal gebundelt)
+- **Jest** — Testsuite mit 65 Tests
 
 ### Beitrag leisten
 
 1. Fork das Repository
-2. Erstelle einen Feature-Branch (`git checkout -b feature/AmazingFeature`)
-3. Committe deine Änderungen (`git commit -m 'Add some AmazingFeature'`)
-4. Push zum Branch (`git push origin feature/AmazingFeature`)
-5. Öffne einen Pull Request
+2. Feature-Branch erstellen (`git checkout -b feature/MeinFeature`)
+3. Änderungen committen (`git commit -m 'Add MeinFeature'`)
+4. Push (`git push origin feature/MeinFeature`)
+5. Pull Request öffnen
 
-## 📋 Changelog
+## Changelog
+
+### Version 0.6.0 (2026-03-01)
+
+**Bugfixes:**
+- XSS-Schutz in Tab-Rendering (innerHTML → sichere DOM-Methoden)
+- Externe Links öffnen korrekt im Standardbrowser via IPC
+- Alle Einstellungen werden beim Start vollständig angewendet
+- Getrennte Debounce-Timer für Suche und Ersetzen
+- Dynamische Versionsanzeige im About-Dialog
+- Debug-Logs aus Produktionscode entfernt
+- Tote Funktionen entfernt
+
+**Architektur:**
+- PDF-CSS in gemeinsame Funktionen extrahiert (~750 Zeilen Duplikation entfernt)
+- Marked.js und DOMPurify lokal gebundelt (keine CDN-Abhängigkeiten)
+- Richtiger Einstellungs-Dialog statt prompt()-Aufrufe
+- Nicht-modale, schwebende Such-/Ersetzen-Panels
+
+**Neue Features:**
+- Durchgestrichen-Button + `Cmd+Shift+X` Shortcut
+- Warnung bei ungespeicherten Änderungen beim Beenden
+- Dokument-Gliederung in der Sidebar (klickbare Headings)
+- Tab Drag-to-Reorder
+- Tab-Kontextmenü: Tab schließen / Andere schließen / Alle schließen
+- Light/Dark Theme Toggle mit Persistenz
+- Ankerlink-Navigation in der Vorschau (scrollt Editor + Preview)
+
+**Tests:** 65 Tests (7 neue für Wrap/Unwrap-Logik)
 
 ### Version 0.5.0 (2026-02-23)
 
 **Editor-Verbesserungen:**
-- **Undo/Redo repariert**: Alle Textmanipulationen (Bold, Italic, Heading, Tab, Suchen/Ersetzen) erhalten jetzt den Browser-Undo-Stack via `document.execCommand`
-- **Zeile duplizieren** (`Cmd+D`): Aktuelle Zeile oder Auswahl duplizieren
-- **Zeile löschen** (`Cmd+Shift+K`): Aktuelle Zeile entfernen
-- **Zeile verschieben** (`Alt+↑/↓`): Zeile(n) nach oben/unten verschieben
-- **Zeile markieren** (`Cmd+L`): Gesamte aktuelle Zeile selektieren
-- **Block einrücken/ausrücken** (`Tab`/`Shift+Tab`): Mit Auswahl ein-/ausrücken
-- **Kommentar umschalten** (`Cmd+/`): HTML-Kommentar `<!-- -->` um Zeile/Auswahl
-- **Smart Enter**: Listen automatisch fortsetzen (`-`, `*`, `1.`, `2.`, ...), leerer Listenpunkt beendet Liste
-
-**Tests & Qualität:**
-- Jest-Testsuite mit 58 Tests (Heading-ID, Smart Enter, Indent, Comment)
-- Testbare Logik in `editor-utils.js` extrahiert
-- CI: Tests laufen automatisch vor dem Build
-
-**Cleanup:**
-- 6 redundante Dateien entfernt (PDF_EXPORT_*.md/pdf, test-anchors.md, INSTALL_MAC.md, install-macos.sh)
+- Undo/Redo repariert via `document.execCommand`
+- Zeile duplizieren (`Cmd+D`), löschen (`Cmd+Shift+K`), verschieben (`Alt+↑/↓`)
+- Zeile markieren (`Cmd+L`), Block ein-/ausrücken (`Tab`/`Shift+Tab`)
+- Kommentar umschalten (`Cmd+/`), Smart Enter für Listen
+- Jest-Testsuite mit 58 Tests, testbare Logik in `editor-utils.js` extrahiert
 
 ### Version 0.4.0 (2025-12-06)
 
-**🚀 Neue Features:**
-- **🖥️ CLI Support**: Markdown zu PDF direkt vom Terminal
-  - `mrxdown /path/to/datei.md` erstellt `datei.pdf`
-  - `mrxdown /path/to/ordner/` konvertiert alle `.md` Dateien im Ordner
-  - Echter Headless-Modus ohne GUI-Start (direkter Electron-Binary-Aufruf)
-  - CLI-Script: `curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/mrxdown-cli.sh -o /usr/local/bin/mrxdown && chmod +x /usr/local/bin/mrxdown`
-
-**🐛 Bugfixes:**
-- **PDF-Export Zeilenabstände**: Korrekte Behandlung von `<br>` Tags
-  - Einzelne `<br>`: kompakte Zeilenumbrüche (für Kontaktdaten)
-  - Doppelte `<br><br>`: sichtbare Leerzeilen (für Abstände)
-- **CLI Headless-Modus**: Verwendet jetzt temporäre HTML-Dateien statt data URLs (keine Längenbeschränkung)
+- CLI Support: Headless Markdown-zu-PDF vom Terminal
+- Batch-Modus für Ordner-Konvertierung
+- PDF-Export Bugfixes (Zeilenabstände, `<br>` Tags)
 
 ### Version 0.3.0 (2025-01-07)
 
-**🐛 Bugfixes:**
-- **PDF-Export Bilddarstellung**: Entfernung des grauen Rands/Schattens um Bilder
-  - Entfernung von `box-shadow: 0 2px 8px rgba(0,0,0,0.1)` aus PDF-Styling
-  - Entfernung von `border-radius: 4px` für saubere Bildkanten
-  - Fix gilt für einzelnen PDF-Export und Batch-PDF-Export
-  - Bilder werden jetzt ohne visuelle Artefakte exportiert
-
-**🎨 Verbesserungen:**
-- **HTML-Export**: Optimierung der Bilddarstellung in HTML-Exporten
-- **Konsistenz**: Einheitliche Bilddarstellung über alle Export-Formate
-
-### Version 0.2.5 (2025-10-15)
-
-**🔧 Optimierungen:**
-- **PDF-Export vereinfacht**: Entfernung der Pandoc-Integration
-  - Vollständige Entfernung aller Pandoc-Abhängigkeiten
-  - Reduzierte Komplexität durch Fokus auf bewährten Chromium PDF-Export
-  - Keine externen Tools mehr erforderlich
-  - Verbesserte Emoji-Darstellung in PDF-Überschriften bereits in v0.2.4 gelöst
-  - Batch-PDF-Export nutzt ausschließlich native Chromium-Engine
-- **Schlankere Dependencies**: Entfernung von `node-pandoc` npm-Paket
-- **Stabilität**: Verbesserte Zuverlässigkeit durch weniger externe Abhängigkeiten
-- **Performance**: Schnellerer PDF-Export durch direkten Chromium-Rendering-Path
-
-**🛠️ Technische Details:**
-- PDF-Export verwendet ausschließlich Chromium's `printToPDF` API
-- Emoji-Support durch native Systemfonts (Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji)
-- Markdown → HTML via marked.js, HTML → PDF via Chromium
-
-### Version 0.2.4 (2025-10-14)
-
-**🐛 Bugfixes:**
-- **Emoji-Rendering in PDFs**: Korrektur der Emoji-Darstellung in PDF-Überschriften
-  - Verwendung von `white-space: pre-wrap` für korrekte Emoji-Anzeige
-  - Optimierte Font-Stack mit nativen Emoji-Fonts
-  - 2 Sekunden Rendering-Delay für vollständige Emoji-Rasterung
+- PDF-Export Bilddarstellung ohne Artefakte
+- HTML-Export Optimierung
 
 ### Version 0.2.0 (2025-09-03)
 
-**🚀 Neue Features:**
-- **🔍 Search & Replace**: Vollständige Suchfunktion mit Find/Replace Dialogen
-  - Regex-Unterstützung für erweiterte Suchmuster
-  - Case-sensitive und Whole-word Optionen für präzise Suche
-  - Keyboard Shortcuts: Cmd+F (Suchen), Cmd+R (Ersetzen)
-  - Highlighting gefundener Treffer im Editor
-  - Replace-All Funktion für Massenersetzungen
-- **👁️ File Watching**: Automatische Erkennung externer Dateiänderungen
-  - Polling-basiertes System (alle 2 Sekunden) für zuverlässige Überwachung
-  - Funktioniert mit allen Editoren (VS Code, Vim, TextEdit, Atom, etc.)
-  - Intelligente Konflikterkennung bei ungespeicherten Änderungen
-  - User-friendly Dialog zur Auswahl zwischen lokalen/externen Änderungen
-  - Automatisches Reload bei Dateiberechtigungsänderungen
-- **🚀 Batch PDF Export**: Raketen-Button (🚀) für PDF-Massenexport
-  - Alle geöffneten Tabs mit einem Klick als PDF exportieren
-  - Automatische Pfadgenerierung im gleichen Verzeichnis der Quelldateien
-  - Visuelle Fortschrittsanzeige mit Tab-by-Tab Status
-  - Umfassende Fehlerbehandlung und Benutzer-Feedback
-  - Unterstützung für große Tab-Listen ohne Performance-Verlust
-
-**🛠️ Verbesserungen:**
-- **Multi-Platform Builds**: Vollständige Unterstützung für Windows (Installer + Portable), macOS (Universal Binary), Linux (AppImage, DEB, Snap)
-- **Drag & Drop**: Verbesserte Dateipfad-Behandlung mit automatischem File Watching Setup
-- **IPC-Kommunikation**: Robuste Renderer-Main-Process Kommunikation mit Error Recovery
-- **Error Handling**: Umfassende Fehlerbehandlung bei allen File-Operations
-- **Performance**: Optimierte Speicherverwaltung bei großen Dateien
-- **UI/UX**: Responsive Design-Verbesserungen für verschiedene Bildschirmgrößen
-
-**🔧 Technische Updates:**
-- **Electron 28.0.0**: Neueste Electron-Version für bessere Sicherheit und Performance
-- **Cross-Platform Testing**: Automatisierte CI/CD-Pipeline für alle Betriebssysteme
-- **Code Signing**: Vorbereitung für macOS Notarisierung und Windows Code Signing
-
-### Version 0.1.2 (2025-08-19)
-
-**🛠️ Verbesserungen:**
-- **Behebung schreibgeschützter Dateien**: Bessere Behandlung von read-only Dateien mit automatischer "Speichern unter..." Option
-- **Verbesserte Fehlermeldungen**: Nutzerfreundlichere Dialoge bei Dateiberechtigungsproblemen
-- **Stabilität**: Reduzierte EROFS-Fehler durch proaktive Berechtigungsprüfung
-- **macOS Integration**: App wird als Standard-Editor für .md Dateien vorgeschlagen
-- **Versionierung**: Neue semantische Versionsnummer (0.1.2 statt 0.0.11)
+- Search & Replace mit Regex
+- File Watching
+- Batch PDF Export
+- Multi-Platform Builds (macOS, Windows, Linux)
 
 ### Frühere Versionen
 
+- **v0.1.2**: Schreibgeschützte Dateien, macOS Integration
 - **v0.0.10**: macOS Code Signing und Notarisierung
-- **v0.0.9**: Automatisierte Multi-Platform Builds
-- **v0.0.5**: Initiale stabile Version mit allen Kernfeatures
+- **v0.0.5**: Initiale stabile Version
 
-## 📋 Roadmap
+## Roadmap
 
 ### Version 1.0.0
 
@@ -324,9 +219,9 @@ npm run build-all
 - [x] Editor-Operationen (Zeile verschieben, duplizieren, löschen)
 - [x] Smart Enter (Listen-Fortsetzung)
 - [x] Automatisierte Tests
+- [x] Light/Dark Theme
 - [ ] Syntax-Highlighting im Editor
 - [ ] Mermaid-Diagramm-Support
-- [ ] Zusätzliche Themes
 
 ### Version 1.1.0
 
@@ -335,18 +230,18 @@ npm run build-all
 - [ ] Cloud-Sync
 - [ ] Math-Formeln (KaTeX)
 
-## 📞 Support
+## Support
 
 - **Issues**: [GitHub Issues](https://github.com/pepperonas/mrxdown/issues)
 - **Diskussionen**: [GitHub Discussions](https://github.com/pepperonas/mrxdown/discussions)
 
-## 📜 Lizenz
+## Lizenz
 
-Dieses Projekt ist unter der MIT-Lizenz lizenziert - siehe die [LICENSE](LICENSE) Datei für Details.
+MIT-Lizenz — siehe [LICENSE](LICENSE) für Details.
 
-## 👨‍💻 Entwickler
+## Entwickler
 
-**Martin Pfeffer** © 2025
+**Martin Pfeffer** © 2025-2026
 
 - GitHub: [@pepperonas](https://github.com/pepperonas)
 - Website: [mrx3k1.de](https://mrx3k1.de)
@@ -354,7 +249,7 @@ Dieses Projekt ist unter der MIT-Lizenz lizenziert - siehe die [LICENSE](LICENSE
 ---
 
 <div align="center">
-  <strong>Gemacht mit ❤️ in Deutschland</strong>
+  <strong>Gemacht mit Leidenschaft in Deutschland</strong>
   <br>
   <em>Powered by Electron & Modern Web Technologies</em>
 </div>
