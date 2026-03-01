@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // File operations
     newFile: () => ipcRenderer.send('new-file'),
     openFile: () => ipcRenderer.send('open-file'),
+    openFilePath: (filePath) => ipcRenderer.send('open-file-path', filePath),
     saveFile: (content, filePath) => ipcRenderer.send('save-file', { content, filePath }),
     saveFileAs: (content, filePath, tabTitle) => ipcRenderer.send('save-file-as', { content, filePath, tabTitle }),
     exportHTML: (content, filePath) => ipcRenderer.send('export-html', { content, filePath }),
@@ -44,8 +45,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
     watchFile: (filePath) => ipcRenderer.send('watch-file', filePath),
     unwatchFile: (filePath) => ipcRenderer.send('unwatch-file', filePath),
     onFileChangedExternally: (callback) => ipcRenderer.on('file-changed-externally', callback),
-    
+    onFileDeletedExternally: (callback) => ipcRenderer.on('file-deleted-externally', callback),
+
     // Batch export
     onBatchExportPrepareTab: (callback) => ipcRenderer.on('batch-export-prepare-tab', callback),
-    sendBatchExportTabReady: (data) => ipcRenderer.send('batch-export-tab-ready', data)
+    sendBatchExportTabReady: (data) => ipcRenderer.send('batch-export-tab-ready', data),
+
+    // Directory listing (for sidebar file tree)
+    listDirectory: (dirPath) => ipcRenderer.invoke('list-directory', dirPath),
+
+    // Image picker
+    selectImage: () => ipcRenderer.invoke('select-image'),
+
+    // Session recovery
+    saveSession: (sessionData) => ipcRenderer.send('save-session', sessionData),
+    getSession: () => ipcRenderer.invoke('get-session'),
+    clearSession: () => ipcRenderer.send('clear-session'),
+
+    // Shell operations
+    openExternal: (url) => ipcRenderer.send('open-external', url)
 });

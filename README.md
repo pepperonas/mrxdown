@@ -1,9 +1,9 @@
 # MrxDown
 
 <div align="center">
-  <img src="assets/icon.png" alt="MrxDown Logo" width="128" height="128">
+  <img src="assets/mrxdown-thumbnail.png" alt="MrxDown - Modern Markdown Editor" width="800">
 
-**Ein moderner Markdown-Editor mit Live-Vorschau**
+  <br><br>
 
 [![Build](https://img.shields.io/github/actions/workflow/status/pepperonas/mrxdown/build.yml?branch=main&label=build)](https://github.com/pepperonas/mrxdown/actions/workflows/build.yml)
 [![Tests](https://img.shields.io/github/actions/workflow/status/pepperonas/mrxdown/build.yml?branch=main&label=tests)](https://github.com/pepperonas/mrxdown/actions/workflows/build.yml)

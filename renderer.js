@@ -11,6 +11,8 @@ let isResizing = false;
 let startX = 0;
 let startWidth = 0;
 let isScrollSyncing = false;
+let renderDebounceTimer = null;
+let autoSaveTimer = null;
 let settings = {
     theme: 'dark',
     fontSize: 14,
@@ -29,6 +31,8 @@ let editor, preview, charCount, wordCount, lineCount, fileName, tabBar, sidebar,
 let currentSearchTerm = '';
 let searchMatches = [];
 let currentMatchIndex = -1;
+let searchDebounceTimer = null;
+let replaceDebounceTimer = null;
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', () => {
@@ -65,6 +69,14 @@ document.addEventListener('DOMContentLoaded', () => {
     window.toggleComment = toggleComment;
     window.indentSelection = indentSelection;
     window.unindentSelection = unindentSelection;
+    window.debouncedSearchUpdate = debouncedSearchUpdate;
+    window.debouncedReplaceUpdate = debouncedReplaceUpdate;
+    window.formatStrikethrough = formatStrikethrough;
+    window.applySettings = applySettings;
+    window.closeSettingsDialog = closeSettingsDialog;
+    window.toggleTheme = toggleTheme;
+    window.closeOtherTabs = closeOtherTabs;
+    window.closeAllTabs = closeAllTabs;
 });
 
 function initializeApp() {
@@ -117,6 +129,14 @@ function initializeApp() {
     
     // Initial render
     renderMarkdown();
+
+    // Start session saver for crash recovery
+    startSessionSaver();
+
+    // Check for session restore (after a brief delay to let UI initialize)
+    setTimeout(() => {
+        checkSessionRestore();
+    }, 500);
 }
 
 function setupEventListeners() {
@@ -124,7 +144,23 @@ function setupEventListeners() {
     if (editor) {
         editor.addEventListener('input', handleEditorInput);
         editor.addEventListener('keydown', handleEditorKeydown);
-        editor.addEventListener('scroll', syncScroll);
+        editor.addEventListener('scroll', (event) => {
+            syncScroll(event);
+            // Sync line number gutter scroll
+            const gutter = document.getElementById('lineNumberGutter');
+            if (gutter && lineNumbers) {
+                gutter.scrollTop = editor.scrollTop;
+            }
+            // Sync syntax highlight overlay scroll
+            const highlightEl = document.getElementById('editorHighlight');
+            if (highlightEl) {
+                highlightEl.scrollTop = editor.scrollTop;
+                highlightEl.scrollLeft = editor.scrollLeft;
+            }
+        });
+        // Update cursor position on click/keyup
+        editor.addEventListener('click', updateCursorPosition);
+        editor.addEventListener('keyup', updateCursorPosition);
     }
     
     // Preview events
@@ -134,6 +170,17 @@ function setupEventListeners() {
     
     // Window events
     window.addEventListener('resize', handleWindowResize);
+
+    // Auto-save on focus loss
+    window.addEventListener('blur', () => {
+        if (settings.autoSave) {
+            const activeTab = tabs.find(tab => tab.id === activeTabId);
+            if (activeTab && activeTab.filePath && activeTab.isModified) {
+                saveCurrentFile();
+                showAutoSaveIndicator();
+            }
+        }
+    });
     
     // Global keyboard shortcuts
     document.addEventListener('keydown', handleGlobalShortcuts);
@@ -163,6 +210,10 @@ function setupIPCListeners() {
         
         window.electronAPI.onFileChangedExternally((event, data) => {
             handleFileChangedExternally(data.filePath, data.content);
+        });
+
+        window.electronAPI.onFileDeletedExternally((event, data) => {
+            handleFileDeletedExternally(data.filePath);
         });
         
         window.electronAPI.onBatchExportPrepareTab((event, data) => {
@@ -206,20 +257,53 @@ function setupDragAndDrop() {
 function handleDrop(e) {
     const dt = e.dataTransfer;
     const files = dt.files;
-    
+
     if (files.length > 0) {
         Array.from(files).forEach(file => {
-            if (file.type === 'text/markdown' || file.type === 'text/plain' || file.name.endsWith('.md')) {
+            const filePath = file.path || file.name;
+
+            // Check if it's a directory (Electron provides file.path for directories too)
+            // Directories won't have a meaningful type and typically no extension
+            if (filePath && window.electronAPI && window.electronAPI.listDirectory) {
+                // Try to detect if it's a directory by checking if there's no extension
+                // and the type is empty (common for directories in Electron drag-drop)
+                if (!file.type && !file.name.includes('.')) {
+                    // Likely a directory - load all .md files from it
+                    handleDroppedFolder(filePath);
+                    return;
+                }
+            }
+
+            if (file.type === 'text/markdown' || file.type === 'text/plain' ||
+                file.name.endsWith('.md') || file.name.endsWith('.markdown')) {
                 const reader = new FileReader();
                 reader.onload = (event) => {
-                    // Use file.path for the full path, fallback to file.name if not available
-                    const filePath = file.path || file.name;
                     console.log('Drag & Drop file:', filePath);
                     openFileContent(filePath, event.target.result);
                 };
                 reader.readAsText(file);
             }
         });
+    }
+}
+
+async function handleDroppedFolder(dirPath) {
+    if (!window.electronAPI || !window.electronAPI.listDirectory) return;
+    try {
+        const entries = await window.electronAPI.listDirectory(dirPath);
+        const mdFiles = entries.filter(e =>
+            !e.isDirectory &&
+            (e.name.endsWith('.md') || e.name.endsWith('.markdown'))
+        );
+
+        for (const file of mdFiles) {
+            window.electronAPI.openFilePath(file.path);
+        }
+
+        // Also load the sidebar file tree with this folder
+        loadFileTree(dirPath);
+    } catch (error) {
+        console.error('Error handling dropped folder:', error);
     }
 }
 
@@ -274,6 +358,78 @@ function closeTab(tabId) {
     }
 }
 
+function showTabContextMenu(x, y, tabId) {
+    // Remove any existing tab context menu
+    const existing = document.getElementById('tabContextMenu');
+    if (existing) existing.remove();
+
+    const menu = document.createElement('div');
+    menu.id = 'tabContextMenu';
+    menu.className = 'context-menu visible';
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+
+    const items = [
+        { label: 'Tab schließen', action: () => closeTab(tabId) },
+        { label: 'Andere Tabs schließen', action: () => closeOtherTabs(tabId) },
+        { label: 'Alle Tabs schließen', action: () => closeAllTabs() }
+    ];
+
+    items.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'context-menu-item';
+        el.textContent = item.label;
+        el.addEventListener('click', () => {
+            menu.remove();
+            item.action();
+        });
+        menu.appendChild(el);
+    });
+
+    document.body.appendChild(menu);
+
+    // Remove on click outside
+    const removeMenu = (e) => {
+        if (!menu.contains(e.target)) {
+            menu.remove();
+            document.removeEventListener('click', removeMenu);
+        }
+    };
+    setTimeout(() => document.addEventListener('click', removeMenu), 0);
+}
+
+function closeOtherTabs(keepTabId) {
+    const tabsToClose = tabs.filter(t => t.id !== keepTabId);
+    const hasUnsaved = tabsToClose.some(t => t.isModified);
+    if (hasUnsaved) {
+        if (!confirm('Ungespeicherte Änderungen in anderen Tabs gehen verloren. Fortfahren?')) return;
+    }
+    // Stop watchers for closing tabs
+    tabsToClose.forEach(t => {
+        if (t.filePath && window.electronAPI) {
+            window.electronAPI.unwatchFile(t.filePath);
+        }
+    });
+    tabs = tabs.filter(t => t.id === keepTabId);
+    activeTabId = keepTabId;
+    renderTabs();
+    loadTabContent(keepTabId);
+}
+
+function closeAllTabs() {
+    const hasUnsaved = tabs.some(t => t.isModified);
+    if (hasUnsaved) {
+        if (!confirm('Ungespeicherte Änderungen gehen verloren. Alle Tabs schließen?')) return;
+    }
+    tabs.forEach(t => {
+        if (t.filePath && window.electronAPI) {
+            window.electronAPI.unwatchFile(t.filePath);
+        }
+    });
+    tabs = [];
+    createNewTab();
+}
+
 function switchTab(tabId) {
     if (activeTabId === tabId) return;
     
@@ -313,6 +469,7 @@ function loadTabContent(tabId) {
     // Update UI based on file type
     updateUIForFileType(tab);
     renderMarkdown();
+    updateSyntaxHighlight();
 }
 
 function renderTabs() {
@@ -323,12 +480,59 @@ function renderTabs() {
         tabElement.className = `tab ${tab.id === activeTabId ? 'active' : ''} ${tab.isModified ? 'unsaved' : ''}`;
         tabElement.setAttribute('data-tab-id', tab.id);
         tabElement.onclick = () => switchTab(tab.id);
-        
-        tabElement.innerHTML = `
-            <div class="tab-title">${tab.title}</div>
-            <div class="tab-close" onclick="event.stopPropagation(); closeTab(${tab.id})">×</div>
-        `;
-        
+
+        // Drag-to-reorder
+        tabElement.draggable = true;
+        tabElement.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', tab.id.toString());
+            tabElement.classList.add('dragging');
+        });
+        tabElement.addEventListener('dragend', () => {
+            tabElement.classList.remove('dragging');
+            document.querySelectorAll('.tab.drag-over').forEach(el => el.classList.remove('drag-over'));
+        });
+        tabElement.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            tabElement.classList.add('drag-over');
+        });
+        tabElement.addEventListener('dragleave', () => {
+            tabElement.classList.remove('drag-over');
+        });
+        tabElement.addEventListener('drop', (e) => {
+            e.preventDefault();
+            tabElement.classList.remove('drag-over');
+            const draggedTabId = parseInt(e.dataTransfer.getData('text/plain'));
+            if (draggedTabId === tab.id) return;
+            const fromIndex = tabs.findIndex(t => t.id === draggedTabId);
+            const toIndex = tabs.findIndex(t => t.id === tab.id);
+            if (fromIndex === -1 || toIndex === -1) return;
+            const [moved] = tabs.splice(fromIndex, 1);
+            tabs.splice(toIndex, 0, moved);
+            renderTabs();
+        });
+
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'tab-title';
+        titleDiv.textContent = tab.title;
+
+        const closeDiv = document.createElement('div');
+        closeDiv.className = 'tab-close';
+        closeDiv.textContent = '×';
+        closeDiv.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeTab(tab.id);
+        });
+
+        // Tab context menu (right-click)
+        tabElement.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showTabContextMenu(e.pageX, e.pageY, tab.id);
+        });
+
+        tabElement.appendChild(titleDiv);
+        tabElement.appendChild(closeDiv);
+
         tabBar.appendChild(tabElement);
     });
 }
@@ -348,16 +552,42 @@ function markTabAsModified(tabId, isModified) {
 // Editor Functions
 function handleEditorInput() {
     markTabAsModified(activeTabId, true);
-    renderMarkdown();
     updateStats();
+    // Update syntax highlighting immediately (fast)
+    updateSyntaxHighlight();
+    // Check for autocomplete triggers
+    checkAutocomplete();
+    // Debounce markdown rendering - longer delay for large files
+    clearTimeout(renderDebounceTimer);
+    const activeTab = tabs.find(tab => tab.id === activeTabId);
+    const debounceMs = (activeTab && activeTab.largeFile) ? 500 : 150;
+    renderDebounceTimer = setTimeout(() => {
+        renderMarkdown();
+    }, debounceMs);
+    // Schedule auto-save
+    scheduleAutoSave();
 }
 
 function handleEditorKeydown(e) {
+    // Handle autocomplete keys first
+    if (handleAutocompleteKeydown(e)) return;
+
     // Handle Tab / Shift+Tab key
     if (e.key === 'Tab') {
         e.preventDefault();
         const start = editor.selectionStart;
         const end = editor.selectionEnd;
+
+        // Check if cursor is inside a markdown table
+        const cursorInTable = isCursorInTable(start);
+        if (cursorInTable) {
+            if (e.shiftKey) {
+                navigateTableCell(-1);
+            } else {
+                navigateTableCell(1);
+            }
+            return;
+        }
 
         if (start !== end) {
             // Selection exists — indent/unindent block
@@ -477,14 +707,12 @@ function renderMarkdown() {
         }
 
         const html = marked.parse(markdown);
-        console.log('Marked HTML output:', html.substring(0, 500)); // Debug
 
         const sanitized = DOMPurify.sanitize(html, {
             ADD_ATTR: ['id'], // Allow id attribute for heading anchors
             ADD_TAGS: ['br'], // Explicitly allow br tags
             KEEP_CONTENT: true
         });
-        console.log('Sanitized HTML:', sanitized.substring(0, 500)); // Debug
 
         preview.innerHTML = sanitized;
 
@@ -517,6 +745,52 @@ function renderMarkdown() {
 
             heading.id = id;
         });
+
+        // Update document outline in sidebar
+        updateDocumentOutline();
+    }
+}
+
+function updateDocumentOutline() {
+    const outline = document.getElementById('documentOutline');
+    if (!outline) return;
+
+    const text = editor.value;
+    const lines = text.split('\n');
+    outline.textContent = '';
+
+    for (let i = 0; i < lines.length; i++) {
+        const match = lines[i].match(/^(#{1,6})\s+(.+)/);
+        if (match) {
+            const level = match[1].length;
+            const title = match[2].replace(/[*_`~]/g, '');
+            const lineIndex = i;
+
+            const item = document.createElement('div');
+            item.className = `outline-item outline-h${level}`;
+            item.textContent = title;
+            item.addEventListener('click', () => {
+                // Jump to that line in the editor
+                let charPos = 0;
+                for (let j = 0; j < lineIndex; j++) {
+                    charPos += lines[j].length + 1;
+                }
+                editor.focus();
+                editor.setSelectionRange(charPos, charPos + lines[lineIndex].length);
+                // Scroll editor to that position
+                const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 20;
+                editor.scrollTop = lineIndex * lineHeight - editor.clientHeight / 3;
+            });
+            outline.appendChild(item);
+        }
+    }
+
+    if (outline.children.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'outline-item';
+        empty.textContent = 'Keine Überschriften';
+        empty.style.fontStyle = 'italic';
+        outline.appendChild(empty);
     }
 }
 
@@ -533,51 +807,274 @@ function updateUIForFileType(tab) {
 
 function updateStats() {
     if (!editor || !charCount || !wordCount || !lineCount) return;
-    
+
     const text = editor.value;
     const chars = text.length;
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
     const lines = text.split('\n').length;
-    
+
     charCount.textContent = `${chars} Zeichen`;
     wordCount.textContent = `${words} Wörter`;
     lineCount.textContent = `${lines} Zeilen`;
+
+    updateLineNumbers();
+    updateCursorPosition();
 }
 
+function updateCursorPosition() {
+    if (!editor) return;
+    const pos = editor.selectionStart;
+    const text = editor.value.substring(0, pos);
+    const line = text.split('\n').length;
+    const lastNewline = text.lastIndexOf('\n');
+    const col = pos - lastNewline;
+
+    const cursorEl = document.getElementById('cursorPosition');
+    if (cursorEl) {
+        cursorEl.textContent = `Ln ${line}, Col ${col}`;
+    }
+
+    // Update file type indicator
+    const activeTab = tabs.find(tab => tab.id === activeTabId);
+    const fileTypeEl = document.getElementById('fileTypeInfo');
+    if (fileTypeEl && activeTab) {
+        if (activeTab.filePath && activeTab.filePath.toLowerCase().endsWith('.txt')) {
+            fileTypeEl.textContent = 'Text';
+        } else {
+            fileTypeEl.textContent = 'Markdown';
+        }
+    }
+}
+
+let scrollSyncRAF = null;
 function syncScroll(event) {
-    // Prevent sync during resizing, if already syncing, not in split mode, or sync disabled
     if (isResizing || isScrollSyncing || currentViewMode !== 'split' || !settings.syncScroll) {
         return;
     }
-    
+
     const sourceElement = event.target;
     const targetElement = sourceElement === editor ? preview : editor;
-    
+
     if (sourceElement && targetElement) {
-        // Check if elements have scrollable content
-        const sourceScrollHeight = sourceElement.scrollHeight - sourceElement.clientHeight;
-        const targetScrollHeight = targetElement.scrollHeight - targetElement.clientHeight;
-        
-        if (sourceScrollHeight <= 0 || targetScrollHeight <= 0) {
-            return;
-        }
-        
-        // Set sync flag to prevent infinite loops
-        isScrollSyncing = true;
-        
-        const scrollRatio = sourceElement.scrollTop / sourceScrollHeight;
-        const targetScrollTop = scrollRatio * targetScrollHeight;
-        
-        // Only sync if there's a meaningful difference
-        if (Math.abs(targetElement.scrollTop - targetScrollTop) > 5) {
-            targetElement.scrollTop = targetScrollTop;
-        }
-        
-        // Reset sync flag after a short delay
-        setTimeout(() => {
-            isScrollSyncing = false;
-        }, 50);
+        // Use requestAnimationFrame for throttled scroll sync
+        if (scrollSyncRAF) cancelAnimationFrame(scrollSyncRAF);
+        scrollSyncRAF = requestAnimationFrame(() => {
+            const sourceScrollHeight = sourceElement.scrollHeight - sourceElement.clientHeight;
+            const targetScrollHeight = targetElement.scrollHeight - targetElement.clientHeight;
+
+            if (sourceScrollHeight <= 0 || targetScrollHeight <= 0) return;
+
+            isScrollSyncing = true;
+
+            const scrollRatio = sourceElement.scrollTop / sourceScrollHeight;
+            const targetScrollTop = scrollRatio * targetScrollHeight;
+
+            if (Math.abs(targetElement.scrollTop - targetScrollTop) > 5) {
+                targetElement.scrollTop = targetScrollTop;
+            }
+
+            setTimeout(() => {
+                isScrollSyncing = false;
+            }, 50);
+        });
     }
+}
+
+// --- Autocomplete ---
+let autocompleteVisible = false;
+let autocompleteSelectedIndex = 0;
+const autocompleteRules = [
+    { trigger: '[', completion: ']()', cursorOffset: -1, label: '[Link](url)', hint: 'Link' },
+    { trigger: '![', completion: ']()', cursorOffset: -1, label: '![alt](url)', hint: 'Bild' },
+    { trigger: '```', completion: '\n\n```', cursorOffset: -4, label: '```sprache```', hint: 'Code-Block',
+      languages: ['javascript', 'python', 'bash', 'html', 'css', 'json', 'typescript', 'java', 'c', 'sql', 'markdown'] },
+];
+
+function checkAutocomplete() {
+    const pos = editor.selectionStart;
+    const text = editor.value;
+    const popup = document.getElementById('autocompletePopup');
+    if (!popup) return;
+
+    // Check for code block language suggestions
+    const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+    const lineText = text.substring(lineStart, pos);
+
+    if (lineText === '```') {
+        showAutocompleteLanguages(pos);
+        return;
+    }
+
+    // Check if we should show completion hints
+    const charBefore = text.substring(Math.max(0, pos - 2), pos);
+
+    if (charBefore === '![') {
+        showAutocompleteSuggestion(pos, '![alt](url)', ']()', -1);
+        return;
+    }
+
+    // Hide autocomplete for other cases
+    hideAutocomplete();
+}
+
+function showAutocompleteLanguages(pos) {
+    const popup = document.getElementById('autocompletePopup');
+    if (!popup) return;
+
+    const languages = ['javascript', 'python', 'bash', 'html', 'css', 'json', 'typescript', 'java', 'sql', 'markdown'];
+
+    popup.textContent = '';
+    languages.forEach((lang, index) => {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item' + (index === 0 ? ' selected' : '');
+        item.textContent = lang;
+        item.addEventListener('click', () => {
+            replaceRange(pos, pos, lang + '\n\n```');
+            editor.selectionStart = editor.selectionEnd = pos + lang.length + 1;
+            hideAutocomplete();
+            handleEditorInput();
+        });
+        popup.appendChild(item);
+    });
+
+    autocompleteSelectedIndex = 0;
+    positionAutocomplete(pos);
+    popup.style.display = 'block';
+    autocompleteVisible = true;
+}
+
+function showAutocompleteSuggestion(pos, label, completion, cursorOffset) {
+    const popup = document.getElementById('autocompletePopup');
+    if (!popup) return;
+
+    popup.textContent = '';
+    const item = document.createElement('div');
+    item.className = 'autocomplete-item selected';
+    item.textContent = label;
+    item.addEventListener('click', () => {
+        replaceRange(pos, pos, completion);
+        editor.selectionStart = editor.selectionEnd = pos + completion.length + cursorOffset;
+        hideAutocomplete();
+        handleEditorInput();
+    });
+    popup.appendChild(item);
+
+    autocompleteSelectedIndex = 0;
+    positionAutocomplete(pos);
+    popup.style.display = 'block';
+    autocompleteVisible = true;
+}
+
+function positionAutocomplete(pos) {
+    const popup = document.getElementById('autocompletePopup');
+    if (!popup) return;
+
+    // Approximate cursor position
+    const editorRect = editor.getBoundingClientRect();
+    const text = editor.value.substring(0, pos);
+    const lines = text.split('\n');
+    const lineIndex = lines.length - 1;
+    const colIndex = lines[lines.length - 1].length;
+
+    const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 22;
+    const charWidth = 8.4; // Approximate monospace char width
+
+    const scrollTop = editor.scrollTop;
+    const top = editorRect.top + (lineIndex * lineHeight) - scrollTop + lineHeight + 24;
+    const left = editorRect.left + (colIndex * charWidth) + 24;
+
+    popup.style.top = Math.min(top, window.innerHeight - 160) + 'px';
+    popup.style.left = Math.min(left, window.innerWidth - 220) + 'px';
+}
+
+function hideAutocomplete() {
+    const popup = document.getElementById('autocompletePopup');
+    if (popup) {
+        popup.style.display = 'none';
+    }
+    autocompleteVisible = false;
+}
+
+function handleAutocompleteKeydown(e) {
+    if (!autocompleteVisible) return false;
+    const popup = document.getElementById('autocompletePopup');
+    if (!popup) return false;
+
+    const items = popup.querySelectorAll('.autocomplete-item');
+    if (items.length === 0) return false;
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        items[autocompleteSelectedIndex].classList.remove('selected');
+        autocompleteSelectedIndex = (autocompleteSelectedIndex + 1) % items.length;
+        items[autocompleteSelectedIndex].classList.add('selected');
+        return true;
+    }
+    if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        items[autocompleteSelectedIndex].classList.remove('selected');
+        autocompleteSelectedIndex = (autocompleteSelectedIndex - 1 + items.length) % items.length;
+        items[autocompleteSelectedIndex].classList.add('selected');
+        return true;
+    }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        items[autocompleteSelectedIndex].click();
+        return true;
+    }
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        hideAutocomplete();
+        return true;
+    }
+    return false;
+}
+
+// Syntax highlighting overlay
+function updateSyntaxHighlight() {
+    const highlightEl = document.getElementById('editorHighlight');
+    if (!highlightEl) return;
+
+    const text = editor.value;
+    // Build highlighted HTML using safe escaping
+    const escaped = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    // Apply markdown syntax highlighting via regex replacements on escaped text
+    const highlighted = escaped
+        // Code blocks (``` ... ```) - must come first to avoid inner matches
+        .replace(/(^|\n)(```[\s\S]*?```)/g, '$1<span class="md-code-block">$2</span>')
+        // Headings (# ... at line start)
+        .replace(/(^|\n)(#{1,6}\s.+)/g, '$1<span class="md-heading">$2</span>')
+        // Bold (**...**)
+        .replace(/(\*\*[^*]+?\*\*)/g, '<span class="md-bold">$1</span>')
+        // Italic (*...* but not **)
+        .replace(/(?<!\*)(\*[^*]+?\*)(?!\*)/g, '<span class="md-italic">$1</span>')
+        // Strikethrough (~~...~~)
+        .replace(/(~~[^~]+?~~)/g, '<span class="md-strikethrough">$1</span>')
+        // Inline code (`...`)
+        .replace(/(`[^`\n]+?`)/g, '<span class="md-code">$1</span>')
+        // Images (![...](...))
+        .replace(/(!\[[^\]]*\]\([^)]*\))/g, '<span class="md-image">$1</span>')
+        // Links ([...](...))
+        .replace(/(\[[^\]]*\]\([^)]*\))/g, '<span class="md-link">$1</span>')
+        // Blockquotes (> at line start)
+        .replace(/(^|\n)(&gt;\s.+)/g, '$1<span class="md-blockquote">$2</span>')
+        // List items (- or * or + or 1. at line start)
+        .replace(/(^|\n)(\s*[-*+]\s)/g, '$1<span class="md-list">$2</span>')
+        .replace(/(^|\n)(\s*\d+\.\s)/g, '$1<span class="md-list">$2</span>')
+        // Horizontal rules (---, ***, ___)
+        .replace(/(^|\n)([-*_]{3,})\s*(?=\n|$)/g, '$1<span class="md-hr">$2</span>');
+
+    // Using innerHTML here is safe because the content comes from the editor text
+    // which has been HTML-escaped above (no user-controlled HTML can execute)
+    highlightEl.innerHTML = highlighted + '\n';
+
+    // Sync scroll position
+    highlightEl.scrollTop = editor.scrollTop;
+    highlightEl.scrollLeft = editor.scrollLeft;
 }
 
 // Undo-safe text replacement using execCommand to preserve browser undo stack
@@ -600,12 +1097,33 @@ function wrapSelection(prefix, suffix = '') {
     const start = editor.selectionStart;
     const end = editor.selectionEnd;
     const selectedText = editor.value.substring(start, end);
+    const text = editor.value;
 
     if (selectedText) {
-        const wrappedText = prefix + selectedText + suffix;
-        replaceRange(start, end, wrappedText);
-        editor.selectionStart = start + prefix.length;
-        editor.selectionEnd = start + prefix.length + selectedText.length;
+        // Check if the selection is already wrapped with prefix/suffix
+        const beforeStart = start - prefix.length;
+        const afterEnd = end + suffix.length;
+        if (beforeStart >= 0 && afterEnd <= text.length &&
+            text.substring(beforeStart, start) === prefix &&
+            text.substring(end, afterEnd) === suffix) {
+            // Unwrap: remove prefix before and suffix after selection
+            replaceRange(beforeStart, afterEnd, selectedText);
+            editor.selectionStart = beforeStart;
+            editor.selectionEnd = beforeStart + selectedText.length;
+        } else if (selectedText.startsWith(prefix) && selectedText.endsWith(suffix) &&
+                   selectedText.length >= prefix.length + suffix.length) {
+            // Selection includes the wrapper - unwrap
+            const inner = selectedText.slice(prefix.length, -suffix.length || undefined);
+            replaceRange(start, end, inner);
+            editor.selectionStart = start;
+            editor.selectionEnd = start + inner.length;
+        } else {
+            // Wrap
+            const wrappedText = prefix + selectedText + suffix;
+            replaceRange(start, end, wrappedText);
+            editor.selectionStart = start + prefix.length;
+            editor.selectionEnd = start + prefix.length + selectedText.length;
+        }
     } else {
         insertAtCursor(prefix + suffix);
         editor.selectionStart = editor.selectionEnd = start + prefix.length;
@@ -620,6 +1138,10 @@ function formatBold() {
 
 function formatItalic() {
     wrapSelection('*', '*');
+}
+
+function formatStrikethrough() {
+    wrapSelection('~~', '~~');
 }
 
 function formatCode() {
@@ -851,11 +1373,32 @@ function toggleBlockComment(text) {
 
 // getSmartEnterText() is provided by editor-utils.js
 
-function insertImage() {
+async function insertImage() {
+    // Try native file picker first (Electron), fall back to URL prompt
+    if (window.electronAPI && window.electronAPI.selectImage) {
+        const imagePath = await window.electronAPI.selectImage();
+        if (imagePath) {
+            const alt = prompt('Alt-Text eingeben:') || 'Bild';
+            // Use relative path if possible
+            const activeTab = tabs.find(tab => tab.id === activeTabId);
+            let insertPath = imagePath;
+            if (activeTab && activeTab.filePath) {
+                const fileDir = activeTab.filePath.substring(0, activeTab.filePath.lastIndexOf('/'));
+                if (imagePath.startsWith(fileDir)) {
+                    insertPath = imagePath.substring(fileDir.length + 1);
+                }
+            }
+            insertAtCursor(`![${alt}](${insertPath})`);
+            handleEditorInput();
+            return;
+        }
+    }
+    // Fallback: prompt for URL
     const url = prompt('Bild-URL eingeben:');
     if (url) {
         const alt = prompt('Alt-Text eingeben:') || 'Bild';
         insertAtCursor(`![${alt}](${url})`);
+        handleEditorInput();
     }
 }
 
@@ -973,18 +1516,129 @@ function saveCurrentFileAs() {
 }
 
 function openFileContent(filePath, content) {
+    // Warn about very large files
+    if (content.length > 1024 * 1024) { // > 1MB
+        const proceed = confirm(`Die Datei ist sehr groß (${(content.length / 1024 / 1024).toFixed(1)} MB). Das Offnen konnte langsam sein. Fortfahren?`);
+        if (!proceed) return;
+    }
+
     const existingTab = tabs.find(tab => tab.filePath === filePath);
-    
+
     if (existingTab) {
         switchTab(existingTab.id);
     } else {
-        createNewTab(content, filePath);
+        const tab = createNewTab(content, filePath);
+        // For large files (>100KB), disable live preview by default
+        if (content.length > 100 * 1024) {
+            tab.largeFile = true;
+        }
     }
     
     // Start watching the file for external changes
     if (filePath && window.electronAPI) {
         console.log('Starting file watch for:', filePath);
         window.electronAPI.watchFile(filePath);
+
+        // Load the file tree for the directory of the opened file
+        const dirPath = filePath.substring(0, filePath.lastIndexOf('/'));
+        if (dirPath) {
+            loadFileTree(dirPath);
+        }
+    }
+}
+
+function openRecentFile(filePath) {
+    const existingTab = tabs.find(tab => tab.filePath === filePath);
+    if (existingTab) {
+        switchTab(existingTab.id);
+        return;
+    }
+    if (window.electronAPI) {
+        window.electronAPI.openFilePath(filePath);
+    }
+}
+
+// Sidebar File Tree
+async function loadFileTree(dirPath) {
+    if (!window.electronAPI || !window.electronAPI.listDirectory) return;
+    const fileExplorer = document.getElementById('fileExplorer');
+    if (!fileExplorer) return;
+
+    try {
+        const entries = await window.electronAPI.listDirectory(dirPath);
+        fileExplorer.textContent = '';
+
+        for (const entry of entries) {
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            if (entry.isDirectory) {
+                item.className += ' file-tree-folder';
+            }
+
+            const icon = document.createElement('div');
+            icon.className = 'file-icon';
+            if (entry.isDirectory) {
+                icon.textContent = '📁';
+            } else if (entry.name.endsWith('.md') || entry.name.endsWith('.markdown')) {
+                icon.textContent = '📝';
+            } else if (entry.name.endsWith('.txt')) {
+                icon.textContent = '📄';
+            } else {
+                icon.textContent = '📃';
+            }
+
+            const name = document.createElement('div');
+            name.className = 'file-name';
+            name.textContent = entry.name;
+
+            item.appendChild(icon);
+            item.appendChild(name);
+
+            if (entry.isDirectory) {
+                const children = document.createElement('div');
+                children.className = 'file-tree-children collapsed';
+                let loaded = false;
+
+                item.addEventListener('click', async () => {
+                    if (!loaded) {
+                        const subEntries = await window.electronAPI.listDirectory(entry.path);
+                        for (const sub of subEntries) {
+                            const subItem = document.createElement('div');
+                            subItem.className = 'file-item';
+                            const subIcon = document.createElement('div');
+                            subIcon.className = 'file-icon';
+                            subIcon.textContent = sub.isDirectory ? '📁' :
+                                (sub.name.endsWith('.md') || sub.name.endsWith('.markdown')) ? '📝' : '📄';
+                            const subName = document.createElement('div');
+                            subName.className = 'file-name';
+                            subName.textContent = sub.name;
+                            subItem.appendChild(subIcon);
+                            subItem.appendChild(subName);
+                            if (!sub.isDirectory) {
+                                subItem.addEventListener('click', (e) => {
+                                    e.stopPropagation();
+                                    window.electronAPI.openFilePath(sub.path);
+                                });
+                            }
+                            children.appendChild(subItem);
+                        }
+                        loaded = true;
+                    }
+                    children.classList.toggle('collapsed');
+                    icon.textContent = children.classList.contains('collapsed') ? '📁' : '📂';
+                });
+
+                fileExplorer.appendChild(item);
+                fileExplorer.appendChild(children);
+            } else {
+                item.addEventListener('click', () => {
+                    window.electronAPI.openFilePath(entry.path);
+                });
+                fileExplorer.appendChild(item);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading file tree:', error);
     }
 }
 
@@ -1018,11 +1672,8 @@ function generateHTMLExport() {
 
     // Get the preview element
     const previewElement = document.getElementById('preview');
-    console.log('Preview element:', previewElement);
-    console.log('Preview innerHTML length:', previewElement ? previewElement.innerHTML.length : 0);
 
     if (!previewElement || !previewElement.innerHTML || previewElement.innerHTML.trim().length === 0) {
-        console.error('Preview is empty!');
         alert('Der Preview-Bereich ist leer. Bitte stellen Sie sicher, dass Markdown-Inhalt vorhanden ist.');
         return null;
     }
@@ -1030,13 +1681,8 @@ function generateHTMLExport() {
     // Get just the HTML content, not a clone
     const htmlContent = previewElement.innerHTML;
 
-    // Debug: Check if headings have IDs
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = htmlContent;
-    const headingsWithIds = tempDiv.querySelectorAll('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]');
-    console.log('Headings with IDs in export:', headingsWithIds.length);
-    headingsWithIds.forEach(h => console.log(`${h.tagName}: id="${h.id}"`));
-
     const images = tempDiv.querySelectorAll('img');
 
     images.forEach(img => {
@@ -1175,12 +1821,82 @@ function toggleSidebar() {
 function toggleZenMode() {
     isZenMode = !isZenMode;
     document.body.classList.toggle('zen-mode', isZenMode);
+
+    // Show exit hint when entering zen mode
+    if (isZenMode) {
+        showZenModeHint();
+    } else {
+        const hint = document.getElementById('zenModeHint');
+        if (hint) hint.remove();
+    }
+}
+
+function showZenModeHint() {
+    // Remove existing hint
+    const existing = document.getElementById('zenModeHint');
+    if (existing) existing.remove();
+
+    const hint = document.createElement('div');
+    hint.id = 'zenModeHint';
+    hint.textContent = 'ESC zum Beenden';
+    hint.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(52, 56, 69, 0.9);
+        color: rgba(209, 213, 219, 0.8);
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-size: 13px;
+        z-index: 10000;
+        pointer-events: none;
+        transition: opacity 1s ease;
+    `;
+    document.body.appendChild(hint);
+
+    // Fade out after 3 seconds
+    setTimeout(() => {
+        hint.style.opacity = '0';
+        setTimeout(() => {
+            hint.remove();
+        }, 1000);
+    }, 3000);
 }
 
 function toggleLineNumbers() {
     lineNumbers = !lineNumbers;
-    // Implementation would require a more advanced editor
-    console.log('Line numbers toggled:', lineNumbers);
+    const gutter = document.getElementById('lineNumberGutter');
+    if (gutter) {
+        gutter.style.display = lineNumbers ? 'block' : 'none';
+        editor.style.paddingLeft = lineNumbers ? '0' : '';
+    }
+    if (lineNumbers) {
+        updateLineNumbers();
+    }
+}
+
+function updateLineNumbers() {
+    if (!lineNumbers) return;
+    const gutter = document.getElementById('lineNumberGutter');
+    if (!gutter) return;
+
+    const lines = editor.value.split('\n').length;
+    // Clear and rebuild using safe DOM methods
+    gutter.textContent = '';
+    for (let i = 1; i <= lines; i++) {
+        const div = document.createElement('div');
+        div.className = 'line-number';
+        div.textContent = i;
+        gutter.appendChild(div);
+    }
+    gutter.scrollTop = editor.scrollTop;
+}
+
+function toggleTheme() {
+    const isLight = document.body.classList.toggle('light-theme');
+    settings.theme = isLight ? 'light' : 'dark';
+    saveSettings();
 }
 
 function toggleWordWrap() {
@@ -1203,51 +1919,91 @@ function toggleScrollSync() {
     saveSettings();
 }
 
-function showFindDialog() {
-    const searchText = prompt('Suchen nach:');
-    if (searchText) {
-        const content = editor.value;
-        const index = content.indexOf(searchText);
-        if (index !== -1) {
-            editor.selectionStart = index;
-            editor.selectionEnd = index + searchText.length;
-            editor.focus();
-        } else {
-            alert('Text nicht gefunden');
-        }
-    }
-}
-
-function showReplaceDialog() {
-    const searchText = prompt('Suchen nach:');
-    if (!searchText) return;
-    
-    const replaceText = prompt('Ersetzen durch:');
-    if (replaceText === null) return;
-    
-    const content = editor.value;
-    const newContent = content.replace(new RegExp(searchText, 'g'), replaceText);
-    editor.value = newContent;
-    handleEditorInput();
-}
-
 function showSettings() {
-    // Simple settings dialog (in a real app, this would be a proper modal)
-    const fontSize = prompt('Schriftgröße (14-24):', settings.fontSize);
-    if (fontSize && !isNaN(fontSize)) {
-        settings.fontSize = parseInt(fontSize);
-        editor.style.fontSize = settings.fontSize + 'px';
-        
-        if (window.electronAPI) {
-            window.electronAPI.saveSettings(settings);
-        }
+    const modal = document.getElementById('settingsModal');
+    if (!modal) return;
+
+    // Populate current values
+    document.getElementById('settingsFontSize').value = settings.fontSize || 14;
+    document.getElementById('settingsTabSize').value = settings.tabSize || 4;
+    document.getElementById('settingsAutoSave').checked = settings.autoSave || false;
+    document.getElementById('settingsLineNumbers').checked = settings.showLineNumbers || false;
+    document.getElementById('settingsWordWrap').checked = settings.wordWrap !== false;
+    document.getElementById('settingsSyncScroll').checked = settings.syncScroll !== false;
+    document.getElementById('settingsAutoSaveInterval').value = settings.autoSaveInterval || 5;
+
+    modal.classList.add('visible');
+}
+
+function closeSettingsDialog() {
+    const modal = document.getElementById('settingsModal');
+    if (modal) modal.classList.remove('visible');
+}
+
+function applySettings() {
+    const newFontSize = parseInt(document.getElementById('settingsFontSize').value);
+    const newTabSize = parseInt(document.getElementById('settingsTabSize').value);
+    const newAutoSave = document.getElementById('settingsAutoSave').checked;
+    const newLineNumbers = document.getElementById('settingsLineNumbers').checked;
+    const newWordWrap = document.getElementById('settingsWordWrap').checked;
+    const newSyncScroll = document.getElementById('settingsSyncScroll').checked;
+    const newAutoSaveInterval = parseInt(document.getElementById('settingsAutoSaveInterval').value);
+
+    settings.fontSize = Math.max(10, Math.min(32, newFontSize || 14));
+    settings.tabSize = Math.max(1, Math.min(8, newTabSize || 4));
+    settings.autoSave = newAutoSave;
+    settings.showLineNumbers = newLineNumbers;
+    settings.wordWrap = newWordWrap;
+    settings.syncScroll = newSyncScroll;
+    settings.autoSaveInterval = Math.max(1, Math.min(60, newAutoSaveInterval || 5));
+
+    // Apply font size
+    editor.style.fontSize = settings.fontSize + 'px';
+    const highlightEl = document.getElementById('editorHighlight');
+    if (highlightEl) highlightEl.style.fontSize = settings.fontSize + 'px';
+
+    // Apply tab size
+    editor.style.tabSize = settings.tabSize;
+
+    // Apply word wrap
+    wordWrap = settings.wordWrap;
+    editor.style.whiteSpace = wordWrap ? 'pre-wrap' : 'pre';
+
+    // Apply line numbers
+    if (settings.showLineNumbers !== lineNumbers) {
+        toggleLineNumbers();
+    }
+
+    // Apply sync scroll indicator
+    const syncToggle = document.getElementById('scrollSyncToggle');
+    if (syncToggle) {
+        syncToggle.style.opacity = settings.syncScroll ? '1' : '0.5';
+    }
+
+    saveSettings();
+    closeSettingsDialog();
+}
+
+function saveSettings() {
+    if (window.electronAPI) {
+        window.electronAPI.saveSettings(settings);
     }
 }
 
 // Global Shortcuts
 function handleGlobalShortcuts(e) {
-    // ESC to close dialogs
+    // ESC to close dialogs or exit zen mode
     if (e.key === 'Escape') {
+        if (isZenMode) {
+            e.preventDefault();
+            toggleZenMode();
+            return;
+        }
+        if (autocompleteVisible) {
+            e.preventDefault();
+            hideAutocomplete();
+            return;
+        }
         if (searchModal && searchModal.classList.contains('visible')) {
             e.preventDefault();
             closeSearchDialog();
@@ -1266,6 +2022,12 @@ function handleGlobalShortcuts(e) {
         if (tableEditor && tableEditor.classList.contains('visible')) {
             e.preventDefault();
             closeTableEditor();
+            return;
+        }
+        const settingsModal = document.getElementById('settingsModal');
+        if (settingsModal && settingsModal.classList.contains('visible')) {
+            e.preventDefault();
+            closeSettingsDialog();
             return;
         }
     }
@@ -1340,6 +2102,12 @@ function handleGlobalShortcuts(e) {
                 e.preventDefault();
                 toggleSidebar();
                 break;
+            case 'x':
+                if (e.shiftKey) {
+                    e.preventDefault();
+                    formatStrikethrough();
+                }
+                break;
             case 'z':
                 if (e.shiftKey) {
                     e.preventDefault();
@@ -1412,10 +2180,36 @@ async function loadSettings() {
         if (window.electronAPI) {
             const loadedSettings = await window.electronAPI.getSettings();
             settings = { ...settings, ...loadedSettings };
-            
-            // Apply settings
+
+            // Apply all settings
             editor.style.fontSize = settings.fontSize + 'px';
             editor.style.whiteSpace = settings.wordWrap ? 'pre-wrap' : 'pre';
+            wordWrap = settings.wordWrap !== false;
+            editor.style.tabSize = settings.tabSize || 4;
+
+            // Apply line numbers
+            if (settings.showLineNumbers && !lineNumbers) {
+                toggleLineNumbers();
+            }
+
+            // Apply sync scroll
+            const syncToggle = document.getElementById('scrollSyncToggle');
+            if (syncToggle) {
+                syncToggle.style.opacity = settings.syncScroll !== false ? '1' : '0.5';
+            }
+
+            // Apply syntax highlight font size
+            const highlightEl = document.getElementById('editorHighlight');
+            if (highlightEl) {
+                highlightEl.style.fontSize = settings.fontSize + 'px';
+            }
+
+            // Apply theme
+            if (settings.theme === 'light') {
+                document.body.classList.add('light-theme');
+            } else {
+                document.body.classList.remove('light-theme');
+            }
         }
     } catch (error) {
         console.error('Failed to load settings:', error);
@@ -1423,13 +2217,108 @@ async function loadSettings() {
 }
 
 // Auto-save functionality
-let autoSaveTimeout;
 function scheduleAutoSave() {
-    if (settings.autoSave) {
-        clearTimeout(autoSaveTimeout);
-        autoSaveTimeout = setTimeout(() => {
+    if (!settings.autoSave) return;
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => {
+        const activeTab = tabs.find(tab => tab.id === activeTabId);
+        // Only auto-save if the tab has a file path and is modified
+        if (activeTab && activeTab.filePath && activeTab.isModified) {
             saveCurrentFile();
-        }, settings.autoSaveInterval * 1000);
+            showAutoSaveIndicator();
+        }
+    }, (settings.autoSaveInterval || 5) * 1000);
+}
+
+// Session save (for crash recovery) - runs every 30 seconds
+function startSessionSaver() {
+    setInterval(() => {
+        saveSessionState();
+    }, 30000);
+
+    // Also save on beforeunload
+    window.addEventListener('beforeunload', () => {
+        saveSessionState();
+    });
+}
+
+function saveSessionState() {
+    if (!window.electronAPI || !window.electronAPI.saveSession) return;
+    saveCurrentTabState();
+    const sessionData = {
+        tabs: tabs.map(tab => ({
+            title: tab.title,
+            content: tab.content,
+            filePath: tab.filePath,
+            isModified: tab.isModified,
+            cursorPosition: tab.cursorPosition,
+            scrollPosition: tab.scrollPosition
+        })),
+        activeTabId: activeTabId,
+        timestamp: Date.now()
+    };
+    window.electronAPI.saveSession(sessionData);
+}
+
+async function checkSessionRestore() {
+    if (!window.electronAPI || !window.electronAPI.getSession) return;
+    try {
+        const session = await window.electronAPI.getSession();
+        if (!session || !session.tabs || session.tabs.length === 0) return;
+
+        // Only restore if session is less than 24 hours old
+        const maxAge = 24 * 60 * 60 * 1000;
+        if (Date.now() - session.timestamp > maxAge) {
+            window.electronAPI.clearSession();
+            return;
+        }
+
+        // Check if any tabs had unsaved content
+        const hasUnsaved = session.tabs.some(t => t.isModified || !t.filePath);
+        if (!hasUnsaved) {
+            window.electronAPI.clearSession();
+            return;
+        }
+
+        const restore = confirm('Es wurde eine vorherige Sitzung gefunden. Mochten Sie sie wiederherstellen?');
+        if (restore) {
+            // Clear the default empty tab
+            tabs.length = 0;
+            nextTabId = 1;
+
+            for (const savedTab of session.tabs) {
+                const tab = {
+                    id: nextTabId++,
+                    title: savedTab.title || 'Unbenannt',
+                    content: savedTab.content || '',
+                    filePath: savedTab.filePath || null,
+                    isModified: savedTab.isModified || false,
+                    cursorPosition: savedTab.cursorPosition || 0,
+                    scrollPosition: savedTab.scrollPosition || 0
+                };
+                tabs.push(tab);
+            }
+
+            if (tabs.length > 0) {
+                activeTabId = tabs[0].id;
+                renderTabs();
+                loadTabContent(activeTabId);
+            }
+        }
+        window.electronAPI.clearSession();
+    } catch (error) {
+        console.error('Error restoring session:', error);
+    }
+}
+
+function showAutoSaveIndicator() {
+    const indicator = document.getElementById('autoSaveStatus');
+    if (indicator) {
+        indicator.textContent = 'Auto-saved';
+        indicator.style.color = 'var(--accent-green)';
+        setTimeout(() => {
+            indicator.textContent = '';
+        }, 2000);
     }
 }
 
@@ -1491,6 +2380,76 @@ function showTableEditor() {
 
 function closeTableEditor() {
     tableEditor.classList.remove('visible');
+}
+
+// --- Table Navigation Helpers ---
+
+function isCursorInTable(pos) {
+    const text = editor.value;
+    const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+    let lineEnd = text.indexOf('\n', pos);
+    if (lineEnd === -1) lineEnd = text.length;
+    const currentLine = text.substring(lineStart, lineEnd);
+    return currentLine.trimStart().startsWith('|') && currentLine.trimEnd().endsWith('|');
+}
+
+function navigateTableCell(direction) {
+    const text = editor.value;
+    const pos = editor.selectionStart;
+    const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+    let lineEnd = text.indexOf('\n', pos);
+    if (lineEnd === -1) lineEnd = text.length;
+    const currentLine = text.substring(lineStart, lineEnd);
+
+    // Find all pipe positions in the current line
+    const pipes = [];
+    for (let i = 0; i < currentLine.length; i++) {
+        if (currentLine[i] === '|') pipes.push(lineStart + i);
+    }
+
+    const cursorOffset = pos - lineStart;
+
+    if (direction > 0) {
+        // Move to next cell: find the next pipe after cursor
+        const nextPipe = pipes.find(p => p > pos);
+        if (nextPipe !== undefined) {
+            // Position cursor after the pipe + space
+            const target = Math.min(nextPipe + 2, lineEnd);
+            editor.selectionStart = editor.selectionEnd = target;
+        } else {
+            // Move to first cell of next row
+            const nextLineStart = lineEnd + 1;
+            if (nextLineStart < text.length) {
+                const nextLineEnd = text.indexOf('\n', nextLineStart);
+                const nl = text.substring(nextLineStart, nextLineEnd === -1 ? text.length : nextLineEnd);
+                // Skip separator rows (| --- | --- |)
+                if (nl.match(/^\|[\s-:|]+\|$/)) {
+                    const skipLineEnd = text.indexOf('\n', nextLineEnd + 1);
+                    if (skipLineEnd !== -1 || nextLineEnd + 1 < text.length) {
+                        const targetStart = (nextLineEnd + 1);
+                        const targetLine = text.substring(targetStart, skipLineEnd === -1 ? text.length : skipLineEnd);
+                        const firstPipe = targetLine.indexOf('|');
+                        if (firstPipe !== -1) {
+                            editor.selectionStart = editor.selectionEnd = targetStart + firstPipe + 2;
+                        }
+                    }
+                } else {
+                    const firstPipe = nl.indexOf('|');
+                    if (firstPipe !== -1) {
+                        editor.selectionStart = editor.selectionEnd = nextLineStart + firstPipe + 2;
+                    }
+                }
+            }
+        }
+    } else {
+        // Move to previous cell: find the pipe before cursor
+        const prevPipes = pipes.filter(p => p < pos - 1);
+        if (prevPipes.length >= 2) {
+            const target = prevPipes[prevPipes.length - 1] + 2;
+            editor.selectionStart = editor.selectionEnd = target;
+        }
+    }
+    editor.focus();
 }
 
 function insertTable() {
@@ -1558,14 +2517,54 @@ function setupTooltipDelay() {
 // Enhanced external link handling
 function handleExternalLinks() {
     document.addEventListener('click', (e) => {
-        if (e.target.tagName === 'A' && e.target.target === '_blank') {
+        const link = e.target.closest('a[href]');
+        if (!link) return;
+        const href = link.getAttribute('href');
+        if (!href) return;
+
+        // Handle internal anchor links — scroll preview and jump to heading in editor
+        if (href.startsWith('#')) {
             e.preventDefault();
-            if (window.electronAPI && window.require) {
-                // In Electron, open external links in default browser
-                window.require('electron').shell.openExternal(e.target.href);
+            const targetId = href.slice(1);
+            // Scroll preview to the heading
+            const targetHeading = preview.querySelector(`#${CSS.escape(targetId)}`);
+            if (targetHeading) {
+                targetHeading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            // Also jump editor to matching heading line
+            const lines = editor.value.split('\n');
+            for (let i = 0; i < lines.length; i++) {
+                const match = lines[i].match(/^(#{1,6})\s+(.+)/);
+                if (match) {
+                    const headingText = match[2];
+                    const generatedId = headingText
+                        .toLowerCase()
+                        .trim()
+                        .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '-')
+                        .replace(/\s+/g, '-')
+                        .replace(/[^\wäöüßÄÖÜ-]/g, '')
+                        .replace(/-+$/g, '');
+                    if (generatedId === targetId) {
+                        let charPos = 0;
+                        for (let j = 0; j < i; j++) charPos += lines[j].length + 1;
+                        editor.focus();
+                        editor.setSelectionRange(charPos, charPos + lines[i].length);
+                        const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 20;
+                        editor.scrollTop = i * lineHeight - editor.clientHeight / 3;
+                        break;
+                    }
+                }
+            }
+            return;
+        }
+
+        // External links: open in default browser
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+            e.preventDefault();
+            if (window.electronAPI && window.electronAPI.openExternal) {
+                window.electronAPI.openExternal(href);
             } else {
-                // In browser environment or fallback
-                window.open(e.target.href, '_blank');
+                window.open(href, '_blank');
             }
         }
     });
@@ -1689,6 +2688,22 @@ function handleFileChangedExternally(filePath, newContent) {
     renderTabs();
 }
 
+// Handle file deleted externally
+function handleFileDeletedExternally(filePath) {
+    const tab = tabs.find(tab => tab.filePath === filePath);
+    if (!tab) return;
+
+    // Mark as modified (unsaved) and update title to show deletion
+    tab.isModified = true;
+    tab.title = tab.title + ' (geloscht)';
+    tab.filePath = null; // Clear file path so save triggers Save As
+    renderTabs();
+
+    if (tab.id === activeTabId) {
+        fileName.textContent = tab.title;
+    }
+}
+
 // Batch export helper
 function handleBatchExportPrepareTab(filePath, content) {
     try {
@@ -1739,6 +2754,21 @@ function handleBatchExportPrepareTab(filePath, content) {
             error: `Error preparing tab: ${error.message}`
         });
     }
+}
+
+// Search debounce wrappers
+function debouncedSearchUpdate() {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+        updateSearchResults();
+    }, 200);
+}
+
+function debouncedReplaceUpdate() {
+    clearTimeout(replaceDebounceTimer);
+    replaceDebounceTimer = setTimeout(() => {
+        updateReplaceResults();
+    }, 200);
 }
 
 // Search functionality
@@ -1869,10 +2899,14 @@ function performSearch(searchTerm, isReplace = false) {
             pattern = new RegExp(regexTerm, flags);
         }
     } catch (e) {
-        // Invalid regex, treat as literal text
-        const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const flags = options.caseSensitive ? 'g' : 'gi';
-        pattern = new RegExp(escapedTerm, flags);
+        // Show regex error to user
+        const prefix = isReplace ? 'replace' : 'search';
+        const resultInfo = document.getElementById(`${prefix}ResultInfo`);
+        if (resultInfo) {
+            resultInfo.textContent = `Regex-Fehler: ${e.message}`;
+            resultInfo.style.color = 'var(--accent-red)';
+        }
+        return [];
     }
     
     let match;
@@ -1890,11 +2924,6 @@ function performSearch(searchTerm, isReplace = false) {
     }
     
     return matches;
-}
-
-function highlightMatches(matches) {
-    // For now, we'll just select the current match
-    // In a full implementation, you'd want to add highlighting to the editor
 }
 
 function clearSearchHighlights() {

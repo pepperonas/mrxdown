@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MrxDown - Markdown Editor</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
+    <script src="vendor/marked.min.js"></script>
+    <script src="vendor/purify.min.js"></script>
     <style>
         :root {
             /* Dark Theme Colors */
@@ -50,6 +50,85 @@
             --sidebar-width: 250px;
             --toolbar-height: 60px;
             --statusbar-height: 30px;
+        }
+
+        body.light-theme {
+            --background-dark: #f5f5f5;
+            --background-darker: #e8e8e8;
+            --card-background: #ffffff;
+            --accent-blue: #4a7ab5;
+            --accent-green: #5a9e4f;
+            --accent-red: #d44040;
+            --text-primary: #1a1a1a;
+            --text-secondary: #555555;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        body.light-theme .toolbar {
+            border-bottom-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-theme .tab-bar {
+            border-bottom-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-theme .tab {
+            border-right-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-theme .toolbar-separator {
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-theme .toolbar-button:hover {
+            background-color: rgba(0, 0, 0, 0.08);
+        }
+
+        body.light-theme #editor {
+            color: #1a1a1a;
+            caret-color: #1a1a1a;
+        }
+
+        body.light-theme #preview {
+            color: #1a1a1a;
+        }
+
+        body.light-theme #preview code {
+            background-color: #e8e8e8;
+            color: #333;
+        }
+
+        body.light-theme #preview pre {
+            background-color: #e8e8e8;
+        }
+
+        body.light-theme #preview blockquote {
+            border-left-color: #ccc;
+            color: #555;
+        }
+
+        body.light-theme .search-panel,
+        body.light-theme .context-menu,
+        body.light-theme .table-editor {
+            background-color: #ffffff;
+            border-color: rgba(0, 0, 0, 0.15);
+        }
+
+        body.light-theme .search-input,
+        body.light-theme .table-editor-input {
+            background-color: #f0f0f0;
+            color: #1a1a1a;
+            border-color: rgba(0, 0, 0, 0.15);
+        }
+
+        body.light-theme .modal {
+            background-color: #ffffff;
+        }
+
+        body.light-theme .divider {
+            background-color: rgba(0, 0, 0, 0.1);
         }
 
         * {
@@ -191,6 +270,14 @@
             border-bottom: 2px solid var(--accent-blue);
         }
 
+        .tab.dragging {
+            opacity: 0.4;
+        }
+
+        .tab.drag-over {
+            border-left: 2px solid var(--accent-blue);
+        }
+
         .tab:hover {
             background-color: var(--card-background);
         }
@@ -255,9 +342,55 @@
             padding: var(--spacing-2);
         }
 
+        .sidebar-actions {
+            margin-bottom: var(--spacing-2);
+            padding-bottom: var(--spacing-2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
         .file-explorer {
             margin-bottom: var(--spacing-4);
         }
+
+        .file-tree-folder {
+            cursor: pointer;
+        }
+
+        .file-tree-children {
+            padding-left: var(--spacing-4);
+        }
+
+        .file-tree-children.collapsed {
+            display: none;
+        }
+
+        .document-outline {
+            padding: 0 var(--spacing-3);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .outline-item {
+            padding: 3px 0;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: color 0.2s;
+        }
+
+        .outline-item:hover {
+            color: var(--text-primary);
+        }
+
+        .outline-h1 { padding-left: 0; font-weight: bold; }
+        .outline-h2 { padding-left: 12px; }
+        .outline-h3 { padding-left: 24px; }
+        .outline-h4 { padding-left: 36px; }
+        .outline-h5 { padding-left: 48px; }
+        .outline-h6 { padding-left: 60px; }
 
         .file-item {
             display: flex;
@@ -389,19 +522,88 @@
             background-color: rgba(255, 255, 255, 0.1);
         }
 
-        #editor {
+        .editor-with-gutter {
             flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .editor-wrapper {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .editor-highlight {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             padding: var(--spacing-6);
             font-family: var(--font-mono);
             font-size: 14px;
             line-height: 1.6;
-            background-color: var(--background-dark);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-y: auto;
+            pointer-events: none;
+            color: transparent;
+            tab-size: 4;
+        }
+
+        .editor-highlight .md-heading { color: #e5c07b; font-weight: 600; }
+        .editor-highlight .md-bold { color: #e06c75; }
+        .editor-highlight .md-italic { color: #c678dd; }
+        .editor-highlight .md-code { color: #98c379; }
+        .editor-highlight .md-code-block { color: #98c379; }
+        .editor-highlight .md-link { color: #61afef; }
+        .editor-highlight .md-image { color: #56b6c2; }
+        .editor-highlight .md-list { color: #e5c07b; }
+        .editor-highlight .md-blockquote { color: #5c6370; font-style: italic; }
+        .editor-highlight .md-hr { color: #5c6370; }
+        .editor-highlight .md-strikethrough { color: #5c6370; text-decoration: line-through; }
+
+        .line-number-gutter {
+            width: 50px;
+            background-color: var(--background-darker);
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 14px;
+            line-height: 1.6;
+            padding: var(--spacing-6) 0;
+            text-align: right;
+            overflow: hidden;
+            user-select: none;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .line-number {
+            padding-right: var(--spacing-2);
+            opacity: 0.5;
+        }
+
+        #editor {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            padding: var(--spacing-6);
+            font-family: var(--font-mono);
+            font-size: 14px;
+            line-height: 1.6;
+            background-color: transparent;
             color: var(--text-primary);
             border: none;
             outline: none;
             resize: none;
             overflow-y: auto;
             tab-size: 4;
+            z-index: 1;
+            caret-color: var(--text-primary);
+        }
+
+        .editor-wrapper {
+            background-color: var(--background-dark);
         }
 
         #editor::placeholder {
@@ -913,7 +1115,115 @@
             background-color: #5a7a9f;
         }
 
-        /* Search Dialog Styles */
+        /* Floating Search/Replace Panel */
+        .search-panel {
+            position: fixed;
+            top: calc(var(--toolbar-height) + 40px);
+            right: 20px;
+            background-color: var(--card-background);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            z-index: 2000;
+            min-width: 320px;
+            max-width: 400px;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-10px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .search-panel.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+
+        .search-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-2) var(--spacing-3);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .search-panel-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: var(--radius-sm);
+        }
+
+        .search-panel-close:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+
+        .search-panel-body {
+            padding: var(--spacing-3);
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-2);
+        }
+
+        .search-options-row {
+            display: flex;
+            gap: var(--spacing-3);
+        }
+
+        .search-options-row label {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-1);
+            color: var(--text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .search-options-row input[type="checkbox"] {
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            background-color: var(--background-dark);
+            position: relative;
+            cursor: pointer;
+        }
+
+        .search-options-row input[type="checkbox"]:checked {
+            background-color: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+        .search-options-row input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 9px;
+            font-weight: bold;
+        }
+
+        .search-panel .search-buttons {
+            display: flex;
+            gap: var(--spacing-2);
+        }
+
+        .search-panel .modal-button {
+            padding: var(--spacing-1) var(--spacing-3);
+            font-size: 12px;
+        }
+
+        /* Search Controls (for settings dialog) */
         .search-controls {
             display: flex;
             flex-direction: column;
@@ -1054,6 +1364,46 @@
             background-color: #5a7a9f;
         }
 
+        /* Autocomplete Popup */
+        .autocomplete-popup {
+            position: fixed;
+            background-color: var(--card-background);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            z-index: 5000;
+            min-width: 200px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .autocomplete-item {
+            padding: var(--spacing-2) var(--spacing-3);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 13px;
+            font-family: var(--font-mono);
+        }
+
+        .autocomplete-item:hover,
+        .autocomplete-item.selected {
+            background-color: var(--accent-blue);
+            color: white;
+        }
+
+        .settings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--spacing-4);
+        }
+
+        .autocomplete-hint {
+            color: var(--text-secondary);
+            font-size: 11px;
+            margin-left: var(--spacing-2);
+        }
+
         /* Focus styles */
         .toolbar-button:focus,
         .tab:focus,
@@ -1122,6 +1472,9 @@
             <button class="toolbar-button tooltip" data-tooltip="Code (⌘`)" onclick="handleMenuAction('format-code')">
                 &lt;/&gt;
             </button>
+            <button class="toolbar-button tooltip" data-tooltip="Durchgestrichen (⌘⇧X)" onclick="formatStrikethrough()">
+                <s>S</s>
+            </button>
             <button class="toolbar-button tooltip" data-tooltip="Link (⌘K)" onclick="handleMenuAction('insert-link')">
                 🔗
             </button>
@@ -1155,6 +1508,9 @@
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Zen-Modus (⌘⇧Z)" onclick="toggleZenMode()">
                 🧘
+            </button>
+            <button class="toolbar-button tooltip" data-tooltip="Theme wechseln" onclick="toggleTheme()" id="themeToggleBtn">
+                🌓
             </button>
         </div>
         
@@ -1200,7 +1556,7 @@
                 Dateien
             </div>
             <div class="sidebar-content">
-                <div class="file-explorer" id="fileExplorer">
+                <div class="sidebar-actions">
                     <div class="file-item" onclick="handleMenuAction('new-file')">
                         <div class="file-icon">📄</div>
                         <div class="file-name">Neue Datei</div>
@@ -1210,6 +1566,9 @@
                         <div class="file-name">Datei öffnen</div>
                     </div>
                 </div>
+                <div class="file-explorer" id="fileExplorer"></div>
+                <div class="sidebar-header" style="margin-top: 8px;">Gliederung</div>
+                <div class="document-outline" id="documentOutline"></div>
             </div>
         </div>
 
@@ -1232,7 +1591,13 @@
                             </div>
                         </div>
                     </div>
-                    <textarea id="editor" placeholder="Beginnen Sie mit dem Schreiben Ihres Markdown-Textes..."></textarea>
+                    <div class="editor-with-gutter">
+                        <div id="lineNumberGutter" class="line-number-gutter" style="display: none;"></div>
+                        <div class="editor-wrapper">
+                            <div id="editorHighlight" class="editor-highlight" aria-hidden="true"></div>
+                            <textarea id="editor" placeholder="Beginnen Sie mit dem Schreiben Ihres Markdown-Textes..."></textarea>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- Resizable Divider -->
@@ -1263,6 +1628,18 @@
             </div>
         </div>
         <div class="status-group">
+            <div class="status-item">
+                <span id="cursorPosition">Ln 1, Col 1</span>
+            </div>
+            <div class="status-item">
+                <span id="autoSaveStatus"></span>
+            </div>
+            <div class="status-item">
+                <span id="encodingInfo">UTF-8</span>
+            </div>
+            <div class="status-item">
+                <span id="fileTypeInfo">Markdown</span>
+            </div>
             <div class="status-item clickable" onclick="showSettings()">
                 ⚙️ Einstellungen
             </div>
@@ -1306,7 +1683,7 @@
         <div class="modal">
             <div class="modal-header">
                 <h2 class="modal-title">MrxDown</h2>
-                <div class="modal-version">Version 0.3.0</div>
+                <div class="modal-version">Version</div>
             </div>
             <div class="modal-content">
                 <div class="modal-section">
@@ -1334,54 +1711,46 @@
         </div>
     </div>
 
-    <!-- Search Dialog -->
-    <div class="modal-overlay" id="searchModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h2 class="modal-title">Suchen</h2>
+    <!-- Search Panel (non-modal floating) -->
+    <div class="search-panel" id="searchModal">
+        <div class="search-panel-header">
+            <span>Suchen</span>
+            <button class="search-panel-close" onclick="closeSearchDialog()">×</button>
+        </div>
+        <div class="search-panel-body">
+            <input type="text" class="search-input" id="searchInput" placeholder="Suchbegriff eingeben..." oninput="debouncedSearchUpdate()">
+            <div class="search-result-info" id="searchResultInfo"></div>
+            <div class="search-options-row">
+                <label><input type="checkbox" id="searchCaseSensitive" onchange="updateSearchResults()"> Aa</label>
+                <label><input type="checkbox" id="searchRegex" onchange="updateSearchResults()"> .*</label>
+                <label><input type="checkbox" id="searchWholeWord" onchange="updateSearchResults()"> W</label>
             </div>
-            <div class="modal-content">
-                <div class="search-controls">
-                    <input type="text" class="search-input" id="searchInput" placeholder="Suchbegriff eingeben..." oninput="updateSearchResults()">
-                    <div class="search-result-info" id="searchResultInfo"></div>
-                    <div class="search-options">
-                        <label><input type="checkbox" id="searchCaseSensitive" onchange="updateSearchResults()"> Groß-/Kleinschreibung</label>
-                        <label><input type="checkbox" id="searchRegex" onchange="updateSearchResults()"> Reguläre Ausdrücke</label>
-                        <label><input type="checkbox" id="searchWholeWord" onchange="updateSearchResults()"> Ganze Wörter</label>
-                    </div>
-                    <div class="search-buttons">
-                        <button class="modal-button" onclick="findNext()">Weiter suchen</button>
-                        <button class="modal-button" onclick="findPrevious()">Zurück suchen</button>
-                        <button class="modal-button" onclick="closeSearchDialog()">Schließen</button>
-                    </div>
-                </div>
+            <div class="search-buttons">
+                <button class="modal-button" onclick="findPrevious()">◀</button>
+                <button class="modal-button" onclick="findNext()">▶</button>
             </div>
         </div>
     </div>
 
-    <!-- Replace Dialog -->
-    <div class="modal-overlay" id="replaceModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h2 class="modal-title">Suchen und Ersetzen</h2>
+    <!-- Replace Panel (non-modal floating) -->
+    <div class="search-panel" id="replaceModal">
+        <div class="search-panel-header">
+            <span>Suchen und Ersetzen</span>
+            <button class="search-panel-close" onclick="closeReplaceDialog()">×</button>
+        </div>
+        <div class="search-panel-body">
+            <input type="text" class="search-input" id="replaceSearchInput" placeholder="Suchbegriff..." oninput="debouncedReplaceUpdate()">
+            <input type="text" class="search-input" id="replaceInput" placeholder="Ersetzen durch...">
+            <div class="search-result-info" id="replaceResultInfo"></div>
+            <div class="search-options-row">
+                <label><input type="checkbox" id="replaceCaseSensitive" onchange="updateReplaceResults()"> Aa</label>
+                <label><input type="checkbox" id="replaceRegex" onchange="updateReplaceResults()"> .*</label>
+                <label><input type="checkbox" id="replaceWholeWord" onchange="updateReplaceResults()"> W</label>
             </div>
-            <div class="modal-content">
-                <div class="search-controls">
-                    <input type="text" class="search-input" id="replaceSearchInput" placeholder="Suchbegriff eingeben..." oninput="updateReplaceResults()">
-                    <input type="text" class="search-input" id="replaceInput" placeholder="Ersetzen durch...">
-                    <div class="search-result-info" id="replaceResultInfo"></div>
-                    <div class="search-options">
-                        <label><input type="checkbox" id="replaceCaseSensitive" onchange="updateReplaceResults()"> Groß-/Kleinschreibung</label>
-                        <label><input type="checkbox" id="replaceRegex" onchange="updateReplaceResults()"> Reguläre Ausdrücke</label>
-                        <label><input type="checkbox" id="replaceWholeWord" onchange="updateReplaceResults()"> Ganze Wörter</label>
-                    </div>
-                    <div class="search-buttons">
-                        <button class="modal-button" onclick="replaceNext()">Ersetzen</button>
-                        <button class="modal-button" onclick="replaceAll()">Alle ersetzen</button>
-                        <button class="modal-button" onclick="findNextReplace()">Weiter suchen</button>
-                        <button class="modal-button" onclick="closeReplaceDialog()">Schließen</button>
-                    </div>
-                </div>
+            <div class="search-buttons">
+                <button class="modal-button" onclick="findNextReplace()">▶</button>
+                <button class="modal-button" onclick="replaceNext()">Ersetzen</button>
+                <button class="modal-button" onclick="replaceAll()">Alle</button>
             </div>
         </div>
     </div>
@@ -1397,6 +1766,44 @@
             <button class="table-editor-button" onclick="closeTableEditor()">Abbrechen</button>
         </div>
     </div>
+
+    <!-- Settings Dialog -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Einstellungen</h2>
+            </div>
+            <div class="modal-content">
+                <div class="search-controls">
+                    <div class="settings-row">
+                        <label for="settingsFontSize" style="color: var(--text-secondary); font-size: 14px;">Schriftgröße</label>
+                        <input type="number" class="table-editor-input" id="settingsFontSize" value="14" min="10" max="32" style="width: 80px;">
+                    </div>
+                    <div class="settings-row">
+                        <label for="settingsTabSize" style="color: var(--text-secondary); font-size: 14px;">Tab-Größe</label>
+                        <input type="number" class="table-editor-input" id="settingsTabSize" value="4" min="1" max="8" style="width: 80px;">
+                    </div>
+                    <div class="search-options">
+                        <label><input type="checkbox" id="settingsAutoSave"> Auto-Save aktivieren</label>
+                        <label><input type="checkbox" id="settingsLineNumbers"> Zeilennummern anzeigen</label>
+                        <label><input type="checkbox" id="settingsWordWrap" checked> Zeilenumbruch</label>
+                        <label><input type="checkbox" id="settingsSyncScroll" checked> Scroll-Synchronisation</label>
+                    </div>
+                    <div class="settings-row">
+                        <label for="settingsAutoSaveInterval" style="color: var(--text-secondary); font-size: 14px;">Auto-Save Intervall (Sekunden)</label>
+                        <input type="number" class="table-editor-input" id="settingsAutoSaveInterval" value="5" min="1" max="60" style="width: 80px;">
+                    </div>
+                    <div class="search-buttons">
+                        <button class="modal-button" onclick="applySettings()">Übernehmen</button>
+                        <button class="modal-button" onclick="closeSettingsDialog()" style="background-color: var(--card-background); border: 1px solid rgba(255,255,255,0.2);">Abbrechen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Autocomplete Popup -->
+    <div id="autocompletePopup" class="autocomplete-popup" style="display: none;"></div>
 
     <script src="editor-utils.js"></script>
     <script src="renderer.js"></script>

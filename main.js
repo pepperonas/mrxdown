@@ -1,8 +1,171 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const fsWatchers = new Map();
 const packageJson = require('./package.json');
+
+// --- Settings & Recent Files Persistence ---
+const userDataPath = app.getPath('userData');
+const settingsPath = path.join(userDataPath, 'settings.json');
+const recentFilesPath = path.join(userDataPath, 'recent-files.json');
+
+function loadSettingsFromDisk() {
+    try {
+        if (fsSync.existsSync(settingsPath)) {
+            const data = fsSync.readFileSync(settingsPath, 'utf-8');
+            return JSON.parse(data);
+        }
+    } catch (error) {
+        console.error('Error loading settings:', error);
+    }
+    return {};
+}
+
+function saveSettingsToDisk() {
+    try {
+        fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+    } catch (error) {
+        console.error('Error saving settings:', error);
+    }
+}
+
+function loadRecentFilesFromDisk() {
+    try {
+        if (fsSync.existsSync(recentFilesPath)) {
+            const data = fsSync.readFileSync(recentFilesPath, 'utf-8');
+            const files = JSON.parse(data);
+            // Filter out files that no longer exist
+            return files.filter(f => fsSync.existsSync(f));
+        }
+    } catch (error) {
+        console.error('Error loading recent files:', error);
+    }
+    return [];
+}
+
+function saveRecentFilesToDisk() {
+    try {
+        fs.writeFile(recentFilesPath, JSON.stringify(recentFiles, null, 2), 'utf-8');
+    } catch (error) {
+        console.error('Error saving recent files:', error);
+    }
+}
+
+// Shared PDF stylesheet used by single export, batch export, and CLI
+function getPdfStylesheet() {
+    return `
+        @page {
+            margin: 20mm 15mm;
+            size: A4 portrait;
+        }
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+                         'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+                         'Noto Color Emoji', sans-serif;
+            color: #1a1a1a !important;
+            background: #fff !important;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.7;
+            font-size: 11pt;
+            orphans: 3;
+            widows: 3;
+            text-rendering: optimizeLegibility;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+                         'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+                         'Noto Color Emoji', sans-serif;
+            color: #1a1a1a !important;
+            font-weight: 600;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            page-break-after: avoid;
+            page-break-inside: avoid;
+            text-rendering: optimizeLegibility;
+            -webkit-font-smoothing: subpixel-antialiased;
+            font-feature-settings: "kern" 1;
+            white-space: pre-wrap;
+        }
+        h1 { font-size: 2.25rem; border-bottom: 2px solid #333; padding-bottom: 0.5rem; margin-top: 0; page-break-before: auto; }
+        h2 { font-size: 1.875rem; }
+        h3 { font-size: 1.5rem; }
+        h4 { font-size: 1.25rem; }
+        h5 { font-size: 1.125rem; }
+        h6 { font-size: 1rem; color: #666 !important; }
+        p { color: #1a1a1a !important; margin: 0; text-align: justify; hyphens: auto; }
+        p + p { margin-top: 1rem; }
+        h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p { margin-top: 0; }
+        .line-break { display: block; height: 0; }
+        .line-break + .line-break { height: 1em; }
+        br { display: block; height: 0; }
+        br + br { height: 1em; }
+        p:empty { margin: 1em 0; }
+        strong, b { color: #1a1a1a !important; font-weight: 700; }
+        em, i { color: #1a1a1a !important; font-style: italic; }
+        code {
+            background: #f5f5f5 !important;
+            color: #d14 !important;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
+            font-size: 0.9em;
+            border: 1px solid #e0e0e0;
+        }
+        pre {
+            background: #f8f8f8 !important;
+            color: #1a1a1a !important;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            border: 1px solid #ddd;
+            margin: 1em 0;
+            page-break-inside: avoid;
+            line-height: 1.5;
+        }
+        pre code { background: none !important; color: #1a1a1a !important; padding: 0; border: none; font-size: 0.85em; }
+        blockquote {
+            border-left: 4px solid #666;
+            padding-left: 16px; padding-top: 8px; padding-bottom: 8px;
+            color: #555 !important;
+            margin: 1.2em 0;
+            font-style: italic;
+            background: #f9f9f9;
+            page-break-inside: avoid;
+        }
+        ul, ol { color: #1a1a1a !important; margin-bottom: 1rem; padding-left: 1.5rem; }
+        li { color: #1a1a1a !important; margin-bottom: 0.5rem; page-break-inside: avoid; }
+        li > ul, li > ol { margin-top: 0.3em; margin-bottom: 0.3em; }
+        li input[type="checkbox"] { margin-right: 0.5em; }
+        a { color: #0066cc !important; text-decoration: underline; word-wrap: break-word; }
+        a[href^="#"] { color: #0066cc !important; text-decoration: underline; cursor: pointer; }
+        h1[id], h2[id], h3[id], h4[id], h5[id], h6[id] { scroll-margin-top: 2em; }
+        table { border-collapse: collapse; width: 100%; margin: 1.2em 0; page-break-inside: auto; font-size: 0.9em; }
+        tr { page-break-inside: avoid; page-break-after: auto; }
+        thead { display: table-header-group; }
+        th, td { border: 1px solid #ddd; padding: 10px 12px; text-align: left; color: #1a1a1a !important; }
+        th { background: #f5f5f5 !important; color: #1a1a1a !important; font-weight: 600; }
+        tr:nth-child(even) { background: #fafafa !important; }
+        img { max-width: 100%; height: auto; margin: 1.5em 0; page-break-inside: avoid; }
+        hr { border: none; border-top: 2px solid #ddd; margin: 2em 0; page-break-after: avoid; }
+        @media print { body { margin: 0; padding: 0; } a { text-decoration: underline; } }
+    `;
+}
+
+function buildPdfHtml(bodyContent) {
+    return `<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>${getPdfStylesheet()}</style>
+</head>
+<body>${bodyContent}</body>
+</html>`;
+}
 
 // Helper function to convert images to base64 for PDF export
 async function convertImagesToBase64(htmlContent) {
@@ -101,10 +264,10 @@ async function convertImageToBase64(imagePath) {
 let mainWindow;
 let currentFilePath = null;
 let documentEdited = false;
-const recentFiles = [];
+let lastSaveDirectory = null;
 
-// Store for app settings
-let settings = {
+// Store for app settings - load from disk, merge with defaults
+const defaultSettings = {
     theme: 'dark',
     fontSize: 14,
     autoSave: false,
@@ -113,6 +276,260 @@ let settings = {
     wordWrap: true,
     tabSize: 4
 };
+let settings = { ...defaultSettings, ...loadSettingsFromDisk() };
+const recentFiles = loadRecentFilesFromDisk();
+
+function buildRecentFilesSubmenu() {
+    const items = recentFiles.map(file => ({
+        label: path.basename(file),
+        sublabel: file,
+        click: () => {
+            if (mainWindow) {
+                mainWindow.webContents.send('menu-action', { action: 'open-recent', filePath: file });
+            }
+        }
+    }));
+    if (items.length > 0) {
+        items.push({ type: 'separator' });
+        items.push({
+            label: 'Liste leeren',
+            click: () => {
+                recentFiles.length = 0;
+                saveRecentFilesToDisk();
+                updateRecentFilesMenu();
+            }
+        });
+    } else {
+        items.push({ label: 'Keine Dateien', enabled: false });
+    }
+    return items;
+}
+
+function updateRecentFilesMenu() {
+    const menu = Menu.getApplicationMenu();
+    if (!menu) return;
+    // Rebuild the entire menu to update the recent files submenu
+    // (Electron menus are immutable after creation)
+    createApplicationMenu();
+}
+
+function createApplicationMenu() {
+    const template = getMenuTemplate();
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
+}
+
+function getMenuTemplate() {
+    return [
+        {
+            label: 'MrxDown',
+            submenu: [
+                {
+                    label: 'Über MrxDown',
+                    click: () => {
+                        if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'show-about', version: packageJson.version });
+                    }
+                },
+                { type: 'separator' },
+                { role: 'services' },
+                { type: 'separator' },
+                { role: 'hide' },
+                { role: 'hideOthers' },
+                { role: 'unhide' },
+                { type: 'separator' },
+                { role: 'quit' }
+            ]
+        },
+        {
+            label: 'Datei',
+            submenu: [
+                {
+                    label: 'Neue Datei',
+                    accelerator: 'CmdOrCtrl+N',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'new-file' }); }
+                },
+                {
+                    label: 'Neues Fenster',
+                    accelerator: 'CmdOrCtrl+Shift+N',
+                    click: () => { createWindow(); }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Öffnen...',
+                    accelerator: 'CmdOrCtrl+O',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'open-file' }); }
+                },
+                {
+                    label: 'Zuletzt verwendet',
+                    id: 'recent-files',
+                    submenu: buildRecentFilesSubmenu()
+                },
+                { type: 'separator' },
+                {
+                    label: 'Speichern',
+                    accelerator: 'CmdOrCtrl+S',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'save-file' }); }
+                },
+                {
+                    label: 'Speichern unter...',
+                    accelerator: 'CmdOrCtrl+Shift+S',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'save-file-as' }); }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Als HTML exportieren',
+                    accelerator: 'CmdOrCtrl+E',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'export-html' }); }
+                },
+                {
+                    label: 'Als PDF exportieren',
+                    accelerator: 'CmdOrCtrl+P',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'export-pdf' }); }
+                }
+            ]
+        },
+        {
+            label: 'Bearbeiten',
+            submenu: [
+                { role: 'undo', label: 'Rückgängig' },
+                { role: 'redo', label: 'Wiederholen' },
+                { type: 'separator' },
+                { role: 'cut', label: 'Ausschneiden' },
+                { role: 'copy', label: 'Kopieren' },
+                { role: 'paste', label: 'Einfügen' },
+                { role: 'selectAll', label: 'Alles auswählen' },
+                { type: 'separator' },
+                {
+                    label: 'Suchen',
+                    accelerator: 'CmdOrCtrl+F',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'find' }); }
+                },
+                {
+                    label: 'Ersetzen',
+                    accelerator: 'CmdOrCtrl+R',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'replace' }); }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Zeile löschen',
+                    accelerator: 'CmdOrCtrl+Shift+K',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'delete-line' }); }
+                },
+                {
+                    label: 'Zeile duplizieren',
+                    accelerator: 'CmdOrCtrl+D',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'duplicate-line' }); }
+                },
+                {
+                    label: 'Zeile nach oben',
+                    accelerator: 'Alt+Up',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'move-line-up' }); }
+                },
+                {
+                    label: 'Zeile nach unten',
+                    accelerator: 'Alt+Down',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'move-line-down' }); }
+                },
+                {
+                    label: 'Kommentar umschalten',
+                    accelerator: 'CmdOrCtrl+/',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'toggle-comment' }); }
+                },
+                {
+                    label: 'Zeile markieren',
+                    accelerator: 'CmdOrCtrl+L',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'select-line' }); }
+                }
+            ]
+        },
+        {
+            label: 'Format',
+            submenu: [
+                {
+                    label: 'Fett',
+                    accelerator: 'CmdOrCtrl+B',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'format-bold' }); }
+                },
+                {
+                    label: 'Kursiv',
+                    accelerator: 'CmdOrCtrl+I',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'format-italic' }); }
+                },
+                {
+                    label: 'Code',
+                    accelerator: 'CmdOrCtrl+`',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'format-code' }); }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Link einfügen',
+                    accelerator: 'CmdOrCtrl+K',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'insert-link' }); }
+                },
+                {
+                    label: 'Bild einfügen',
+                    accelerator: 'CmdOrCtrl+Shift+I',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'insert-image' }); }
+                },
+                {
+                    label: 'Tabelle einfügen',
+                    accelerator: 'CmdOrCtrl+T',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'insert-table' }); }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Überschrift 1',
+                    accelerator: 'CmdOrCtrl+1',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'heading-1' }); }
+                },
+                {
+                    label: 'Überschrift 2',
+                    accelerator: 'CmdOrCtrl+2',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'heading-2' }); }
+                },
+                {
+                    label: 'Überschrift 3',
+                    accelerator: 'CmdOrCtrl+3',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'heading-3' }); }
+                }
+            ]
+        },
+        {
+            label: 'Ansicht',
+            submenu: [
+                {
+                    label: 'Sidebar umschalten',
+                    accelerator: 'CmdOrCtrl+\\',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'toggle-sidebar' }); }
+                },
+                {
+                    label: 'Zen-Modus',
+                    accelerator: 'CmdOrCtrl+Shift+Z',
+                    click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'toggle-zen-mode' }); }
+                },
+                { type: 'separator' },
+                { role: 'reload', label: 'Neu laden' },
+                { role: 'forceReload', label: 'Erzwungen neu laden' },
+                { role: 'toggleDevTools', label: 'Entwicklertools' },
+                { type: 'separator' },
+                { role: 'resetZoom', label: 'Tatsächliche Größe' },
+                { role: 'zoomIn', label: 'Vergrößern' },
+                { role: 'zoomOut', label: 'Verkleinern' },
+                { type: 'separator' },
+                { role: 'togglefullscreen', label: 'Vollbild' }
+            ]
+        },
+        {
+            label: 'Fenster',
+            submenu: [
+                { role: 'minimize', label: 'Minimieren' },
+                { role: 'close', label: 'Schließen' },
+                { type: 'separator' },
+                { role: 'front', label: 'Alle nach vorne' }
+            ]
+        }
+    ];
+}
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -139,286 +556,46 @@ function createWindow() {
     });
 
     // macOS Menu
-    const template = [
-        {
-            label: 'MrxDown',
-            submenu: [
-                {
-                    label: 'Über MrxDown',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'show-about', version: packageJson.version });
-                    }
-                },
-                { type: 'separator' },
-                { role: 'services' },
-                { type: 'separator' },
-                { role: 'hide' },
-                { role: 'hideOthers' },
-                { role: 'unhide' },
-                { type: 'separator' },
-                { role: 'quit' }
-            ]
-        },
-        {
-            label: 'Datei',
-            submenu: [
-                {
-                    label: 'Neue Datei',
-                    accelerator: 'CmdOrCtrl+N',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'new-file' });
-                    }
-                },
-                {
-                    label: 'Neues Fenster',
-                    accelerator: 'CmdOrCtrl+Shift+N',
-                    click: () => {
-                        createWindow();
-                    }
-                },
-                { type: 'separator' },
-                {
-                    label: 'Öffnen...',
-                    accelerator: 'CmdOrCtrl+O',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'open-file' });
-                    }
-                },
-                {
-                    label: 'Zuletzt verwendet',
-                    submenu: recentFiles.map(file => ({
-                        label: path.basename(file),
-                        click: () => {
-                            mainWindow.webContents.send('menu-action', { action: 'open-recent', filePath: file });
-                        }
-                    }))
-                },
-                { type: 'separator' },
-                {
-                    label: 'Speichern',
-                    accelerator: 'CmdOrCtrl+S',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'save-file' });
-                    }
-                },
-                {
-                    label: 'Speichern unter...',
-                    accelerator: 'CmdOrCtrl+Shift+S',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'save-file-as' });
-                    }
-                },
-                { type: 'separator' },
-                {
-                    label: 'Als HTML exportieren',
-                    accelerator: 'CmdOrCtrl+E',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'export-html' });
-                    }
-                },
-                {
-                    label: 'Als PDF exportieren',
-                    accelerator: 'CmdOrCtrl+P',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'export-pdf' });
-                    }
-                }
-            ]
-        },
-        {
-            label: 'Bearbeiten',
-            submenu: [
-                { role: 'undo', label: 'Rückgängig' },
-                { role: 'redo', label: 'Wiederholen' },
-                { type: 'separator' },
-                { role: 'cut', label: 'Ausschneiden' },
-                { role: 'copy', label: 'Kopieren' },
-                { role: 'paste', label: 'Einfügen' },
-                { role: 'selectAll', label: 'Alles auswählen' },
-                { type: 'separator' },
-                {
-                    label: 'Suchen',
-                    accelerator: 'CmdOrCtrl+F',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'find' });
-                    }
-                },
-                {
-                    label: 'Ersetzen',
-                    accelerator: 'CmdOrCtrl+R',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'replace' });
-                    }
-                },
-                { type: 'separator' },
-                {
-                    label: 'Zeile löschen',
-                    accelerator: 'CmdOrCtrl+Shift+K',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'delete-line' });
-                    }
-                },
-                {
-                    label: 'Zeile duplizieren',
-                    accelerator: 'CmdOrCtrl+D',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'duplicate-line' });
-                    }
-                },
-                {
-                    label: 'Zeile nach oben',
-                    accelerator: 'Alt+Up',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'move-line-up' });
-                    }
-                },
-                {
-                    label: 'Zeile nach unten',
-                    accelerator: 'Alt+Down',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'move-line-down' });
-                    }
-                },
-                {
-                    label: 'Kommentar umschalten',
-                    accelerator: 'CmdOrCtrl+/',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'toggle-comment' });
-                    }
-                },
-                {
-                    label: 'Zeile markieren',
-                    accelerator: 'CmdOrCtrl+L',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'select-line' });
-                    }
-                }
-            ]
-        },
-        {
-            label: 'Format',
-            submenu: [
-                {
-                    label: 'Fett',
-                    accelerator: 'CmdOrCtrl+B',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'format-bold' });
-                    }
-                },
-                {
-                    label: 'Kursiv',
-                    accelerator: 'CmdOrCtrl+I',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'format-italic' });
-                    }
-                },
-                {
-                    label: 'Code',
-                    accelerator: 'CmdOrCtrl+`',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'format-code' });
-                    }
-                },
-                { type: 'separator' },
-                {
-                    label: 'Link einfügen',
-                    accelerator: 'CmdOrCtrl+K',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'insert-link' });
-                    }
-                },
-                {
-                    label: 'Bild einfügen',
-                    accelerator: 'CmdOrCtrl+Shift+I',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'insert-image' });
-                    }
-                },
-                {
-                    label: 'Tabelle einfügen',
-                    accelerator: 'CmdOrCtrl+T',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'insert-table' });
-                    }
-                },
-                { type: 'separator' },
-                {
-                    label: 'Überschrift 1',
-                    accelerator: 'CmdOrCtrl+1',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'heading-1' });
-                    }
-                },
-                {
-                    label: 'Überschrift 2',
-                    accelerator: 'CmdOrCtrl+2',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'heading-2' });
-                    }
-                },
-                {
-                    label: 'Überschrift 3',
-                    accelerator: 'CmdOrCtrl+3',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'heading-3' });
-                    }
-                }
-            ]
-        },
-        {
-            label: 'Ansicht',
-            submenu: [
-                {
-                    label: 'Sidebar umschalten',
-                    accelerator: 'CmdOrCtrl+\\',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'toggle-sidebar' });
-                    }
-                },
-                {
-                    label: 'Zen-Modus',
-                    accelerator: 'CmdOrCtrl+Shift+Z',
-                    click: () => {
-                        mainWindow.webContents.send('menu-action', { action: 'toggle-zen-mode' });
-                    }
-                },
-                { type: 'separator' },
-                { role: 'reload', label: 'Neu laden' },
-                { role: 'forceReload', label: 'Erzwungen neu laden' },
-                { role: 'toggleDevTools', label: 'Entwicklertools' },
-                { type: 'separator' },
-                { role: 'resetZoom', label: 'Tatsächliche Größe' },
-                { role: 'zoomIn', label: 'Vergrößern' },
-                { role: 'zoomOut', label: 'Verkleinern' },
-                { type: 'separator' },
-                { role: 'togglefullscreen', label: 'Vollbild' }
-            ]
-        },
-        {
-            label: 'Fenster',
-            submenu: [
-                { role: 'minimize', label: 'Minimieren' },
-                { role: 'close', label: 'Schließen' },
-                { type: 'separator' },
-                { role: 'front', label: 'Alle nach vorne' }
-            ]
-        }
-    ];
+    createApplicationMenu();
 
-    const menu = Menu.buildFromTemplate(template);
-    Menu.setApplicationMenu(menu);
+    mainWindow.on('close', async (event) => {
+        if (documentEdited) {
+            event.preventDefault();
+            const response = await dialog.showMessageBox(mainWindow, {
+                type: 'question',
+                buttons: ['Speichern & Beenden', 'Nicht speichern', 'Abbrechen'],
+                defaultId: 0,
+                cancelId: 2,
+                message: 'Es gibt ungespeicherte Änderungen.',
+                detail: 'Möchten Sie vor dem Beenden speichern?'
+            });
+            if (response.response === 0) {
+                // Save then close
+                mainWindow.webContents.send('menu-action', { action: 'save-file' });
+                // Wait a moment for save to complete, then force close
+                setTimeout(() => {
+                    documentEdited = false;
+                    mainWindow.close();
+                }, 500);
+            } else if (response.response === 1) {
+                // Don't save, just close
+                documentEdited = false;
+                mainWindow.close();
+            }
+            // response === 2: Cancel, do nothing
+        }
+    });
 
     mainWindow.on('closed', () => {
         // Clean up all file watchers
-        const fsNode = require('fs');
         for (const [filePath, watcher] of fsWatchers.entries()) {
             console.log('Cleaning up file watcher for:', filePath);
             if (watcher && watcher.type === 'watchFile') {
-                fsNode.unwatchFile(watcher.filePath);
+                fsSync.unwatchFile(watcher.filePath);
             }
         }
         fsWatchers.clear();
-        
+
         mainWindow = null;
     });
 }
@@ -448,7 +625,8 @@ ipcMain.on('new-file', async (event) => {
 
 ipcMain.on('open-file', async (event) => {
     const result = await dialog.showOpenDialog(mainWindow, {
-        properties: ['openFile'],
+        properties: ['openFile', 'multiSelections'],
+        defaultPath: lastSaveDirectory || undefined,
         filters: [
             { name: 'Markdown', extensions: ['md', 'markdown'] },
             { name: 'Text', extensions: ['txt'] },
@@ -457,15 +635,17 @@ ipcMain.on('open-file', async (event) => {
     });
 
     if (!result.canceled && result.filePaths.length > 0) {
-        const filePath = result.filePaths[0];
-        try {
-            const content = await fs.readFile(filePath, 'utf-8');
-            currentFilePath = filePath;
-            documentEdited = false;
-            event.reply('file-opened', { filePath, content });
-            addToRecentFiles(filePath);
-        } catch (error) {
-            dialog.showErrorBox('Fehler', `Datei konnte nicht geöffnet werden: ${error.message}`);
+        for (const filePath of result.filePaths) {
+            try {
+                const content = await fs.readFile(filePath, 'utf-8');
+                currentFilePath = filePath;
+                lastSaveDirectory = path.dirname(filePath);
+                documentEdited = false;
+                event.reply('file-opened', { filePath, content });
+                addToRecentFiles(filePath);
+            } catch (error) {
+                dialog.showErrorBox('Fehler', `Datei konnte nicht geöffnet werden: ${error.message}`);
+            }
         }
     }
 });
@@ -527,18 +707,27 @@ ipcMain.on('save-file-as', async (event, { content, filePath, tabTitle }) => {
         defaultFileName = 'untitled.md';
     }
     
+    // Determine the best default path for Save As dialog
+    let defaultSavePath = defaultFileName;
+    if (baseFilePath) {
+        defaultSavePath = path.join(path.dirname(baseFilePath), defaultFileName);
+    } else if (lastSaveDirectory) {
+        defaultSavePath = path.join(lastSaveDirectory, defaultFileName);
+    }
+
     const result = await dialog.showSaveDialog(mainWindow, {
         filters: [
             { name: 'Markdown', extensions: ['md'] },
             { name: 'Text', extensions: ['txt'] }
         ],
-        defaultPath: defaultFileName
+        defaultPath: defaultSavePath
     });
 
     if (!result.canceled) {
         try {
             await fs.writeFile(result.filePath, content, 'utf-8');
             currentFilePath = result.filePath;
+            lastSaveDirectory = path.dirname(result.filePath);
             documentEdited = false;
             event.reply('file-saved', { filePath: result.filePath });
             addToRecentFiles(result.filePath);
@@ -632,279 +821,10 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
         // Keep <br> tags - styled via CSS
 
         // Load HTML with optimized print styles
-        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
-            <!DOCTYPE html>
-            <html lang="de">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                    /* ===== BASE TYPOGRAPHY ===== */
-                    @page {
-                        margin: 20mm 15mm;
-                        size: A4 portrait;
-                    }
-
-                    body {
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-                                     'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-                                     'Noto Color Emoji', sans-serif;
-                        color: #1a1a1a !important;
-                        background: #fff !important;
-                        max-width: 800px;
-                        margin: 0 auto;
-                        padding: 20px;
-                        line-height: 1.7;
-                        font-size: 11pt;
-                        orphans: 3;
-                        widows: 3;
-                        text-rendering: optimizeLegibility;
-                    }
-
-                    /* ===== HEADINGS WITH PAGE BREAK CONTROL ===== */
-                    h1, h2, h3, h4, h5, h6 {
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-                                     'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-                                     'Noto Color Emoji', sans-serif;
-                        color: #1a1a1a !important;
-                        font-weight: 600;
-                        margin-top: 2rem;
-                        margin-bottom: 1rem;
-                        page-break-after: avoid;
-                        page-break-inside: avoid;
-                        text-rendering: optimizeLegibility;
-                        -webkit-font-smoothing: subpixel-antialiased;
-                        font-feature-settings: "kern" 1;
-                        white-space: pre-wrap;
-                    }
-
-                    h1 {
-                        font-size: 2.25rem;
-                        border-bottom: 2px solid #333;
-                        padding-bottom: 0.5rem;
-                        margin-top: 0;
-                        page-break-before: auto;
-                    }
-                    h2 { font-size: 1.875rem; }
-                    h3 { font-size: 1.5rem; }
-                    h4 { font-size: 1.25rem; }
-                    h5 { font-size: 1.125rem; }
-                    h6 { font-size: 1rem; color: #666 !important; }
-
-                    /* ===== OPTIMIZED PARAGRAPHS & LINE BREAKS ===== */
-                    p {
-                        color: #1a1a1a !important;
-                        margin: 0;
-                        text-align: justify;
-                        hyphens: auto;
-                    }
-
-                    /* Add spacing between separate paragraphs (not within address blocks) */
-                    p + p {
-                        margin-top: 1rem;
-                    }
-
-                    /* Reset spacing after headings */
-                    h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p {
-                        margin-top: 0;
-                    }
-
-                    /* Handle explicit line breaks - converted from <br> tags */
-                    .line-break {
-                        display: block;
-                        height: 0;
-                    }
-
-                    /* Multiple line breaks create visible spacing */
-                    .line-break + .line-break {
-                        height: 1em;
-                    }
-
-                    /* Fallback for any remaining br tags */
-                    br {
-                        display: block;
-                        height: 0;
-                    }
-
-                    br + br {
-                        height: 1em;
-                    }
-
-                    /* Empty paragraphs for spacing */
-                    p:empty {
-                        margin: 1em 0;
-                    }
-
-                    /* ===== INLINE FORMATTING ===== */
-                    strong, b {
-                        color: #1a1a1a !important;
-                        font-weight: 700;
-                    }
-
-                    em, i {
-                        color: #1a1a1a !important;
-                        font-style: italic;
-                    }
-
-                    /* ===== CODE BLOCKS WITH BREAK CONTROL ===== */
-                    code {
-                        background: #f5f5f5 !important;
-                        color: #d14 !important;
-                        padding: 2px 6px;
-                        border-radius: 3px;
-                        font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
-                        font-size: 0.9em;
-                        border: 1px solid #e0e0e0;
-                    }
-
-                    pre {
-                        background: #f8f8f8 !important;
-                        color: #1a1a1a !important;
-                        padding: 16px;
-                        border-radius: 6px;
-                        overflow-x: auto;
-                        border: 1px solid #ddd;
-                        margin: 1em 0;
-                        page-break-inside: avoid;
-                        line-height: 1.5;
-                    }
-
-                    pre code {
-                        background: none !important;
-                        color: #1a1a1a !important;
-                        padding: 0;
-                        border: none;
-                        font-size: 0.85em;
-                    }
-
-                    /* ===== BLOCKQUOTES ===== */
-                    blockquote {
-                        border-left: 4px solid #666;
-                        padding-left: 16px;
-                        padding-top: 8px;
-                        padding-bottom: 8px;
-                        color: #555 !important;
-                        margin: 1.2em 0;
-                        font-style: italic;
-                        background: #f9f9f9;
-                        page-break-inside: avoid;
-                    }
-
-                    /* ===== OPTIMIZED LISTS ===== */
-                    ul, ol {
-                        color: #1a1a1a !important;
-                        margin-bottom: 1rem;
-                        padding-left: 1.5rem;
-                    }
-
-                    li {
-                        color: #1a1a1a !important;
-                        margin-bottom: 0.5rem;
-                        page-break-inside: avoid;
-                    }
-
-                    /* Nested lists */
-                    li > ul, li > ol {
-                        margin-top: 0.3em;
-                        margin-bottom: 0.3em;
-                    }
-
-                    /* Task lists */
-                    li input[type="checkbox"] {
-                        margin-right: 0.5em;
-                    }
-
-                    /* ===== HYPERLINKS ===== */
-                    a {
-                        color: #0066cc !important;
-                        text-decoration: underline;
-                        word-wrap: break-word;
-                    }
-
-                    /* Style internal anchor links */
-                    a[href^="#"] {
-                        color: #0066cc !important;
-                        text-decoration: underline;
-                        cursor: pointer;
-                    }
-
-                    /* Ensure heading IDs are preserved for anchor navigation */
-                    h1[id], h2[id], h3[id], h4[id], h5[id], h6[id] {
-                        scroll-margin-top: 2em;
-                    }
-
-                    /* ===== TABLES WITH PAGE BREAK CONTROL ===== */
-                    table {
-                        border-collapse: collapse;
-                        width: 100%;
-                        margin: 1.2em 0;
-                        page-break-inside: auto;
-                        font-size: 0.9em;
-                    }
-
-                    tr {
-                        page-break-inside: avoid;
-                        page-break-after: auto;
-                    }
-
-                    thead {
-                        display: table-header-group;
-                    }
-
-                    th, td {
-                        border: 1px solid #ddd;
-                        padding: 10px 12px;
-                        text-align: left;
-                        color: #1a1a1a !important;
-                    }
-
-                    th {
-                        background: #f5f5f5 !important;
-                        color: #1a1a1a !important;
-                        font-weight: 600;
-                    }
-
-                    tr:nth-child(even) {
-                        background: #fafafa !important;
-                    }
-
-                    /* ===== OPTIMIZED IMAGES ===== */
-                    img {
-                        max-width: 100%;
-                        height: auto;
-                        margin: 1.5em 0;
-                        page-break-inside: avoid;
-                    }
-
-                    /* ===== HORIZONTAL RULES ===== */
-                    hr {
-                        border: none;
-                        border-top: 2px solid #ddd;
-                        margin: 2em 0;
-                        page-break-after: avoid;
-                    }
-
-                    /* ===== PRINT OPTIMIZATION ===== */
-                    @media print {
-                        body {
-                            margin: 0;
-                            padding: 0;
-                        }
-
-                        a {
-                            text-decoration: underline;
-                        }
-                    }
-                </style>
-            </head>
-            <body>
-                ${content}
-            </body>
-            </html>
-        `)}`);
+        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildPdfHtml(content))}`);
 
         await pdfWindow.webContents.once('did-finish-load', () => {});
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait even longer for emoji rendering
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for emoji rendering
 
         const pdfData = await pdfWindow.webContents.printToPDF({
             marginsType: 0, // Use custom margins from @page
@@ -996,280 +916,11 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                     }
                 });
                 
-                // Load HTML with optimized print styles (same as single export)
-                await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
-                    <!DOCTYPE html>
-                    <html lang="de">
-                    <head>
-                        <meta charset="UTF-8">
-                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                        <style>
-                            /* ===== BASE TYPOGRAPHY ===== */
-                            @page {
-                                margin: 20mm 15mm;
-                                size: A4 portrait;
-                            }
-
-                            body {
-                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-                                             'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-                                             'Noto Color Emoji', sans-serif;
-                                color: #1a1a1a !important;
-                                background: #fff !important;
-                                max-width: 800px;
-                                margin: 0 auto;
-                                padding: 20px;
-                                line-height: 1.7;
-                                font-size: 11pt;
-                                orphans: 3;
-                                widows: 3;
-                                text-rendering: optimizeLegibility;
-                            }
-
-                            /* ===== HEADINGS WITH PAGE BREAK CONTROL ===== */
-                            h1, h2, h3, h4, h5, h6 {
-                                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-                                             'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-                                             'Noto Color Emoji', sans-serif;
-                                color: #1a1a1a !important;
-                                font-weight: 600;
-                                margin-top: 2rem;
-                                margin-bottom: 1rem;
-                                page-break-after: avoid;
-                                page-break-inside: avoid;
-                                text-rendering: optimizeLegibility;
-                                -webkit-font-smoothing: subpixel-antialiased;
-                                font-feature-settings: "kern" 1;
-                                white-space: pre-wrap;
-                            }
-
-                            h1 {
-                                font-size: 2.25rem;
-                                border-bottom: 2px solid #333;
-                                padding-bottom: 0.5rem;
-                                margin-top: 0;
-                                page-break-before: auto;
-                            }
-                            h2 { font-size: 1.875rem; }
-                            h3 { font-size: 1.5rem; }
-                            h4 { font-size: 1.25rem; }
-                            h5 { font-size: 1.125rem; }
-                            h6 { font-size: 1rem; color: #666 !important; }
-
-                            /* ===== OPTIMIZED PARAGRAPHS & LINE BREAKS ===== */
-                            p {
-                                color: #1a1a1a !important;
-                                margin: 0;
-                                text-align: justify;
-                                hyphens: auto;
-                            }
-
-                            /* Add spacing between separate paragraphs (not within address blocks) */
-                            p + p {
-                                margin-top: 1rem;
-                            }
-
-                            /* Reset spacing after headings */
-                            h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p {
-                                margin-top: 0;
-                            }
-
-                            /* Handle explicit line breaks - converted from <br> tags */
-                            .line-break {
-                                display: block;
-                                height: 0;
-                            }
-
-                            /* Multiple line breaks create visible spacing */
-                            .line-break + .line-break {
-                                height: 1em;
-                            }
-
-                            /* Fallback for any remaining br tags */
-                            br {
-                                display: block;
-                                height: 0;
-                            }
-
-                            br + br {
-                                height: 1em;
-                            }
-
-                            /* Empty paragraphs for spacing */
-                            p:empty {
-                                margin: 1em 0;
-                            }
-
-                            /* ===== INLINE FORMATTING ===== */
-                            strong, b {
-                                color: #1a1a1a !important;
-                                font-weight: 700;
-                            }
-
-                            em, i {
-                                color: #1a1a1a !important;
-                                font-style: italic;
-                            }
-
-                            /* ===== CODE BLOCKS WITH BREAK CONTROL ===== */
-                            code {
-                                background: #f5f5f5 !important;
-                                color: #d14 !important;
-                                padding: 2px 6px;
-                                border-radius: 3px;
-                                font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
-                                font-size: 0.9em;
-                                border: 1px solid #e0e0e0;
-                            }
-
-                            pre {
-                                background: #f8f8f8 !important;
-                                color: #1a1a1a !important;
-                                padding: 16px;
-                                border-radius: 6px;
-                                overflow-x: auto;
-                                border: 1px solid #ddd;
-                                margin: 1em 0;
-                                page-break-inside: avoid;
-                                line-height: 1.5;
-                            }
-
-                            pre code {
-                                background: none !important;
-                                color: #1a1a1a !important;
-                                padding: 0;
-                                border: none;
-                                font-size: 0.85em;
-                            }
-
-                            /* ===== BLOCKQUOTES ===== */
-                            blockquote {
-                                border-left: 4px solid #666;
-                                padding-left: 16px;
-                                padding-top: 8px;
-                                padding-bottom: 8px;
-                                color: #555 !important;
-                                margin: 1.2em 0;
-                                font-style: italic;
-                                background: #f9f9f9;
-                                page-break-inside: avoid;
-                            }
-
-                            /* ===== OPTIMIZED LISTS ===== */
-                            ul, ol {
-                                color: #1a1a1a !important;
-                                margin-bottom: 1rem;
-                                padding-left: 1.5rem;
-                            }
-
-                            li {
-                                color: #1a1a1a !important;
-                                margin-bottom: 0.5rem;
-                                page-break-inside: avoid;
-                            }
-
-                            /* Nested lists */
-                            li > ul, li > ol {
-                                margin-top: 0.3em;
-                                margin-bottom: 0.3em;
-                            }
-
-                            /* Task lists */
-                            li input[type="checkbox"] {
-                                margin-right: 0.5em;
-                            }
-
-                            /* ===== HYPERLINKS ===== */
-                            a {
-                                color: #0066cc !important;
-                                text-decoration: underline;
-                                word-wrap: break-word;
-                            }
-
-                            /* Style internal anchor links */
-                            a[href^="#"] {
-                                color: #0066cc !important;
-                                text-decoration: underline;
-                                cursor: pointer;
-                            }
-
-                            /* Ensure heading IDs are preserved for anchor navigation */
-                            h1[id], h2[id], h3[id], h4[id], h5[id], h6[id] {
-                                scroll-margin-top: 2em;
-                            }
-
-                            /* ===== TABLES WITH PAGE BREAK CONTROL ===== */
-                            table {
-                                border-collapse: collapse;
-                                width: 100%;
-                                margin: 1.2em 0;
-                                page-break-inside: auto;
-                                font-size: 0.9em;
-                            }
-
-                            tr {
-                                page-break-inside: avoid;
-                                page-break-after: auto;
-                            }
-
-                            thead {
-                                display: table-header-group;
-                            }
-
-                            th, td {
-                                border: 1px solid #ddd;
-                                padding: 10px 12px;
-                                text-align: left;
-                                color: #1a1a1a !important;
-                            }
-
-                            th {
-                                background: #f5f5f5 !important;
-                                color: #1a1a1a !important;
-                                font-weight: 600;
-                            }
-
-                            tr:nth-child(even) {
-                                background: #fafafa !important;
-                            }
-
-                            /* ===== OPTIMIZED IMAGES ===== */
-                            img {
-                                max-width: 100%;
-                                height: auto;
-                                margin: 1.5em 0;
-                                page-break-inside: avoid;
-                            }
-
-                            /* ===== HORIZONTAL RULES ===== */
-                            hr {
-                                border: none;
-                                border-top: 2px solid #ddd;
-                                margin: 2em 0;
-                                page-break-after: avoid;
-                            }
-
-                            /* ===== PRINT OPTIMIZATION ===== */
-                            @media print {
-                                body {
-                                    margin: 0;
-                                    padding: 0;
-                                }
-
-                                a {
-                                    text-decoration: underline;
-                                }
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        ${htmlContent}
-                    </body>
-                    </html>
-                `)}`);
+                // Load HTML with shared print styles
+                await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildPdfHtml(htmlContent))}`);
 
                 await pdfWindow.webContents.once('did-finish-load', () => {});
-                await new Promise(resolve => setTimeout(resolve, 2000)); // Wait even longer for emoji rendering
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for emoji rendering
 
                 const pdfData = await pdfWindow.webContents.printToPDF({
                     marginsType: 0, // Use custom margins from @page
@@ -1327,7 +978,7 @@ ipcMain.handle('get-settings', () => {
 
 ipcMain.on('save-settings', (event, newSettings) => {
     settings = { ...settings, ...newSettings };
-    // Save to file in future implementation
+    saveSettingsToDisk();
 });
 
 // Recent files handlers
@@ -1344,8 +995,98 @@ function addToRecentFiles(filePath) {
     if (recentFiles.length > 10) {
         recentFiles.pop();
     }
-    // Update menu in future implementation
+    saveRecentFilesToDisk();
+    updateRecentFilesMenu();
 }
+
+// Open a specific file by path (for recent files)
+ipcMain.on('open-file-path', async (event, filePath) => {
+    try {
+        const content = await fs.readFile(filePath, 'utf-8');
+        currentFilePath = filePath;
+        lastSaveDirectory = path.dirname(filePath);
+        documentEdited = false;
+        event.reply('file-opened', { filePath, content });
+        addToRecentFiles(filePath);
+    } catch (error) {
+        dialog.showErrorBox('Fehler', `Datei konnte nicht geöffnet werden: ${error.message}`);
+    }
+});
+
+// Directory listing for sidebar file tree
+ipcMain.handle('list-directory', async (event, dirPath) => {
+    try {
+        const entries = await fs.readdir(dirPath, { withFileTypes: true });
+        return entries
+            .filter(e => !e.name.startsWith('.'))
+            .map(e => ({
+                name: e.name,
+                path: path.join(dirPath, e.name),
+                isDirectory: e.isDirectory()
+            }))
+            .sort((a, b) => {
+                if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+                return a.name.localeCompare(b.name);
+            });
+    } catch (error) {
+        console.error('Error listing directory:', error);
+        return [];
+    }
+});
+
+// Image file picker dialog
+ipcMain.handle('select-image', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openFile'],
+        filters: [
+            { name: 'Bilder', extensions: ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp'] }
+        ]
+    });
+    if (!result.canceled && result.filePaths.length > 0) {
+        return result.filePaths[0];
+    }
+    return null;
+});
+
+// Session state persistence for crash recovery
+const sessionPath = path.join(userDataPath, 'session.json');
+
+ipcMain.on('save-session', (event, sessionData) => {
+    try {
+        fs.writeFile(sessionPath, JSON.stringify(sessionData, null, 2), 'utf-8');
+    } catch (error) {
+        console.error('Error saving session:', error);
+    }
+});
+
+ipcMain.handle('get-session', () => {
+    try {
+        if (fsSync.existsSync(sessionPath)) {
+            const data = fsSync.readFileSync(sessionPath, 'utf-8');
+            return JSON.parse(data);
+        }
+    } catch (error) {
+        console.error('Error loading session:', error);
+    }
+    return null;
+});
+
+ipcMain.on('clear-session', () => {
+    try {
+        if (fsSync.existsSync(sessionPath)) {
+            fsSync.unlinkSync(sessionPath);
+        }
+    } catch (error) {
+        console.error('Error clearing session:', error);
+    }
+});
+
+// Shell operations
+ipcMain.on('open-external', (event, url) => {
+    if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
+        shell.openExternal(url);
+    }
+});
 
 // Window controls
 ipcMain.on('update-window-title', (event, title) => {
@@ -1360,33 +1101,41 @@ ipcMain.on('set-document-edited', (event, edited) => {
 // File watching handlers
 ipcMain.on('watch-file', (event, filePath) => {
     if (!filePath || fsWatchers.has(filePath)) return;
-    
+
+    // Limit total watchers to prevent resource exhaustion
+    if (fsWatchers.size >= 50) {
+        console.warn('File watcher limit reached (50), not adding:', filePath);
+        return;
+    }
+
     try {
-        const fsNode = require('fs');
         console.log('Setting up file watcher for:', filePath);
-        
-        // Check if file exists first
-        if (!fsNode.existsSync(filePath)) {
+
+        if (!fsSync.existsSync(filePath)) {
             console.error('File does not exist:', filePath);
             return;
         }
-        
-        // Use fs.watchFile with less aggressive polling to avoid file locking issues
-        fsNode.watchFile(filePath, { 
+
+        fsSync.watchFile(filePath, {
             persistent: true,
-            interval: 2000  // Check every 2 seconds instead of 500ms to reduce file access
+            interval: 2000
         }, (curr, prev) => {
-            console.log('File stats changed for:', filePath);
-            console.log('Previous mtime:', prev.mtime, 'Current mtime:', curr.mtime);
-            
-            // Check if file was actually modified (not just accessed)
+            // File was deleted (nlink === 0 or size === 0 with zero mtime)
+            if (curr.nlink === 0) {
+                console.log('File was deleted:', filePath);
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('file-deleted-externally', { filePath });
+                }
+                // Stop watching deleted file
+                fsSync.unwatchFile(filePath);
+                fsWatchers.delete(filePath);
+                return;
+            }
+
             if (curr.mtime > prev.mtime) {
                 console.log('File was modified, reading content...');
-                
-                // Add a small delay to ensure write is complete
                 setTimeout(() => {
                     fs.readFile(filePath, 'utf-8').then(content => {
-                        console.log('Sending file-changed-externally event');
                         if (mainWindow && !mainWindow.isDestroyed()) {
                             mainWindow.webContents.send('file-changed-externally', { filePath, content });
                         }
@@ -1396,10 +1145,8 @@ ipcMain.on('watch-file', (event, filePath) => {
                 }, 200);
             }
         });
-        
-        // Store the file path for cleanup (fs.watchFile doesn't return a watcher object)
+
         const watcher = { filePath, type: 'watchFile' };
-        
         fsWatchers.set(filePath, watcher);
         console.log('File watcher added, total watchers:', fsWatchers.size);
     } catch (error) {
@@ -1412,9 +1159,7 @@ ipcMain.on('unwatch-file', (event, filePath) => {
         console.log('Removing file watcher for:', filePath);
         const watcher = fsWatchers.get(filePath);
         if (watcher && watcher.type === 'watchFile') {
-            // Use fs.unwatchFile for fs.watchFile watchers
-            const fsNode = require('fs');
-            fsNode.unwatchFile(watcher.filePath);
+            fsSync.unwatchFile(watcher.filePath);
         }
         fsWatchers.delete(filePath);
         console.log('File watcher removed, total watchers:', fsWatchers.size);
@@ -1427,7 +1172,7 @@ function showAboutDialog() {
         type: 'info',
         title: 'Über MrxDown',
         message: 'MrxDown',
-        detail: `Version 0.0.2
+        detail: `Version ${packageJson.version}
 
 Ein moderner Markdown-Editor mit Live-Vorschau
 
@@ -1500,135 +1245,7 @@ async function runCLI(inputFile) {
 
         // Create temporary HTML file (data URLs are too long for Electron)
         const tempHtmlPath = path.join(os.tmpdir(), `mrxdown-cli-${Date.now()}.html`);
-        const fullHtml = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <style>
-                    @page {
-                        size: A4;
-                        margin: 20mm 15mm 20mm 15mm;
-                    }
-
-                    * {
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
-
-                    body {
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                        font-size: 11pt;
-                        line-height: 1.6;
-                        color: #1a1a1a;
-                        margin: 0;
-                        padding: 0;
-                    }
-
-                    h1, h2, h3, h4, h5, h6 {
-                        color: #1a1a1a !important;
-                        margin-top: 1.5em;
-                        margin-bottom: 0.5em;
-                        page-break-after: avoid;
-                    }
-
-                    h1 { font-size: 2rem; border-bottom: 2px solid #333; padding-bottom: 0.5rem; margin-top: 0; }
-                    h2 { font-size: 1.5rem; }
-                    h3 { font-size: 1.25rem; }
-
-                    p {
-                        color: #1a1a1a !important;
-                        margin: 0;
-                        text-align: justify;
-                    }
-
-                    p + p {
-                        margin-top: 1rem;
-                    }
-
-                    br {
-                        display: block;
-                        height: 0;
-                    }
-
-                    br + br {
-                        height: 1em;
-                    }
-
-                    strong, b { font-weight: 700; }
-                    em, i { font-style: italic; }
-
-                    code {
-                        background: #f5f5f5 !important;
-                        padding: 2px 6px;
-                        border-radius: 3px;
-                        font-family: monospace;
-                        font-size: 0.9em;
-                    }
-
-                    pre {
-                        background: #f8f8f8 !important;
-                        padding: 16px;
-                        border-radius: 6px;
-                        overflow-x: auto;
-                        margin: 1em 0;
-                    }
-
-                    blockquote {
-                        border-left: 4px solid #666;
-                        padding-left: 16px;
-                        color: #555 !important;
-                        margin: 1.2em 0;
-                        font-style: italic;
-                    }
-
-                    ul, ol {
-                        margin-bottom: 1rem;
-                        padding-left: 1.5rem;
-                    }
-
-                    li { margin-bottom: 0.5rem; }
-
-                    a {
-                        color: #0066cc !important;
-                        text-decoration: underline;
-                    }
-
-                    table {
-                        border-collapse: collapse;
-                        width: 100%;
-                        margin: 1.2em 0;
-                    }
-
-                    th, td {
-                        border: 1px solid #ddd;
-                        padding: 10px 12px;
-                        text-align: left;
-                    }
-
-                    th { background: #f5f5f5 !important; font-weight: 600; }
-
-                    img {
-                        max-width: 100%;
-                        height: auto;
-                        margin: 1.5em 0;
-                    }
-
-                    hr {
-                        border: none;
-                        border-top: 2px solid #ddd;
-                        margin: 2em 0;
-                    }
-                </style>
-            </head>
-            <body>
-                ${htmlWithImages}
-            </body>
-            </html>
-        `;
-
-        // Write HTML to temp file
-        await fs.writeFile(tempHtmlPath, fullHtml, 'utf-8');
+        await fs.writeFile(tempHtmlPath, buildPdfHtml(htmlWithImages), 'utf-8');
 
         // Create hidden window for PDF generation
         const pdfWindow = new BrowserWindow({
@@ -1676,7 +1293,6 @@ async function runCLI(inputFile) {
 
 // CLI Batch mode - convert all markdown files in a directory
 async function runCLIBatch(inputDir) {
-    const fsSync = require('fs');
     const marked = require('marked');
     const os = require('os');
 
@@ -1732,45 +1348,7 @@ async function runCLIBatch(inputDir) {
 
                 // Create temporary HTML file
                 const tempHtmlPath = path.join(os.tmpdir(), `mrxdown-cli-${Date.now()}.html`);
-                const fullHtml = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <meta charset="UTF-8">
-                        <style>
-                            @page { size: A4; margin: 20mm 15mm 20mm 15mm; }
-                            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 11pt; line-height: 1.6; color: #1a1a1a; margin: 0; padding: 0; }
-                            h1, h2, h3, h4, h5, h6 { color: #1a1a1a !important; margin-top: 1.5em; margin-bottom: 0.5em; page-break-after: avoid; }
-                            h1 { font-size: 2rem; border-bottom: 2px solid #333; padding-bottom: 0.5rem; margin-top: 0; }
-                            h2 { font-size: 1.5rem; }
-                            h3 { font-size: 1.25rem; }
-                            p { color: #1a1a1a !important; margin: 0; text-align: justify; }
-                            p + p { margin-top: 1rem; }
-                            br { display: block; height: 0; }
-                            br + br { height: 1em; }
-                            strong, b { font-weight: 700; }
-                            em, i { font-style: italic; }
-                            code { background: #f5f5f5 !important; padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 0.9em; }
-                            pre { background: #f8f8f8 !important; padding: 16px; border-radius: 6px; overflow-x: auto; margin: 1em 0; }
-                            blockquote { border-left: 4px solid #666; padding-left: 16px; color: #555 !important; margin: 1.2em 0; font-style: italic; }
-                            ul, ol { margin-bottom: 1rem; padding-left: 1.5rem; }
-                            li { margin-bottom: 0.5rem; }
-                            a { color: #0066cc !important; text-decoration: underline; }
-                            table { border-collapse: collapse; width: 100%; margin: 1.2em 0; }
-                            th, td { border: 1px solid #ddd; padding: 10px 12px; text-align: left; }
-                            th { background: #f5f5f5 !important; font-weight: 600; }
-                            img { max-width: 100%; height: auto; margin: 1.5em 0; }
-                            hr { border: none; border-top: 2px solid #ddd; margin: 2em 0; }
-                        </style>
-                    </head>
-                    <body>
-                        ${htmlWithImages}
-                    </body>
-                    </html>
-                `;
-
-                await fs.writeFile(tempHtmlPath, fullHtml, 'utf-8');
+                await fs.writeFile(tempHtmlPath, buildPdfHtml(htmlWithImages), 'utf-8');
 
                 // Create hidden window for PDF generation
                 const pdfWindow = new BrowserWindow({
@@ -1821,7 +1399,6 @@ const cliArg = args.find(arg => !arg.startsWith('-'));
 
 // App lifecycle
 if (cliArg) {
-    const fsSync = require('fs');
     const absolutePath = path.isAbsolute(cliArg) ? cliArg : path.resolve(process.cwd(), cliArg);
 
     try {
