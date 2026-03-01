@@ -77,10 +77,8 @@ jobs:
       if: matrix.os != 'windows-latest'
       run: |
         cd dist
-        for f in *.zip *.AppImage *.deb 2>/dev/null; do
-          [ -f "$f" ] && shasum -a 256 "$f" >> checksums.txt
-        done
-        cat checksums.txt || true
+        find . -maxdepth 1 \( -name "*.zip" -o -name "*.AppImage" -o -name "*.deb" \) -exec shasum -a 256 {} + > checksums.txt 2>/dev/null || true
+        cat checksums.txt || echo "No artifacts found"
 
     - name: Generate checksums (Windows)
       if: matrix.os == 'windows-latest'
