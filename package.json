@@ -67,7 +67,7 @@
   "build": {
     "appId": "com.pepperonas.mrxdown",
     "productName": "MrxDown",
-    "artifactName": "${productName}-${version}.${ext}",
+    "artifactName": "mrxdown-${os}-${arch}.${ext}",
     "directories": {
       "output": "dist",
       "buildResources": "assets"
@@ -93,6 +93,7 @@
       "type": "distribution",
       "entitlements": "assets/entitlements.mac.plist",
       "entitlementsInherit": "assets/entitlements.mac.plist",
+      "artifactName": "mrxdown-macos-${arch}.${ext}",
       "extendInfo": {
         "NSAppleEventsUsageDescription": "MrxDown needs access to AppleEvents for file operations.",
         "NSSystemAdministrationUsageDescription": "MrxDown needs system permissions for file management.",
@@ -111,13 +112,6 @@
       "notarize": false,
       "target": [
         {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
           "target": "zip",
           "arch": [
             "x64",
@@ -127,35 +121,22 @@
       ]
     },
     "win": {
+      "artifactName": "mrxdown-windows-${arch}.${ext}",
       "target": [
         {
           "target": "nsis",
           "arch": [
-            "x64",
-            "ia32"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64",
-            "ia32"
+            "x64"
           ]
         }
       ]
     },
     "linux": {
       "category": "Office",
+      "artifactName": "mrxdown-linux-${arch}.${ext}",
       "target": [
         {
           "target": "AppImage",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "snap",
           "arch": [
             "x64"
           ]
@@ -163,8 +144,7 @@
         {
           "target": "deb",
           "arch": [
-            "x64",
-            "arm64"
+            "x64"
           ]
         }
       ]
@@ -197,10 +177,6 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "MrxDown"
-    },
-    "snap": {
-      "grade": "stable",
-      "confinement": "strict"
     },
     "publish": {
       "provider": "github",
