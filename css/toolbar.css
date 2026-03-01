@@ -1,0 +1,143 @@
+/* SVG Icon Sizing */
+.toolbar-button svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.editor-tool svg {
+    width: 16px;
+    height: 16px;
+}
+
+.file-icon svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+.context-menu-item svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+/* Header Toolbar */
+.toolbar {
+    height: var(--toolbar-height);
+    background-color: var(--card-background);
+    display: flex;
+    align-items: center;
+    padding: 0 var(--spacing-4);
+    gap: var(--spacing-3);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: var(--shadow);
+    z-index: 100;
+    -webkit-app-region: drag;
+    padding-left: 80px; /* Space for macOS traffic lights */
+}
+
+.toolbar > * {
+    -webkit-app-region: no-drag;
+}
+
+.toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+}
+
+.toolbar-separator {
+    width: 1px;
+    height: 24px;
+    background-color: rgba(255, 255, 255, 0.1);
+    margin: 0 var(--spacing-2);
+}
+
+.toolbar-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background-color: transparent;
+    border: none;
+    border-radius: var(--radius);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 16px;
+    position: relative;
+}
+
+.toolbar-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+}
+
+.toolbar-button:active {
+    transform: translateY(0);
+}
+
+.toolbar-button.active {
+    background-color: var(--accent-blue);
+    color: white;
+}
+
+.toolbar-button.primary {
+    background-color: var(--accent-blue);
+    color: white;
+}
+
+.toolbar-button.primary:hover {
+    background-color: #5a7a9f;
+}
+
+.toolbar-button.secondary {
+    background-color: var(--accent-green);
+    color: white;
+}
+
+.toolbar-button.secondary:hover {
+    background-color: #8aa17f;
+}
+
+.toolbar-button.danger {
+    background-color: var(--accent-red);
+    color: white;
+}
+
+.toolbar-button.danger:hover {
+    background-color: #d45557;
+}
+
+/* Tooltips */
+.tooltip {
+    position: relative;
+}
+
+.tooltip::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--card-background);
+    color: var(--text-primary);
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius);
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease 0.5s;
+    z-index: 1000;
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: 5px;
+}
+
+.tooltip:hover::before {
+    opacity: 1;
+}

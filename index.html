@@ -4,1459 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MrxDown - Markdown Editor</title>
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/toolbar.css">
+    <link rel="stylesheet" href="css/tabs.css">
+    <link rel="stylesheet" href="css/editor.css">
+    <link rel="stylesheet" href="css/preview.css">
+    <link rel="stylesheet" href="css/components.css">
     <script src="vendor/marked.min.js"></script>
     <script src="vendor/purify.min.js"></script>
-    <style>
-        :root {
-            /* Dark Theme Colors */
-            --background-dark: #2B2E3B;
-            --background-darker: #252830;
-            --card-background: #343845;
-            --accent-blue: #688db1;
-            --accent-green: #9cb68f;
-            --accent-red: #e16162;
-            --text-primary: #d1d5db;
-            --text-secondary: #9ca3af;
-            
-            /* Typography */
-            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-                          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-                          sans-serif;
-            --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', 'Courier New', monospace;
-            
-            /* Shadows */
-            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
-            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-            
-            /* Spacing */
-            --spacing-1: 0.25rem;
-            --spacing-2: 0.5rem;
-            --spacing-3: 0.75rem;
-            --spacing-4: 1rem;
-            --spacing-5: 1.25rem;
-            --spacing-6: 1.5rem;
-            --spacing-8: 2rem;
-            --spacing-12: 3rem;
-            --spacing-16: 4rem;
-            
-            /* Radius */
-            --radius-sm: 0.375rem;
-            --radius: 0.5rem;
-            --radius-lg: 0.75rem;
-            --radius-xl: 1rem;
-            
-            /* Sidebar */
-            --sidebar-width: 250px;
-            --toolbar-height: 60px;
-            --statusbar-height: 30px;
-        }
-
-        body.light-theme {
-            --background-dark: #f5f5f5;
-            --background-darker: #e8e8e8;
-            --card-background: #ffffff;
-            --accent-blue: #4a7ab5;
-            --accent-green: #5a9e4f;
-            --accent-red: #d44040;
-            --text-primary: #1a1a1a;
-            --text-secondary: #555555;
-            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-            --shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.08);
-        }
-
-        body.light-theme .toolbar {
-            border-bottom-color: rgba(0, 0, 0, 0.1);
-        }
-
-        body.light-theme .tab-bar {
-            border-bottom-color: rgba(0, 0, 0, 0.1);
-        }
-
-        body.light-theme .tab {
-            border-right-color: rgba(0, 0, 0, 0.1);
-        }
-
-        body.light-theme .toolbar-separator {
-            background-color: rgba(0, 0, 0, 0.1);
-        }
-
-        body.light-theme .toolbar-button:hover {
-            background-color: rgba(0, 0, 0, 0.08);
-        }
-
-        body.light-theme #editor {
-            color: #1a1a1a;
-            caret-color: #1a1a1a;
-        }
-
-        body.light-theme #preview {
-            color: #1a1a1a;
-        }
-
-        body.light-theme #preview code {
-            background-color: #e8e8e8;
-            color: #333;
-        }
-
-        body.light-theme #preview pre {
-            background-color: #e8e8e8;
-        }
-
-        body.light-theme #preview blockquote {
-            border-left-color: #ccc;
-            color: #555;
-        }
-
-        body.light-theme .search-panel,
-        body.light-theme .context-menu,
-        body.light-theme .table-editor {
-            background-color: #ffffff;
-            border-color: rgba(0, 0, 0, 0.15);
-        }
-
-        body.light-theme .search-input,
-        body.light-theme .table-editor-input {
-            background-color: #f0f0f0;
-            color: #1a1a1a;
-            border-color: rgba(0, 0, 0, 0.15);
-        }
-
-        body.light-theme .modal {
-            background-color: #ffffff;
-        }
-
-        body.light-theme .divider {
-            background-color: rgba(0, 0, 0, 0.1);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: var(--font-family);
-            background-color: var(--background-dark);
-            color: var(--text-primary);
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        /* Header Toolbar */
-        .toolbar {
-            height: var(--toolbar-height);
-            background-color: var(--card-background);
-            display: flex;
-            align-items: center;
-            padding: 0 var(--spacing-4);
-            gap: var(--spacing-3);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: var(--shadow);
-            z-index: 100;
-            -webkit-app-region: drag;
-            padding-left: 80px; /* Space for macOS traffic lights */
-        }
-
-        .toolbar > * {
-            -webkit-app-region: no-drag;
-        }
-
-        .toolbar-group {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-2);
-        }
-
-        .toolbar-separator {
-            width: 1px;
-            height: 24px;
-            background-color: rgba(255, 255, 255, 0.1);
-            margin: 0 var(--spacing-2);
-        }
-
-        .toolbar-button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 36px;
-            background-color: transparent;
-            border: none;
-            border-radius: var(--radius);
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 16px;
-            position: relative;
-        }
-
-        .toolbar-button:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-            color: var(--text-primary);
-            transform: translateY(-1px);
-        }
-
-        .toolbar-button:active {
-            transform: translateY(0);
-        }
-
-        .toolbar-button.active {
-            background-color: var(--accent-blue);
-            color: white;
-        }
-
-        .toolbar-button.primary {
-            background-color: var(--accent-blue);
-            color: white;
-        }
-
-        .toolbar-button.primary:hover {
-            background-color: #5a7a9f;
-        }
-
-        .toolbar-button.secondary {
-            background-color: var(--accent-green);
-            color: white;
-        }
-
-        .toolbar-button.secondary:hover {
-            background-color: #8aa17f;
-        }
-
-        .toolbar-button.danger {
-            background-color: var(--accent-red);
-            color: white;
-        }
-
-        .toolbar-button.danger:hover {
-            background-color: #d45557;
-        }
-
-        /* Tab System */
-        .tab-bar {
-            display: flex;
-            background-color: var(--background-darker);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            overflow-x: auto;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-
-        .tab-bar::-webkit-scrollbar {
-            display: none;
-        }
-
-        .tab {
-            display: flex;
-            align-items: center;
-            padding: var(--spacing-3) var(--spacing-4);
-            background-color: var(--background-darker);
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-            cursor: pointer;
-            transition: all 0.3s ease;
-            white-space: nowrap;
-            min-width: 120px;
-            max-width: 200px;
-        }
-
-        .tab.active {
-            background-color: var(--background-dark);
-            color: var(--text-primary);
-            border-bottom: 2px solid var(--accent-blue);
-        }
-
-        .tab.dragging {
-            opacity: 0.4;
-        }
-
-        .tab.drag-over {
-            border-left: 2px solid var(--accent-blue);
-        }
-
-        .tab:hover {
-            background-color: var(--card-background);
-        }
-
-        .tab-title {
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            font-size: 14px;
-        }
-
-        .tab-close {
-            margin-left: var(--spacing-2);
-            padding: var(--spacing-1);
-            border-radius: var(--radius-sm);
-            opacity: 0.5;
-            transition: opacity 0.3s ease;
-        }
-
-        .tab-close:hover {
-            opacity: 1;
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .tab.unsaved .tab-title::after {
-            content: "•";
-            color: var(--accent-blue);
-            margin-left: var(--spacing-1);
-        }
-
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            display: flex;
-            overflow: hidden;
-        }
-
-        /* Sidebar */
-        .sidebar {
-            width: var(--sidebar-width);
-            background-color: var(--background-darker);
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            flex-direction: column;
-            transition: transform 0.3s ease;
-        }
-
-        .sidebar.hidden {
-            transform: translateX(-100%);
-        }
-
-        .sidebar-header {
-            padding: var(--spacing-4);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .sidebar-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: var(--spacing-2);
-        }
-
-        .sidebar-actions {
-            margin-bottom: var(--spacing-2);
-            padding-bottom: var(--spacing-2);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .file-explorer {
-            margin-bottom: var(--spacing-4);
-        }
-
-        .file-tree-folder {
-            cursor: pointer;
-        }
-
-        .file-tree-children {
-            padding-left: var(--spacing-4);
-        }
-
-        .file-tree-children.collapsed {
-            display: none;
-        }
-
-        .document-outline {
-            padding: 0 var(--spacing-3);
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .outline-item {
-            padding: 3px 0;
-            cursor: pointer;
-            color: var(--text-secondary);
-            font-size: 12px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            transition: color 0.2s;
-        }
-
-        .outline-item:hover {
-            color: var(--text-primary);
-        }
-
-        .outline-h1 { padding-left: 0; font-weight: bold; }
-        .outline-h2 { padding-left: 12px; }
-        .outline-h3 { padding-left: 24px; }
-        .outline-h4 { padding-left: 36px; }
-        .outline-h5 { padding-left: 48px; }
-        .outline-h6 { padding-left: 60px; }
-
-        .file-item {
-            display: flex;
-            align-items: center;
-            padding: var(--spacing-2) var(--spacing-3);
-            border-radius: var(--radius);
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-            margin-bottom: var(--spacing-1);
-        }
-
-        .file-item:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .file-item.active {
-            background-color: var(--accent-blue);
-            color: white;
-        }
-
-        .file-icon {
-            margin-right: var(--spacing-2);
-            font-size: 14px;
-        }
-
-        .file-name {
-            flex: 1;
-            font-size: 14px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        /* Editor Container */
-        .editor-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .editor-layout {
-            flex: 1;
-            display: flex;
-            overflow: hidden;
-        }
-        
-        /* Resizable Divider */
-        .divider {
-            width: 4px;
-            background-color: var(--card-background);
-            cursor: col-resize;
-            position: relative;
-            border-left: 1px solid rgba(255, 255, 255, 0.1);
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background-color 0.2s ease;
-        }
-        
-        .divider:hover {
-            background-color: var(--accent-blue);
-        }
-        
-        .divider-handle {
-            color: var(--text-secondary);
-            font-size: 12px;
-            writing-mode: vertical-lr;
-            user-select: none;
-            pointer-events: none;
-        }
-        
-        .divider:hover .divider-handle {
-            color: white;
-        }
-        
-        /* View Modes */
-        .view-mode-editor .preview-pane,
-        .view-mode-editor .divider {
-            display: none;
-        }
-        
-        .view-mode-preview .editor-pane,
-        .view-mode-preview .divider {
-            display: none;
-        }
-        
-        .view-mode-split .editor-pane {
-            flex: 1;
-        }
-        
-        .view-mode-split .preview-pane {
-            flex: 1;
-        }
-
-        /* Editor Pane */
-        .editor-pane {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background-color: var(--background-dark);
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-            position: relative;
-        }
-
-        .editor-header {
-            background-color: var(--card-background);
-            padding: var(--spacing-3) var(--spacing-4);
-            font-size: 14px;
-            color: var(--text-secondary);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .editor-tools {
-            display: flex;
-            gap: var(--spacing-2);
-        }
-
-        .editor-tool {
-            padding: var(--spacing-1);
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-
-        .editor-tool:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .editor-with-gutter {
-            flex: 1;
-            display: flex;
-            overflow: hidden;
-        }
-
-        .editor-wrapper {
-            flex: 1;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .editor-highlight {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            padding: var(--spacing-6);
-            font-family: var(--font-mono);
-            font-size: 14px;
-            line-height: 1.6;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            overflow-y: auto;
-            pointer-events: none;
-            color: transparent;
-            tab-size: 4;
-        }
-
-        .editor-highlight .md-heading { color: #e5c07b; font-weight: 600; }
-        .editor-highlight .md-bold { color: #e06c75; }
-        .editor-highlight .md-italic { color: #c678dd; }
-        .editor-highlight .md-code { color: #98c379; }
-        .editor-highlight .md-code-block { color: #98c379; }
-        .editor-highlight .md-link { color: #61afef; }
-        .editor-highlight .md-image { color: #56b6c2; }
-        .editor-highlight .md-list { color: #e5c07b; }
-        .editor-highlight .md-blockquote { color: #5c6370; font-style: italic; }
-        .editor-highlight .md-hr { color: #5c6370; }
-        .editor-highlight .md-strikethrough { color: #5c6370; text-decoration: line-through; }
-
-        .line-number-gutter {
-            width: 50px;
-            background-color: var(--background-darker);
-            color: var(--text-secondary);
-            font-family: var(--font-mono);
-            font-size: 14px;
-            line-height: 1.6;
-            padding: var(--spacing-6) 0;
-            text-align: right;
-            overflow: hidden;
-            user-select: none;
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .line-number {
-            padding-right: var(--spacing-2);
-            opacity: 0.5;
-        }
-
-        #editor {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            padding: var(--spacing-6);
-            font-family: var(--font-mono);
-            font-size: 14px;
-            line-height: 1.6;
-            background-color: transparent;
-            color: var(--text-primary);
-            border: none;
-            outline: none;
-            resize: none;
-            overflow-y: auto;
-            tab-size: 4;
-            z-index: 1;
-            caret-color: var(--text-primary);
-        }
-
-        .editor-wrapper {
-            background-color: var(--background-dark);
-        }
-
-        #editor::placeholder {
-            color: var(--text-secondary);
-        }
-
-        #editor::selection {
-            background-color: rgba(104, 141, 177, 0.3);
-        }
-
-        /* Preview Pane */
-        .preview-pane {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background-color: var(--background-darker);
-        }
-
-        .preview-header {
-            background-color: var(--card-background);
-            padding: var(--spacing-3) var(--spacing-4);
-            font-size: 14px;
-            color: var(--text-secondary);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        #preview {
-            flex: 1;
-            padding: var(--spacing-6);
-            overflow-y: auto;
-            background-color: var(--background-darker);
-            line-height: 1.7;
-        }
-
-        /* Markdown Preview Styles */
-        #preview h1, #preview h2, #preview h3, #preview h4, #preview h5, #preview h6 {
-            color: var(--text-primary);
-            margin-top: var(--spacing-8);
-            margin-bottom: var(--spacing-4);
-            font-weight: 600;
-        }
-
-        #preview h1 {
-            font-size: 2.25rem;
-            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: var(--spacing-2);
-        }
-
-        #preview h2 {
-            font-size: 1.875rem;
-        }
-
-        #preview h3 {
-            font-size: 1.5rem;
-        }
-
-        #preview h4 {
-            font-size: 1.25rem;
-        }
-
-        #preview h5 {
-            font-size: 1.125rem;
-        }
-
-        #preview h6 {
-            font-size: 1rem;
-        }
-
-        #preview p {
-            margin-bottom: var(--spacing-4);
-            color: var(--text-primary);
-        }
-
-        #preview strong {
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-
-        #preview em {
-            color: var(--text-primary);
-            font-style: italic;
-        }
-
-        #preview code {
-            background-color: var(--card-background);
-            padding: var(--spacing-1) var(--spacing-2);
-            border-radius: var(--radius-sm);
-            font-family: var(--font-mono);
-            font-size: 0.875rem;
-            color: var(--accent-blue);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        #preview pre {
-            background-color: var(--card-background);
-            padding: var(--spacing-4);
-            border-radius: var(--radius-lg);
-            overflow-x: auto;
-            margin-bottom: var(--spacing-4);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        #preview pre code {
-            background: none;
-            padding: 0;
-            color: var(--text-primary);
-            border: none;
-        }
-
-        #preview blockquote {
-            border-left: 4px solid var(--accent-blue);
-            padding-left: var(--spacing-4);
-            margin: var(--spacing-4) 0;
-            color: var(--text-secondary);
-            font-style: italic;
-            background-color: rgba(104, 141, 177, 0.1);
-            padding: var(--spacing-4);
-            border-radius: var(--radius);
-        }
-
-        #preview ul, #preview ol {
-            margin-bottom: var(--spacing-4);
-            padding-left: var(--spacing-6);
-        }
-
-        #preview li {
-            margin-bottom: var(--spacing-2);
-            color: var(--text-primary);
-        }
-
-        #preview a {
-            color: var(--accent-blue);
-            text-decoration: none;
-            border-bottom: 1px solid transparent;
-            transition: border-color 0.3s ease;
-        }
-
-        #preview a:hover {
-            border-bottom-color: var(--accent-blue);
-        }
-
-        #preview table {
-            border-collapse: collapse;
-            margin-bottom: var(--spacing-4);
-            width: 100%;
-            background-color: var(--card-background);
-            border-radius: var(--radius-lg);
-            overflow: hidden;
-        }
-
-        #preview th, #preview td {
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: var(--spacing-3) var(--spacing-4);
-            text-align: left;
-        }
-
-        #preview th {
-            background-color: rgba(255, 255, 255, 0.1);
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        #preview tr:nth-child(even) {
-            background-color: rgba(255, 255, 255, 0.05);
-        }
-
-        #preview hr {
-            border: none;
-            height: 1px;
-            background-color: rgba(255, 255, 255, 0.1);
-            margin: var(--spacing-8) 0;
-        }
-
-        /* Status Bar */
-        .status-bar {
-            height: var(--statusbar-height);
-            background-color: var(--card-background);
-            padding: 0 var(--spacing-4);
-            font-size: 12px;
-            color: var(--text-secondary);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .status-group {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-4);
-        }
-
-        .status-item {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-1);
-        }
-
-        .status-item.clickable {
-            cursor: pointer;
-            padding: var(--spacing-1) var(--spacing-2);
-            border-radius: var(--radius-sm);
-            transition: background-color 0.3s ease;
-        }
-
-        .status-item.clickable:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        /* Scrollbar Styling */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: var(--background-dark);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: var(--radius);
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        /* Drag and Drop */
-        .drop-zone {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(104, 141, 177, 0.1);
-            border: 2px dashed var(--accent-blue);
-            border-radius: var(--radius-lg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-
-        .drop-zone.active {
-            opacity: 1;
-        }
-
-        .drop-zone-content {
-            text-align: center;
-            color: var(--accent-blue);
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        /* Zen Mode */
-        .zen-mode .sidebar {
-            display: none;
-        }
-
-        .zen-mode .toolbar {
-            display: none;
-        }
-
-        .zen-mode .tab-bar {
-            display: none;
-        }
-
-        .zen-mode .status-bar {
-            display: none;
-        }
-
-        .zen-mode .preview-pane {
-            display: none;
-        }
-
-        .zen-mode .editor-header {
-            display: none;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .toolbar {
-                padding-left: var(--spacing-4);
-            }
-            
-            .sidebar {
-                position: absolute;
-                z-index: 200;
-                height: 100%;
-                transform: translateX(-100%);
-            }
-
-            .sidebar.open {
-                transform: translateX(0);
-            }
-
-            .preview-pane {
-                display: none;
-            }
-
-            .editor-layout {
-                flex-direction: column;
-            }
-        }
-
-        /* Text Mode for .txt files */
-        .text-mode .preview-pane {
-            display: none !important;
-        }
-        
-        .text-mode .editor-pane {
-            flex: 1 !important;
-        }
-        
-        .text-mode .divider {
-            display: none !important;
-        }
-
-        /* Animations */
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .fade-in {
-            animation: fadeIn 0.3s ease;
-        }
-
-        /* Tooltips */
-        .tooltip {
-            position: relative;
-        }
-
-        .tooltip::before {
-            content: attr(data-tooltip);
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: var(--card-background);
-            color: var(--text-primary);
-            padding: var(--spacing-2) var(--spacing-3);
-            border-radius: var(--radius);
-            font-size: 12px;
-            white-space: nowrap;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease 0.5s;
-            z-index: 1000;
-            box-shadow: var(--shadow);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            margin-top: 5px;
-        }
-
-        .tooltip:hover::before {
-            opacity: 1;
-        }
-
-        /* Context Menu */
-        .context-menu {
-            position: fixed;
-            background-color: var(--card-background);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow-lg);
-            z-index: 2000;
-            min-width: 200px;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-
-        .context-menu.visible {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .context-menu-item {
-            padding: var(--spacing-3) var(--spacing-4);
-            color: var(--text-primary);
-            cursor: pointer;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            transition: background-color 0.3s ease;
-        }
-
-        .context-menu-item:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .context-menu-item:last-child {
-            border-bottom: none;
-        }
-
-        .context-menu-separator {
-            height: 1px;
-            background-color: rgba(255, 255, 255, 0.1);
-            margin: var(--spacing-1) 0;
-        }
-
-        /* About Dialog */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 3000;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-
-        .modal-overlay.visible {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .modal {
-            background-color: var(--card-background);
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-lg);
-            max-width: 500px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-            padding: var(--spacing-6);
-            transform: scale(0.9);
-            transition: transform 0.3s ease;
-        }
-
-        .modal-overlay.visible .modal {
-            transform: scale(1);
-        }
-
-        .modal-header {
-            text-align: center;
-            margin-bottom: var(--spacing-6);
-        }
-
-        .modal-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: var(--spacing-2);
-        }
-
-        .modal-version {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-        }
-
-        .modal-content {
-            color: var(--text-primary);
-            line-height: 1.6;
-        }
-
-        .modal-section {
-            margin-bottom: var(--spacing-4);
-        }
-
-        .modal-section h3 {
-            color: var(--accent-blue);
-            margin-bottom: var(--spacing-2);
-            font-size: 1rem;
-        }
-
-        .modal-link {
-            color: var(--accent-blue);
-            text-decoration: none;
-            border-bottom: 1px solid transparent;
-            transition: border-color 0.3s ease;
-        }
-
-        .modal-link:hover {
-            border-bottom-color: var(--accent-blue);
-        }
-
-        .modal-footer {
-            text-align: center;
-            margin-top: var(--spacing-6);
-        }
-
-        .modal-button {
-            background-color: var(--accent-blue);
-            color: white;
-            border: none;
-            padding: var(--spacing-3) var(--spacing-6);
-            border-radius: var(--radius);
-            cursor: pointer;
-            font-size: 14px;
-            transition: background-color 0.3s ease;
-        }
-
-        .modal-button:hover {
-            background-color: #5a7a9f;
-        }
-
-        /* Floating Search/Replace Panel */
-        .search-panel {
-            position: fixed;
-            top: calc(var(--toolbar-height) + 40px);
-            right: 20px;
-            background-color: var(--card-background);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-lg);
-            z-index: 2000;
-            min-width: 320px;
-            max-width: 400px;
-            opacity: 0;
-            pointer-events: none;
-            transform: translateY(-10px);
-            transition: opacity 0.2s ease, transform 0.2s ease;
-        }
-
-        .search-panel.visible {
-            opacity: 1;
-            pointer-events: auto;
-            transform: translateY(0);
-        }
-
-        .search-panel-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: var(--spacing-2) var(--spacing-3);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            font-size: 12px;
-            color: var(--text-secondary);
-            font-weight: 600;
-        }
-
-        .search-panel-close {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            font-size: 16px;
-            cursor: pointer;
-            padding: 2px 6px;
-            border-radius: var(--radius-sm);
-        }
-
-        .search-panel-close:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-            color: var(--text-primary);
-        }
-
-        .search-panel-body {
-            padding: var(--spacing-3);
-            display: flex;
-            flex-direction: column;
-            gap: var(--spacing-2);
-        }
-
-        .search-options-row {
-            display: flex;
-            gap: var(--spacing-3);
-        }
-
-        .search-options-row label {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-1);
-            color: var(--text-secondary);
-            font-size: 12px;
-            cursor: pointer;
-        }
-
-        .search-options-row input[type="checkbox"] {
-            appearance: none;
-            width: 14px;
-            height: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 3px;
-            background-color: var(--background-dark);
-            position: relative;
-            cursor: pointer;
-        }
-
-        .search-options-row input[type="checkbox"]:checked {
-            background-color: var(--accent-blue);
-            border-color: var(--accent-blue);
-        }
-
-        .search-options-row input[type="checkbox"]:checked::after {
-            content: '✓';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-size: 9px;
-            font-weight: bold;
-        }
-
-        .search-panel .search-buttons {
-            display: flex;
-            gap: var(--spacing-2);
-        }
-
-        .search-panel .modal-button {
-            padding: var(--spacing-1) var(--spacing-3);
-            font-size: 12px;
-        }
-
-        /* Search Controls (for settings dialog) */
-        .search-controls {
-            display: flex;
-            flex-direction: column;
-            gap: var(--spacing-4);
-        }
-
-        .search-input {
-            background-color: var(--background-dark);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: var(--radius-sm);
-            padding: var(--spacing-3);
-            color: var(--text-primary);
-            font-size: 14px;
-            width: 100%;
-        }
-
-        .search-input:focus {
-            outline: none;
-            border-color: var(--accent-blue);
-        }
-
-        .search-options {
-            display: flex;
-            flex-direction: column;
-            gap: var(--spacing-2);
-        }
-
-        .search-options label {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-2);
-            color: var(--text-secondary);
-            font-size: 14px;
-            cursor: pointer;
-        }
-
-        .search-options input[type="checkbox"] {
-            appearance: none;
-            width: 16px;
-            height: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: var(--radius-sm);
-            background-color: var(--background-dark);
-            position: relative;
-            cursor: pointer;
-        }
-
-        .search-options input[type="checkbox"]:checked {
-            background-color: var(--accent-blue);
-            border-color: var(--accent-blue);
-        }
-
-        .search-options input[type="checkbox"]:checked::after {
-            content: '✓';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-size: 10px;
-            font-weight: bold;
-        }
-
-        .search-buttons {
-            display: flex;
-            gap: var(--spacing-2);
-            flex-wrap: wrap;
-        }
-
-        .search-result-info {
-            color: var(--text-secondary);
-            font-size: 12px;
-            margin-top: var(--spacing-2);
-        }
-
-        /* Table Editor */
-        .table-editor {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            background-color: var(--card-background);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow-lg);
-            z-index: 1000;
-            padding: var(--spacing-4);
-            min-width: 300px;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-
-        .table-editor.visible {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .table-editor-header {
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: var(--spacing-3);
-        }
-
-        .table-editor-controls {
-            display: flex;
-            gap: var(--spacing-2);
-            margin-bottom: var(--spacing-3);
-        }
-
-        .table-editor-input {
-            background-color: var(--background-dark);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: var(--radius-sm);
-            padding: var(--spacing-2);
-            color: var(--text-primary);
-            font-size: 14px;
-            width: 60px;
-            text-align: center;
-        }
-
-        .table-editor-input:focus {
-            outline: none;
-            border-color: var(--accent-blue);
-        }
-
-        .table-editor-button {
-            background-color: var(--accent-blue);
-            color: white;
-            border: none;
-            padding: var(--spacing-2) var(--spacing-3);
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            font-size: 12px;
-            transition: background-color 0.3s ease;
-        }
-
-        .table-editor-button:hover {
-            background-color: #5a7a9f;
-        }
-
-        /* Autocomplete Popup */
-        .autocomplete-popup {
-            position: fixed;
-            background-color: var(--card-background);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow-lg);
-            z-index: 5000;
-            min-width: 200px;
-            max-height: 150px;
-            overflow-y: auto;
-        }
-
-        .autocomplete-item {
-            padding: var(--spacing-2) var(--spacing-3);
-            color: var(--text-primary);
-            cursor: pointer;
-            font-size: 13px;
-            font-family: var(--font-mono);
-        }
-
-        .autocomplete-item:hover,
-        .autocomplete-item.selected {
-            background-color: var(--accent-blue);
-            color: white;
-        }
-
-        .settings-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: var(--spacing-4);
-        }
-
-        .autocomplete-hint {
-            color: var(--text-secondary);
-            font-size: 11px;
-            margin-left: var(--spacing-2);
-        }
-
-        /* Focus styles */
-        .toolbar-button:focus,
-        .tab:focus,
-        .file-item:focus,
-        .editor-tool:focus {
-            outline: 2px solid var(--accent-blue);
-            outline-offset: 2px;
-        }
-
-        #editor:focus {
-            outline: none;
-        }
-
-        /* Print styles */
-        @media print {
-            .toolbar,
-            .tab-bar,
-            .sidebar,
-            .status-bar {
-                display: none !important;
-            }
-
-            .main-content {
-                flex-direction: column;
-            }
-
-            .preview-pane {
-                flex: 1;
-            }
-
-            .editor-pane {
-                display: none;
-            }
-
-            body {
-                background: white;
-                color: black;
-            }
-        }
-    </style>
 </head>
 <body>
     <!-- Toolbar -->
     <div class="toolbar">
         <div class="toolbar-group">
             <button class="toolbar-button tooltip" data-tooltip="Neue Datei (⌘N)" onclick="handleMenuAction('new-file')">
-                📄
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 12v6"/></svg>
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Öffnen (⌘O)" onclick="handleMenuAction('open-file')">
-                📁
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Speichern (⌘S)" onclick="handleMenuAction('save-file')">
-                💾
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
             </button>
         </div>
         
@@ -1464,22 +33,22 @@
         
         <div class="toolbar-group">
             <button class="toolbar-button tooltip" data-tooltip="Fett (⌘B)" onclick="handleMenuAction('format-bold')">
-                <strong>B</strong>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8"/></svg>
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Kursiv (⌘I)" onclick="handleMenuAction('format-italic')">
-                <em>I</em>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" x2="10" y1="4" y2="4"/><line x1="14" x2="5" y1="20" y2="20"/><line x1="15" x2="9" y1="4" y2="20"/></svg>
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Code (⌘`)" onclick="handleMenuAction('format-code')">
-                &lt;/&gt;
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Durchgestrichen (⌘⇧X)" onclick="formatStrikethrough()">
-                <s>S</s>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4H9a3 3 0 0 0-2.83 4"/><path d="M14 12a4 4 0 0 1 0 8H6"/><line x1="4" x2="20" y1="12" y2="12"/></svg>
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Link (⌘K)" onclick="handleMenuAction('insert-link')">
-                🔗
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Tabelle (⌘T)" onclick="handleMenuAction('insert-table')">
-                📊
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
             </button>
         </div>
         
@@ -1487,13 +56,13 @@
         
         <div class="toolbar-group">
             <button class="toolbar-button tooltip" data-tooltip="Überschrift 1 (⌘1)" onclick="handleMenuAction('heading-1')">
-                H1
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="m17 12 3-2v8"/></svg>
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Überschrift 2 (⌘2)" onclick="handleMenuAction('heading-2')">
-                H2
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1"/></svg>
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Überschrift 3 (⌘3)" onclick="handleMenuAction('heading-3')">
-                H3
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M17.5 10.5c1.7-1 3.5 0 3.5 1.5a2 2 0 0 1-2 2"/><path d="M17 17.5c2 1.5 4 .3 4-1.5a2 2 0 0 0-2-2"/></svg>
             </button>
         </div>
         
@@ -1501,16 +70,16 @@
         
         <div class="toolbar-group">
             <button class="toolbar-button tooltip" data-tooltip="Suchen (⌘F)" onclick="handleMenuAction('find')">
-                🔍
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Sidebar umschalten (⌘\\)" onclick="toggleSidebar()">
-                📂
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Zen-Modus (⌘⇧Z)" onclick="toggleZenMode()">
-                🧘
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Theme wechseln" onclick="toggleTheme()" id="themeToggleBtn">
-                🌓
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
             </button>
         </div>
         
@@ -1518,13 +87,13 @@
         
         <div class="toolbar-group">
             <button class="toolbar-button tooltip" data-tooltip="Nur Editor" onclick="setViewMode('editor')" id="viewModeEditor">
-                📝
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg>
             </button>
             <button class="toolbar-button tooltip active" data-tooltip="Editor + Vorschau" onclick="setViewMode('split')" id="viewModeSplit">
-                ⚌
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/></svg>
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Nur Vorschau" onclick="setViewMode('preview')" id="viewModePreview">
-                👁
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
         </div>
         
@@ -1532,10 +101,10 @@
         
         <div class="toolbar-group">
             <button class="toolbar-button secondary tooltip" data-tooltip="Als HTML exportieren (⌘E)" onclick="handleMenuAction('export-html')">
-                📤
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M4 7V4a2 2 0 0 1 2-2 2 2 0 0 0-2 2"/><path d="M4.063 20.999a2 2 0 0 0 2 1L18 22a2 2 0 0 0 2-2V7l-5-5H6"/><path d="m5 11-3 3"/><path d="m5 17-3-3"/></svg>
             </button>
             <button class="toolbar-button secondary tooltip" data-tooltip="Alle Tabs als PDF exportieren" onclick="handleMenuAction('batch-export-pdf')">
-                🚀
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
             </button>
         </div>
     </div>
@@ -1558,11 +127,11 @@
             <div class="sidebar-content">
                 <div class="sidebar-actions">
                     <div class="file-item" onclick="handleMenuAction('new-file')">
-                        <div class="file-icon">📄</div>
+                        <div class="file-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 12v6"/></svg></div>
                         <div class="file-name">Neue Datei</div>
                     </div>
                     <div class="file-item" onclick="handleMenuAction('open-file')">
-                        <div class="file-icon">📁</div>
+                        <div class="file-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg></div>
                         <div class="file-name">Datei öffnen</div>
                     </div>
                 </div>
@@ -1581,21 +150,19 @@
                         <span>Markdown Editor</span>
                         <div class="editor-tools">
                             <div class="editor-tool tooltip" data-tooltip="Zeilennummern umschalten" onclick="toggleLineNumbers()">
-                                #
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/></svg>
                             </div>
                             <div class="editor-tool tooltip" data-tooltip="Zeilenumbruch umschalten" onclick="toggleWordWrap()">
-                                ↩
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="6" y2="6"/><path d="M3 12h15a3 3 0 1 1 0 6h-4"/><polyline points="16 16 14 18 16 20"/><line x1="3" x2="10" y1="18" y2="18"/></svg>
                             </div>
                             <div class="editor-tool tooltip" data-tooltip="Scroll-Synchronisation umschalten" onclick="toggleScrollSync()" id="scrollSyncToggle">
-                                🔄
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
                             </div>
                         </div>
                     </div>
                     <div class="editor-with-gutter">
-                        <div id="lineNumberGutter" class="line-number-gutter" style="display: none;"></div>
                         <div class="editor-wrapper">
-                            <div id="editorHighlight" class="editor-highlight" aria-hidden="true"></div>
-                            <textarea id="editor" placeholder="Beginnen Sie mit dem Schreiben Ihres Markdown-Textes..."></textarea>
+                            <div id="editor"></div>
                         </div>
                     </div>
                 </div>
@@ -1641,7 +208,7 @@
                 <span id="fileTypeInfo">Markdown</span>
             </div>
             <div class="status-item clickable" onclick="showSettings()">
-                ⚙️ Einstellungen
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-right: 3px;"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg> Einstellungen
             </div>
             <div class="status-item">
                 <span id="fileName">Unbenannt</span>
@@ -1652,7 +219,7 @@
     <!-- Drop Zone -->
     <div class="drop-zone" id="dropZone">
         <div class="drop-zone-content">
-            <div>📁</div>
+            <div><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg></div>
             <div>Dateien hier ablegen</div>
         </div>
     </div>
@@ -1660,21 +227,21 @@
     <!-- Context Menu -->
     <div class="context-menu" id="contextMenu">
         <div class="context-menu-item" onclick="handleMenuAction('new-file')">
-            📄 Neue Datei
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 6px;"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 12v6"/></svg>Neue Datei
         </div>
         <div class="context-menu-item" onclick="handleMenuAction('open-file')">
-            📁 Datei öffnen
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 6px;"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>Datei öffnen
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" onclick="handleMenuAction('save-file')">
-            💾 Speichern
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 6px;"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>Speichern
         </div>
         <div class="context-menu-item" onclick="handleMenuAction('save-file-as')">
-            📄 Speichern unter...
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 6px;"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>Speichern unter...
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" onclick="showAboutDialog()">
-            ℹ️ Über MrxDown
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 6px;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>Über MrxDown
         </div>
     </div>
 
@@ -1805,6 +372,9 @@
     <!-- Autocomplete Popup -->
     <div id="autocompletePopup" class="autocomplete-popup" style="display: none;"></div>
 
+    <script src="vendor/codemirror-bundle.js"></script>
+    <script src="cm-adapter.js"></script>
+    <script src="icons.js"></script>
     <script src="editor-utils.js"></script>
     <script src="renderer.js"></script>
 </body>

@@ -28,7 +28,8 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "postinstall": "electron-builder install-app-deps",
-    "test": "jest --verbose"
+    "test": "jest --verbose",
+    "build:editor": "esbuild src/codemirror-setup.js --bundle --outfile=vendor/codemirror-bundle.js --format=iife --global-name=CMSetup --minify"
   },
   "keywords": [
     "markdown",
@@ -49,8 +50,18 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@codemirror/autocomplete": "^6.20.0",
+    "@codemirror/commands": "^6.10.2",
+    "@codemirror/lang-markdown": "^6.5.0",
+    "@codemirror/language": "^6.12.2",
+    "@codemirror/language-data": "^6.5.2",
+    "@codemirror/search": "^6.6.0",
+    "@codemirror/state": "^6.5.4",
+    "@codemirror/view": "^6.39.15",
+    "@lezer/highlight": "^1.2.3",
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1",
+    "esbuild": "^0.27.3",
     "jest": "^29.7.0"
   },
   "build": {
@@ -67,6 +78,9 @@
       "index.html",
       "renderer.js",
       "editor-utils.js",
+      "icons.js",
+      "cm-adapter.js",
+      "css/**/*",
       "vendor/**/*",
       "assets/**/*",
       "node_modules/**/*"

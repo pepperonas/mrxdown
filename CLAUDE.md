@@ -19,15 +19,19 @@ npm run dist         # Create distribution package
 
 ## Architecture
 
-Four-file Electron app with strict process separation:
+Electron app with strict process separation:
 
 ```
-main.js        → Main process: window, menus, IPC handlers, file I/O, PDF generation
-renderer.js    → Renderer process: all UI logic, editor, tabs, formatting, search
-index.html     → UI structure + all CSS (no separate stylesheet files)
-preload.js     → IPC bridge: exposes ~30 methods via contextBridge.exposeInMainWorld('electronAPI', {...})
-editor-utils.js → Pure functions shared between renderer (browser) and tests (Node.js)
-vendor/        → Bundled marked.min.js + purify.min.js (no CDN dependencies)
+main.js              → Main process: window, menus, IPC handlers, file I/O, PDF generation
+renderer.js          → Renderer process: all UI logic, editor, tabs, formatting, search
+index.html           → UI structure (CSS in separate files, no inline styles)
+preload.js           → IPC bridge: exposes ~30 methods via contextBridge.exposeInMainWorld('electronAPI', {...})
+editor-utils.js      → Pure functions shared between renderer (browser) and tests (Node.js)
+icons.js             → Lucide SVG icon helper: getIcon(name, size) returns SVG strings
+cm-adapter.js        → EditorAdapter class: textarea-compatible wrapper around CodeMirror 6
+src/codemirror-setup.js → CM6 ESM entry point, bundled via esbuild
+css/                 → 7 CSS files: variables, layout, toolbar, tabs, editor, preview, components
+vendor/              → marked.min.js, purify.min.js, codemirror-bundle.js (generated)
 ```
 
 ### IPC Communication Pattern
@@ -38,7 +42,9 @@ All renderer↔main communication goes through `preload.js`. The renderer calls 
 
 - **Tab state**: `tabs` array in renderer.js holds all open tab state (content, filePath, cursorPosition, isModified). `activeTabId` tracks the current tab. `saveCurrentTabState()` must be called before switching tabs.
 - **Markdown rendering**: `renderMarkdown()` uses marked.js with a custom heading renderer + DOMPurify sanitization + post-processing to fix heading IDs. Rendering is debounced (150ms normal, 500ms for large files).
-- **All CSS lives in index.html** inside a single `<style>` tag. Theme switching uses CSS variables on `:root` overridden by `body.light-theme`.
+- **CSS split into 7 files** under `css/` (variables, layout, toolbar, tabs, editor, preview, components). Theme switching uses CSS variables on `:root` overridden by `body.light-theme`.
+- **CodeMirror 6 editor**: `src/codemirror-setup.js` is bundled via esbuild into `vendor/codemirror-bundle.js` (IIFE, global `CMSetup`). `cm-adapter.js` wraps CM6 in a textarea-compatible `EditorAdapter` class so renderer.js needs minimal changes. Rebuild after CM6 changes: `npm run build:editor`.
+- **Icons**: `icons.js` provides `getIcon(name, size)` returning inline Lucide SVG strings with `stroke="currentColor"` for automatic theme adaptation.
 - **PDF generation**: `main.js` has `getPdfStylesheet()` and `buildPdfHtml()` shared by all PDF export paths (single, batch, CLI). Uses Chromium's `printToPDF`.
 - **Settings persistence**: `main.js` reads/writes `settings.json` and `recent-files.json` in `app.getPath('userData')`.
 - **Global function exposure**: Functions used in HTML `onclick` handlers must be assigned to `window.*` in the `DOMContentLoaded` listener at the top of renderer.js.

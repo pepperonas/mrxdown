@@ -80,8 +80,19 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeApp() {
-    // Initialize DOM elements
-    editor = document.getElementById('editor');
+    // Initialize CodeMirror editor via adapter
+    const editorContainer = document.getElementById('editor');
+    if (editorContainer) {
+        editor = new EditorAdapter(editorContainer, {
+            initialDoc: '',
+            isDark: true,
+            showLineNumbers: false,
+            wordWrap: true,
+            tabSize: 4,
+            fontSize: 14,
+        });
+    }
+
     preview = document.getElementById('preview');
     charCount = document.getElementById('charCount');
     wordCount = document.getElementById('wordCount');
@@ -140,23 +151,12 @@ function initializeApp() {
 }
 
 function setupEventListeners() {
-    // Editor events
+    // Editor events (via CM6 adapter)
     if (editor) {
         editor.addEventListener('input', handleEditorInput);
         editor.addEventListener('keydown', handleEditorKeydown);
         editor.addEventListener('scroll', (event) => {
             syncScroll(event);
-            // Sync line number gutter scroll
-            const gutter = document.getElementById('lineNumberGutter');
-            if (gutter && lineNumbers) {
-                gutter.scrollTop = editor.scrollTop;
-            }
-            // Sync syntax highlight overlay scroll
-            const highlightEl = document.getElementById('editorHighlight');
-            if (highlightEl) {
-                highlightEl.scrollTop = editor.scrollTop;
-                highlightEl.scrollLeft = editor.scrollLeft;
-            }
         });
         // Update cursor position on click/keyup
         editor.addEventListener('click', updateCursorPosition);
@@ -469,7 +469,6 @@ function loadTabContent(tabId) {
     // Update UI based on file type
     updateUIForFileType(tab);
     renderMarkdown();
-    updateSyntaxHighlight();
 }
 
 function renderTabs() {
@@ -553,8 +552,7 @@ function markTabAsModified(tabId, isModified) {
 function handleEditorInput() {
     markTabAsModified(activeTabId, true);
     updateStats();
-    // Update syntax highlighting immediately (fast)
-    updateSyntaxHighlight();
+    // CM6 handles syntax highlighting natively
     // Check for autocomplete triggers
     checkAutocomplete();
     // Debounce markdown rendering - longer delay for large files
@@ -778,7 +776,7 @@ function updateDocumentOutline() {
                 editor.focus();
                 editor.setSelectionRange(charPos, charPos + lines[lineIndex].length);
                 // Scroll editor to that position
-                const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 20;
+                const lineHeight = parseFloat(getComputedStyle(editor.contentDOM).lineHeight) || 20;
                 editor.scrollTop = lineIndex * lineHeight - editor.clientHeight / 3;
             });
             outline.appendChild(item);
@@ -976,7 +974,7 @@ function positionAutocomplete(pos) {
     const lineIndex = lines.length - 1;
     const colIndex = lines[lines.length - 1].length;
 
-    const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 22;
+    const lineHeight = parseFloat(getComputedStyle(editor.contentDOM).lineHeight) || 22;
     const charWidth = 8.4; // Approximate monospace char width
 
     const scrollTop = editor.scrollTop;
@@ -1032,49 +1030,7 @@ function handleAutocompleteKeydown(e) {
 
 // Syntax highlighting overlay
 function updateSyntaxHighlight() {
-    const highlightEl = document.getElementById('editorHighlight');
-    if (!highlightEl) return;
-
-    const text = editor.value;
-    // Build highlighted HTML using safe escaping
-    const escaped = text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-
-    // Apply markdown syntax highlighting via regex replacements on escaped text
-    const highlighted = escaped
-        // Code blocks (``` ... ```) - must come first to avoid inner matches
-        .replace(/(^|\n)(```[\s\S]*?```)/g, '$1<span class="md-code-block">$2</span>')
-        // Headings (# ... at line start)
-        .replace(/(^|\n)(#{1,6}\s.+)/g, '$1<span class="md-heading">$2</span>')
-        // Bold (**...**)
-        .replace(/(\*\*[^*]+?\*\*)/g, '<span class="md-bold">$1</span>')
-        // Italic (*...* but not **)
-        .replace(/(?<!\*)(\*[^*]+?\*)(?!\*)/g, '<span class="md-italic">$1</span>')
-        // Strikethrough (~~...~~)
-        .replace(/(~~[^~]+?~~)/g, '<span class="md-strikethrough">$1</span>')
-        // Inline code (`...`)
-        .replace(/(`[^`\n]+?`)/g, '<span class="md-code">$1</span>')
-        // Images (![...](...))
-        .replace(/(!\[[^\]]*\]\([^)]*\))/g, '<span class="md-image">$1</span>')
-        // Links ([...](...))
-        .replace(/(\[[^\]]*\]\([^)]*\))/g, '<span class="md-link">$1</span>')
-        // Blockquotes (> at line start)
-        .replace(/(^|\n)(&gt;\s.+)/g, '$1<span class="md-blockquote">$2</span>')
-        // List items (- or * or + or 1. at line start)
-        .replace(/(^|\n)(\s*[-*+]\s)/g, '$1<span class="md-list">$2</span>')
-        .replace(/(^|\n)(\s*\d+\.\s)/g, '$1<span class="md-list">$2</span>')
-        // Horizontal rules (---, ***, ___)
-        .replace(/(^|\n)([-*_]{3,})\s*(?=\n|$)/g, '$1<span class="md-hr">$2</span>');
-
-    // Using innerHTML here is safe because the content comes from the editor text
-    // which has been HTML-escaped above (no user-controlled HTML can execute)
-    highlightEl.innerHTML = highlighted + '\n';
-
-    // Sync scroll position
-    highlightEl.scrollTop = editor.scrollTop;
-    highlightEl.scrollLeft = editor.scrollLeft;
+    // No-op: CM6 handles syntax highlighting natively
 }
 
 // Undo-safe text replacement using execCommand to preserve browser undo stack
@@ -1082,7 +1038,7 @@ function replaceRange(start, end, newText) {
     editor.focus();
     editor.selectionStart = start;
     editor.selectionEnd = end;
-    document.execCommand('insertText', false, newText);
+    editor.execCommand('insertText', false, newText);
 }
 
 // Formatting Functions
@@ -1577,14 +1533,15 @@ async function loadFileTree(dirPath) {
 
             const icon = document.createElement('div');
             icon.className = 'file-icon';
+            // Safe: getIcon() returns static SVG from hardcoded ICON_PATHS, no user input
             if (entry.isDirectory) {
-                icon.textContent = '📁';
+                icon.innerHTML = getIcon('folder-closed', 14);
             } else if (entry.name.endsWith('.md') || entry.name.endsWith('.markdown')) {
-                icon.textContent = '📝';
+                icon.innerHTML = getIcon('file-text', 14);
             } else if (entry.name.endsWith('.txt')) {
-                icon.textContent = '📄';
+                icon.innerHTML = getIcon('file', 14);
             } else {
-                icon.textContent = '📃';
+                icon.innerHTML = getIcon('file', 14);
             }
 
             const name = document.createElement('div');
@@ -1607,8 +1564,9 @@ async function loadFileTree(dirPath) {
                             subItem.className = 'file-item';
                             const subIcon = document.createElement('div');
                             subIcon.className = 'file-icon';
-                            subIcon.textContent = sub.isDirectory ? '📁' :
-                                (sub.name.endsWith('.md') || sub.name.endsWith('.markdown')) ? '📝' : '📄';
+                            // Safe: getIcon() returns static SVG from hardcoded ICON_PATHS
+                            subIcon.innerHTML = sub.isDirectory ? getIcon('folder-closed', 14) :
+                                (sub.name.endsWith('.md') || sub.name.endsWith('.markdown')) ? getIcon('file-text', 14) : getIcon('file', 14);
                             const subName = document.createElement('div');
                             subName.className = 'file-name';
                             subName.textContent = sub.name;
@@ -1625,7 +1583,8 @@ async function loadFileTree(dirPath) {
                         loaded = true;
                     }
                     children.classList.toggle('collapsed');
-                    icon.textContent = children.classList.contains('collapsed') ? '📁' : '📂';
+                    // Safe: getIcon() returns static SVG from hardcoded ICON_PATHS
+                    icon.innerHTML = children.classList.contains('collapsed') ? getIcon('folder-closed', 14) : getIcon('folder-open', 14);
                 });
 
                 fileExplorer.appendChild(item);
@@ -1866,36 +1825,17 @@ function showZenModeHint() {
 
 function toggleLineNumbers() {
     lineNumbers = !lineNumbers;
-    const gutter = document.getElementById('lineNumberGutter');
-    if (gutter) {
-        gutter.style.display = lineNumbers ? 'block' : 'none';
-        editor.style.paddingLeft = lineNumbers ? '0' : '';
-    }
-    if (lineNumbers) {
-        updateLineNumbers();
-    }
+    editor.setLineNumbers(lineNumbers);
 }
 
 function updateLineNumbers() {
-    if (!lineNumbers) return;
-    const gutter = document.getElementById('lineNumberGutter');
-    if (!gutter) return;
-
-    const lines = editor.value.split('\n').length;
-    // Clear and rebuild using safe DOM methods
-    gutter.textContent = '';
-    for (let i = 1; i <= lines; i++) {
-        const div = document.createElement('div');
-        div.className = 'line-number';
-        div.textContent = i;
-        gutter.appendChild(div);
-    }
-    gutter.scrollTop = editor.scrollTop;
+    // No-op: CM6 handles line numbers natively
 }
 
 function toggleTheme() {
     const isLight = document.body.classList.toggle('light-theme');
     settings.theme = isLight ? 'light' : 'dark';
+    editor.setTheme(!isLight);
     saveSettings();
 }
 
@@ -1959,8 +1899,6 @@ function applySettings() {
 
     // Apply font size
     editor.style.fontSize = settings.fontSize + 'px';
-    const highlightEl = document.getElementById('editorHighlight');
-    if (highlightEl) highlightEl.style.fontSize = settings.fontSize + 'px';
 
     // Apply tab size
     editor.style.tabSize = settings.tabSize;
@@ -2198,17 +2136,13 @@ async function loadSettings() {
                 syncToggle.style.opacity = settings.syncScroll !== false ? '1' : '0.5';
             }
 
-            // Apply syntax highlight font size
-            const highlightEl = document.getElementById('editorHighlight');
-            if (highlightEl) {
-                highlightEl.style.fontSize = settings.fontSize + 'px';
-            }
-
             // Apply theme
             if (settings.theme === 'light') {
                 document.body.classList.add('light-theme');
+                editor.setTheme(false);
             } else {
                 document.body.classList.remove('light-theme');
+                editor.setTheme(true);
             }
         }
     } catch (error) {
@@ -2549,7 +2483,7 @@ function handleExternalLinks() {
                         for (let j = 0; j < i; j++) charPos += lines[j].length + 1;
                         editor.focus();
                         editor.setSelectionRange(charPos, charPos + lines[i].length);
-                        const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 20;
+                        const lineHeight = parseFloat(getComputedStyle(editor.contentDOM).lineHeight) || 20;
                         editor.scrollTop = i * lineHeight - editor.clientHeight / 3;
                         break;
                     }
@@ -2587,13 +2521,7 @@ function setViewMode(mode) {
     });
     document.getElementById(`viewMode${mode.charAt(0).toUpperCase() + mode.slice(1)}`).classList.add('active');
     
-    // Adjust editor dimensions
-    setTimeout(() => {
-        if (editor) {
-            editor.style.height = 'auto';
-            editor.style.height = editor.scrollHeight + 'px';
-        }
-    }, 100);
+    // CM6 handles its own dimensions
 }
 
 // Resizable Divider Setup
