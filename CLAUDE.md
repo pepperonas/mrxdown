@@ -15,7 +15,7 @@ npm test                 # Run all 65 tests (Jest)
 npx jest tests/heading-id.test.js  # Run a single test file
 npm run build:editor     # Rebuild CodeMirror bundle after changing src/codemirror-setup.js
 npm run build-mac-local  # Build macOS .app + strip quarantine for local testing
-npm run build-mac        # Build macOS (ZIP + DMG)
+npm run build-mac        # Build macOS (ZIP only, no DMG)
 npm run build-win        # Build Windows (NSIS installer)
 npm run build-linux      # Build Linux (AppImage + deb)
 ```
