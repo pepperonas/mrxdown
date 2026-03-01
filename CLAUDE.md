@@ -9,55 +9,77 @@ MrxDown is an Electron-based desktop Markdown editor with live preview, dark/lig
 ## Commands
 
 ```bash
-npm install          # Install dependencies
-npm start            # Run the app (GUI mode)
-npm test             # Run all 65 tests (Jest)
+npm install              # Install dependencies
+npm start                # Run the app (GUI mode)
+npm test                 # Run all 65 tests (Jest)
 npx jest tests/heading-id.test.js  # Run a single test file
-npm run build-mac    # Build macOS app
-npm run dist         # Create distribution package
+npm run build:editor     # Rebuild CodeMirror bundle after changing src/codemirror-setup.js
+npm run build-mac-local  # Build macOS .app + strip quarantine for local testing
+npm run build-mac        # Build macOS (ZIP + DMG)
+npm run build-win        # Build Windows (NSIS installer)
+npm run build-linux      # Build Linux (AppImage + deb)
 ```
+
+### Local Install (macOS)
+
+```bash
+npm run build-mac-local
+rm -rf /Applications/MrxDown.app
+cp -R dist/mac-arm64/MrxDown.app /Applications/
+```
+
+### Release
+
+Push a version tag to trigger CI builds for all platforms with GitHub Release:
+```bash
+# 1. Bump version in package.json
+# 2. Commit and push
+git tag v0.X.Y && git push origin v0.X.Y
+```
+
+Artifact naming: `mrxdown-macos-{arch}.zip`, `mrxdown-windows-x64.exe`, `mrxdown-linux-x64.AppImage`. CI skips DMG (hdiutil fails on GitHub runners); build locally for DMG.
 
 ## Architecture
 
 Electron app with strict process separation:
 
 ```
-main.js              → Main process: window, menus, IPC handlers, file I/O, PDF generation
-renderer.js          → Renderer process: all UI logic, editor, tabs, formatting, search
-index.html           → UI structure (CSS in separate files, no inline styles)
-preload.js           → IPC bridge: exposes ~30 methods via contextBridge.exposeInMainWorld('electronAPI', {...})
-editor-utils.js      → Pure functions shared between renderer (browser) and tests (Node.js)
-icons.js             → Lucide SVG icon helper: getIcon(name, size) returns SVG strings
-cm-adapter.js        → EditorAdapter class: textarea-compatible wrapper around CodeMirror 6
-src/codemirror-setup.js → CM6 ESM entry point, bundled via esbuild
-css/                 → 7 CSS files: variables, layout, toolbar, tabs, editor, preview, components
-vendor/              → marked.min.js, purify.min.js, codemirror-bundle.js (generated)
+main.js              -> Main process: window, menus, IPC handlers, file I/O, PDF generation
+renderer.js          -> Renderer process: all UI logic, editor, tabs, formatting, search
+index.html           -> UI structure (CSS in separate files, no inline styles)
+preload.js           -> IPC bridge: ~30 methods via contextBridge.exposeInMainWorld('electronAPI', {...})
+editor-utils.js      -> Pure functions shared between renderer (browser) and tests (Node.js)
+icons.js             -> Lucide SVG icon helper: getIcon(name, size) returns SVG strings
+cm-adapter.js        -> EditorAdapter class: textarea-compatible wrapper around CodeMirror 6
+src/codemirror-setup.js -> CM6 ESM entry point, bundled via esbuild into vendor/codemirror-bundle.js
+css/                 -> 7 CSS files: variables, layout, toolbar, tabs, editor, preview, components
+vendor/              -> marked.min.js, purify.min.js, codemirror-bundle.js (generated)
 ```
 
-### IPC Communication Pattern
+### IPC Communication
 
-All renderer↔main communication goes through `preload.js`. The renderer calls `window.electronAPI.methodName()`, which maps to `ipcRenderer.send/invoke`. Main process handles via `ipcMain.on/handle`. Never use `window.require('electron')` in the renderer — context isolation is enforced.
+All renderer-main communication goes through `preload.js`. The renderer calls `window.electronAPI.methodName()`, which maps to `ipcRenderer.send/invoke`. Main process handles via `ipcMain.on/handle`. Context isolation is enforced.
 
-### Key Architectural Patterns
+### Key Patterns
 
-- **Tab state**: `tabs` array in renderer.js holds all open tab state (content, filePath, cursorPosition, isModified). `activeTabId` tracks the current tab. `saveCurrentTabState()` must be called before switching tabs.
-- **Markdown rendering**: `renderMarkdown()` uses marked.js with a custom heading renderer + DOMPurify sanitization + post-processing to fix heading IDs. Rendering is debounced (150ms normal, 500ms for large files).
-- **CSS split into 7 files** under `css/` (variables, layout, toolbar, tabs, editor, preview, components). Theme switching uses CSS variables on `:root` overridden by `body.light-theme`.
-- **CodeMirror 6 editor**: `src/codemirror-setup.js` is bundled via esbuild into `vendor/codemirror-bundle.js` (IIFE, global `CMSetup`). `cm-adapter.js` wraps CM6 in a textarea-compatible `EditorAdapter` class so renderer.js needs minimal changes. Rebuild after CM6 changes: `npm run build:editor`.
+- **Tab state**: `tabs` array in renderer.js holds all open tab state (content, filePath, cursorPosition, isModified). `activeTabId` tracks current tab. `saveCurrentTabState()` must be called before switching tabs.
+- **Markdown rendering**: `renderMarkdown()` uses marked.js with a custom heading renderer + DOMPurify sanitization + post-processing to fix heading IDs. Debounced (150ms normal, 500ms for large files).
+- **CSS**: 7 files under `css/`. Theme switching uses CSS variables on `:root` overridden by `body.light-theme`.
+- **CodeMirror 6**: `src/codemirror-setup.js` bundles to `vendor/codemirror-bundle.js` (IIFE, global `CMSetup`). `cm-adapter.js` wraps CM6 in a textarea-compatible `EditorAdapter` class. Tab/Enter keys are filtered from CM6 defaults so the app handles smart list continuation and table navigation.
 - **Icons**: `icons.js` provides `getIcon(name, size)` returning inline Lucide SVG strings with `stroke="currentColor"` for automatic theme adaptation.
 - **PDF generation**: `main.js` has `getPdfStylesheet()` and `buildPdfHtml()` shared by all PDF export paths (single, batch, CLI). Uses Chromium's `printToPDF`.
-- **Settings persistence**: `main.js` reads/writes `settings.json` and `recent-files.json` in `app.getPath('userData')`.
+- **Settings**: `main.js` reads/writes `settings.json` and `recent-files.json` in `app.getPath('userData')`.
 - **Global function exposure**: Functions used in HTML `onclick` handlers must be assigned to `window.*` in the `DOMContentLoaded` listener at the top of renderer.js.
 
-### GitHub-Compatible Heading ID Algorithm
+### Heading ID Algorithm
 
-This is the most complex piece of logic, duplicated in three places (renderer.js custom renderer, renderer.js post-processing, editor-utils.js). The algorithm: lowercase → replace emojis with `-` → replace spaces with `-` → REMOVE (don't replace) special chars like `&`, `/`, `:` → keep German umlauts → don't collapse multiple dashes → trim trailing dashes. This means `"DNS & DHCP"` becomes `"dns--dhcp"` (double dash), not `"dns-dhcp"`.
+Duplicated in three places (renderer.js custom renderer, renderer.js post-processing, editor-utils.js). Algorithm: lowercase, replace emojis with `-`, replace spaces with `-`, REMOVE (don't replace) special chars like `&`, `/`, `:`, keep German umlauts, don't collapse multiple dashes, trim trailing dashes. `"DNS & DHCP"` becomes `"dns--dhcp"` (double dash).
 
-**Critical**: `DOMPurify.sanitize()` must include `ADD_ATTR: ['id']` or heading IDs get stripped. Electron's `printToPDF()` does NOT support clickable internal links in PDFs.
+**Critical**: `DOMPurify.sanitize()` must include `ADD_ATTR: ['id']` or heading IDs get stripped.
 
-### Test Structure
+### Tests
 
-Tests are in `tests/` and cover pure functions from `editor-utils.js` plus standalone logic tests:
+Tests in `tests/` cover pure functions from `editor-utils.js`:
 
 - `heading-id.test.js` — GitHub-compatible ID generation
 - `smart-enter.test.js` — List continuation logic
@@ -67,6 +89,10 @@ Tests are in `tests/` and cover pure functions from `editor-utils.js` plus stand
 
 `editor-utils.js` uses conditional `module.exports` to work in both browser and Node.js. To add testable logic, extract pure functions there.
 
-## macOS Code Signing
+## CI/CD
 
-Required GitHub Secrets for releases: `CSC_LINK` (base64 .p12), `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`.
+GitHub Actions workflows in `.github/workflows/`:
+- **build.yml**: Runs on every push to main. Tests + builds for macOS (ZIP only), Windows (NSIS), Linux (AppImage + deb).
+- **release.yml**: Triggered by `v*` tags. Same builds + creates GitHub Release with SHA256 checksums.
+
+macOS CI builds ZIP only (no DMG) because `hdiutil` fails on GitHub runners. Ubuntu runners require specific apt packages (see workflow) — `libgconf-2-4` was removed for Ubuntu 24.04 (Noble) compatibility.
