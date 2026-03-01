@@ -149,6 +149,15 @@ npm run build-all  # Für alle Plattformen bauen
 
 ## Changelog
 
+### Version 0.6.2 (2026-03-01)
+
+**Bugfixes:**
+- Windows: Dateien konnten nicht geöffnet/gespeichert werden (`fs.constants` war `undefined` weil `fs.promises` kein `constants` hat)
+- Windows: Einstellungen, Recent Files und Session-Daten wurden nicht zuverlässig persistiert (fehlende `await` bei `fs.writeFile()`)
+- Windows: Pfad-Erkennung bei Root-Pfaden wie `C:\` korrigiert (`lastSep >= 0` statt `> 0`)
+- Fehlende Vendor-Libraries (`marked.min.js`, `purify.min.js`) im Repository ergänzt (waren durch `*.min.js` in `.gitignore` ausgeschlossen)
+- DOMPurify als explizite Dependency in `package.json` aufgenommen
+
 ### Version 0.6.0 (2026-03-01)
 
 **Bugfixes:**
