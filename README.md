@@ -149,7 +149,7 @@ npm run build-all  # Für alle Plattformen bauen
 
 ## Changelog
 
-### Version 0.6.2 (2026-03-01)
+### Version 0.6.3 (2026-03-01)
 
 **Bugfixes:**
 - Windows: Dateien konnten nicht geöffnet/gespeichert werden (`fs.constants` war `undefined` weil `fs.promises` kein `constants` hat)
