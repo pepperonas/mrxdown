@@ -22,9 +22,9 @@ function loadSettingsFromDisk() {
     return {};
 }
 
-function saveSettingsToDisk() {
+async function saveSettingsToDisk() {
     try {
-        fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+        await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
     } catch (error) {
         console.error('Error saving settings:', error);
     }
@@ -44,9 +44,9 @@ function loadRecentFilesFromDisk() {
     return [];
 }
 
-function saveRecentFilesToDisk() {
+async function saveRecentFilesToDisk() {
     try {
-        fs.writeFile(recentFilesPath, JSON.stringify(recentFiles, null, 2), 'utf-8');
+        await fs.writeFile(recentFilesPath, JSON.stringify(recentFiles, null, 2), 'utf-8');
     } catch (error) {
         console.error('Error saving recent files:', error);
     }
@@ -696,7 +696,7 @@ ipcMain.on('save-file', async (event, { content, filePath }) => {
     try {
         // Check if file exists and is read-only
         try {
-            await fs.access(targetPath, fs.constants.W_OK);
+            await fs.access(targetPath, fsSync.constants.W_OK);
         } catch (accessError) {
             // File is read-only or doesn't exist, prompt for Save As
             const response = await dialog.showMessageBox(mainWindow, {
@@ -1086,9 +1086,9 @@ ipcMain.handle('select-image', async () => {
 // Session state persistence for crash recovery
 const sessionPath = path.join(userDataPath, 'session.json');
 
-ipcMain.on('save-session', (event, sessionData) => {
+ipcMain.on('save-session', async (event, sessionData) => {
     try {
-        fs.writeFile(sessionPath, JSON.stringify(sessionData, null, 2), 'utf-8');
+        await fs.writeFile(sessionPath, JSON.stringify(sessionData, null, 2), 'utf-8');
     } catch (error) {
         console.error('Error saving session:', error);
     }

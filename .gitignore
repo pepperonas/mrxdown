@@ -23,6 +23,8 @@ bower_components/
 dist/
 build/
 *.min.js
+!vendor/marked.min.js
+!vendor/purify.min.js
 *.min.css
 
 # Temp

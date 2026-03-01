@@ -1338,7 +1338,7 @@ async function insertImage() {
             let insertPath = imagePath;
             if (activeTab && activeTab.filePath) {
                 const lastSep = Math.max(activeTab.filePath.lastIndexOf('/'), activeTab.filePath.lastIndexOf('\\'));
-                const fileDir = lastSep > 0 ? activeTab.filePath.substring(0, lastSep) : '';
+                const fileDir = lastSep >= 0 ? activeTab.filePath.substring(0, lastSep) : '';
                 if (imagePath.startsWith(fileDir)) {
                     insertPath = imagePath.substring(fileDir.length + 1);
                 }
@@ -1493,7 +1493,7 @@ function openFileContent(filePath, content) {
 
         // Load the file tree for the directory of the opened file
         const lastSep = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
-        const dirPath = lastSep > 0 ? filePath.substring(0, lastSep) : '';
+        const dirPath = lastSep >= 0 ? filePath.substring(0, lastSep) : '';
         if (dirPath) {
             loadFileTree(dirPath);
         }
