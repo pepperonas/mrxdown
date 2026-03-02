@@ -51,7 +51,21 @@ jobs:
     - name: Build app for macOS
       if: matrix.os == 'macos-latest'
       run: |
-        npx electron-builder --mac zip --publish=never
+        npx electron-builder --mac zip --x64 --arm64 --publish=never
+        # Ad-hoc sign the .app bundles so macOS doesn't show "damaged"
+        for app in dist/mac*/MrxDown.app; do
+          echo "Ad-hoc signing $app"
+          codesign --force --deep --sign - "$app"
+        done
+        # Re-create ZIPs with signed apps
+        for dir in dist/mac*; do
+          arch=$(basename "$dir" | sed 's/mac-*//' | sed 's/mac/x64/')
+          [ "$arch" = "" ] && arch="x64"
+          zipname="dist/mrxdown-macos-${arch}.zip"
+          echo "Re-packaging $zipname from $dir"
+          rm -f "$zipname"
+          cd "$dir" && zip -r -y "../../${zipname}" MrxDown.app && cd ../..
+        done
         ls -la dist/
       env:
         CSC_IDENTITY_AUTO_DISCOVERY: false
