@@ -43,23 +43,23 @@
 [![Download für Windows](https://img.shields.io/badge/Windows-Download-blue?style=for-the-badge&logo=windows)](https://github.com/pepperonas/mrxdown/releases/latest)
 [![Download für Linux](https://img.shields.io/badge/Linux-Download-blue?style=for-the-badge&logo=linux)](https://github.com/pepperonas/mrxdown/releases/latest)
 
-| Betriebssystem | Format | Installation |
-|----------------|--------|--------------|
-| **macOS** | `.zip` / `.dmg` | Entpacken, Rechtsklick → "Öffnen" |
-| **Windows** | `.exe` (Installer) | Installer ausführen |
-| **Windows** | `.exe` (Portable) | Direkt ausführbar |
-| **Linux** | `.AppImage` | `chmod +x` und starten |
-| **Linux** | `.deb` | `sudo dpkg -i MrxDown-*.deb` |
-| **Linux** | `.snap` | `sudo snap install MrxDown-*.snap --dangerous` |
+| Betriebssystem | Datei | Installation |
+|----------------|-------|--------------|
+| **macOS (Apple Silicon)** | `mrxdown-macos-arm64.zip` | Entpacken, Rechtsklick → "Öffnen" |
+| **macOS (Intel)** | `mrxdown-macos-x64.zip` | Entpacken, Rechtsklick → "Öffnen" |
+| **Windows** | `mrxdown-windows-x64.exe` | Installer ausführen |
+| **Linux** | `mrxdown-linux-x86_64.AppImage` | `chmod +x` und starten |
+| **Linux** | `mrxdown-linux-amd64.deb` | `sudo dpkg -i mrxdown-linux-amd64.deb` |
 
-### macOS
+### macOS Hinweis
 
-```bash
-# Oder von der Releases-Seite herunterladen
-# Nach dem Download: Rechtsklick → "Öffnen" → "Öffnen" bestätigen
-```
+Da die App nicht mit einem Apple-Developer-Zertifikat signiert ist, zeigt macOS beim ersten Start eine Warnung. So funktioniert es:
 
-> **Tipp**: Nach dem ersten "Öffnen" funktioniert die App dauerhaft normal.
+1. ZIP entpacken
+2. **Rechtsklick** auf `MrxDown.app` → **"Öffnen"**
+3. Im Dialog **"Öffnen"** bestätigen
+
+> **Tipp**: Nach dem ersten Öffnen funktioniert die App dauerhaft normal.
 
 ### CLI einrichten (optional)
 
@@ -128,8 +128,48 @@ cd mrxdown
 npm install
 npm start          # App starten
 npm test           # 65 Tests ausführen
-npm run build-all  # Für alle Plattformen bauen
 ```
+
+### Lokal bauen
+
+```bash
+npm run build-mac        # macOS ZIP (x64 + arm64)
+npm run build-win        # Windows NSIS Installer (x64)
+npm run build-linux      # Linux AppImage + deb (x64)
+npm run build-all        # Alle Plattformen
+```
+
+macOS-Builds werden lokal automatisch mit dem Developer-Zertifikat signiert (falls vorhanden). Für lokale Tests ohne Zertifikat:
+
+```bash
+npm run build-mac-local  # Baut + entfernt Quarantine-Attribute
+```
+
+### CI/CD & Releases
+
+Builds und Releases laufen vollautomatisch über GitHub Actions:
+
+| Workflow | Trigger | Beschreibung |
+|----------|---------|-------------|
+| **build.yml** | Push auf `main` | Tests + Builds für macOS, Windows, Linux |
+| **release.yml** | Git-Tag `v*` | Builds + GitHub Release mit SHA256-Checksums |
+
+**Neuen Release erstellen:**
+
+```bash
+# 1. Version in package.json hochzählen
+# 2. Committen und pushen
+git tag v0.X.Y && git push origin v0.X.Y
+```
+
+**Was passiert im CI:**
+
+- **macOS**: Baut x64 + arm64 ZIPs, ad-hoc Code-Signing (damit macOS die App nicht als "damaged" blockiert)
+- **Windows**: Baut NSIS Installer (x64)
+- **Linux**: Baut AppImage + deb (x64), braucht `xvfb` für headless Build
+- **Release**: Sammelt alle Artefakte, generiert SHA256-Checksums, erstellt GitHub Release
+
+> **Hinweis**: macOS CI baut ZIP (kein DMG, da `hdiutil` auf GitHub Runnern fehlschlägt). Ubuntu 24.04 (Noble) hat `libgconf-2-4` entfernt — nicht als Dependency verwenden.
 
 ### Technischer Stack
 
