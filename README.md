@@ -5,14 +5,36 @@
 
   <br><br>
 
-[![Build](https://img.shields.io/github/actions/workflow/status/pepperonas/mrxdown/build.yml?branch=main&label=build)](https://github.com/pepperonas/mrxdown/actions/workflows/build.yml)
-[![Tests](https://img.shields.io/github/actions/workflow/status/pepperonas/mrxdown/build.yml?branch=main&label=tests)](https://github.com/pepperonas/mrxdown/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/pepperonas/mrxdown)](https://github.com/pepperonas/mrxdown/releases)
-[![Downloads](https://img.shields.io/github/downloads/pepperonas/mrxdown/total)](https://github.com/pepperonas/mrxdown/releases)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)](https://github.com/pepperonas/mrxdown/releases)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Electron](https://img.shields.io/badge/electron-28.0.0-47848f)](https://electronjs.org/)
-[![Code Size](https://img.shields.io/github/languages/code-size/pepperonas/mrxdown)](https://github.com/pepperonas/mrxdown)
+[![Build](https://img.shields.io/github/actions/workflow/status/pepperonas/mrxdown/build.yml?branch=main&label=build&logo=github)](https://github.com/pepperonas/mrxdown/actions/workflows/build.yml)
+[![Tests](https://img.shields.io/github/actions/workflow/status/pepperonas/mrxdown/build.yml?branch=main&label=tests&logo=jest)](https://github.com/pepperonas/mrxdown/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/pepperonas/mrxdown?logo=github&color=blue)](https://github.com/pepperonas/mrxdown/releases)
+[![Downloads](https://img.shields.io/github/downloads/pepperonas/mrxdown/total?logo=github&color=brightgreen)](https://github.com/pepperonas/mrxdown/releases)
+[![License](https://img.shields.io/github/license/pepperonas/mrxdown?color=green)](LICENSE)
+<br>
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue?logo=electron)](https://github.com/pepperonas/mrxdown/releases)
+[![macOS](https://img.shields.io/badge/macOS-x64%20%7C%20arm64-000000?logo=apple&logoColor=white)](https://github.com/pepperonas/mrxdown/releases/latest)
+[![Windows](https://img.shields.io/badge/Windows-x64-0078D4?logo=windows&logoColor=white)](https://github.com/pepperonas/mrxdown/releases/latest)
+[![Linux](https://img.shields.io/badge/Linux-x64-FCC624?logo=linux&logoColor=black)](https://github.com/pepperonas/mrxdown/releases/latest)
+<br>
+[![Electron](https://img.shields.io/badge/Electron-28.0.0-47848f?logo=electron&logoColor=white)](https://electronjs.org/)
+[![CodeMirror](https://img.shields.io/badge/CodeMirror-6-d30707?logo=codemirror&logoColor=white)](https://codemirror.net/)
+[![Marked](https://img.shields.io/badge/Marked.js-12-f7df1e?logo=markdown&logoColor=black)](https://marked.js.org/)
+[![DOMPurify](https://img.shields.io/badge/DOMPurify-3-8B5CF6)](https://github.com/cure53/DOMPurify)
+[![Jest](https://img.shields.io/badge/Jest-65%20tests-C21325?logo=jest&logoColor=white)](https://jestjs.io/)
+<br>
+[![JavaScript](https://img.shields.io/github/languages/top/pepperonas/mrxdown?color=f7df1e&logo=javascript&logoColor=black)](https://github.com/pepperonas/mrxdown)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Code Size](https://img.shields.io/github/languages/code-size/pepperonas/mrxdown?logo=github)](https://github.com/pepperonas/mrxdown)
+[![Repo Size](https://img.shields.io/github/repo-size/pepperonas/mrxdown?logo=github)](https://github.com/pepperonas/mrxdown)
+<br>
+[![Stars](https://img.shields.io/github/stars/pepperonas/mrxdown?style=flat&logo=github)](https://github.com/pepperonas/mrxdown/stargazers)
+[![Forks](https://img.shields.io/github/forks/pepperonas/mrxdown?style=flat&logo=github)](https://github.com/pepperonas/mrxdown/network/members)
+[![Issues](https://img.shields.io/github/issues/pepperonas/mrxdown?logo=github)](https://github.com/pepperonas/mrxdown/issues)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?logo=git&logoColor=white)](https://github.com/pepperonas/mrxdown/pulls)
+[![Last Commit](https://img.shields.io/github/last-commit/pepperonas/mrxdown?logo=github)](https://github.com/pepperonas/mrxdown/commits/main)
+[![Contributors](https://img.shields.io/github/contributors/pepperonas/mrxdown?logo=github)](https://github.com/pepperonas/mrxdown/graphs/contributors)
+[![Commit Activity](https://img.shields.io/github/commit-activity/m/pepperonas/mrxdown?logo=github)](https://github.com/pepperonas/mrxdown/graphs/commit-activity)
+[![Maintenance](https://img.shields.io/maintenance/yes/2026)](https://github.com/pepperonas/mrxdown)
 
   <br>
 
