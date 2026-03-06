@@ -105,11 +105,8 @@ Markdown-Dateien direkt im Finder per Rechtsklick in PDF konvertieren.
 
 **Variante A — Aus Release herunterladen:**
 1. `MrxDown-PDF.workflow.zip` aus dem [Release](https://github.com/pepperonas/mrxdown/releases/latest) herunterladen
-2. ZIP entpacken und Installer ausführen:
-```bash
-cd ~/Downloads  # oder wo die ZIP entpackt wurde
-open install-quick-action.command
-```
+2. ZIP entpacken
+3. Doppelklick auf **`install-quick-action.command`** — Terminal öffnet sich und installiert alles automatisch
 
 **Variante B — Manuell:**
 1. Automator öffnen → **Ablage → Neu → Schnellaktion**
