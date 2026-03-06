@@ -15,9 +15,11 @@ else
     FILE="$1"
 fi
 
-# Run Electron directly with sandbox flags for headless operation
+# Run Electron with flags to suppress Chromium noise in headless mode
 /Applications/MrxDown.app/Contents/MacOS/MrxDown \
     --no-sandbox \
     --disable-gpu \
     --disable-software-rasterizer \
-    "$FILE"
+    --disable-features=ServiceWorker \
+    --no-first-run \
+    "$FILE" 2>&1 | grep -v "\[.*ERROR:service_worker_storage\|Failed to delete the database"

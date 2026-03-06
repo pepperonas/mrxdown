@@ -56,6 +56,7 @@
 | **Dateien** | Drag & Drop (Dateien + Ordner), File Watching, Recent Files, Einstellungen |
 | **Editor-Ops** | Zeile duplizieren/löschen/verschieben, Block ein-/ausrücken, Kommentar-Toggle |
 | **CLI** | Headless Markdown-zu-PDF Konvertierung vom Terminal |
+| **Quick Action** | macOS Rechtsklick-Kontextmenü für Markdown → PDF Konvertierung |
 
 ## Download & Installation
 
@@ -86,14 +87,24 @@ Da die App nicht mit einem Apple-Developer-Zertifikat signiert ist, zeigt macOS 
 ### CLI einrichten (optional)
 
 ```bash
-curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/mrxdown-cli.sh -o /usr/local/bin/mrxdown
-chmod +x /usr/local/bin/mrxdown
+sudo curl -L https://raw.githubusercontent.com/pepperonas/mrxdown/main/mrxdown-cli.sh -o /usr/local/bin/mrxdown
+sudo chmod +x /usr/local/bin/mrxdown
 ```
 
 ```bash
 mrxdown /path/to/datei.md       # Einzelne Datei → PDF
 mrxdown /path/to/ordner/        # Alle .md Dateien im Ordner → PDF
 ```
+
+### macOS Quick Action (optional)
+
+Markdown-Dateien direkt im Finder per Rechtsklick in PDF konvertieren:
+
+1. `MrxDown PDF.workflow` aus dem [Release](https://github.com/pepperonas/mrxdown/releases/latest) herunterladen
+2. Doppelklick → in Automator "Installieren" wählen
+3. Rechtsklick auf `.md`-Datei → **Schnellaktionen** → **MrxDown PDF**
+
+> **Tipp**: Unter **Systemeinstellungen → Tastatur → Tastaturkurzbefehle → Dienste** kann ein eigener Shortcut zugewiesen werden (z.B. `Ctrl+Shift+P`).
 
 ## Keyboard Shortcuts
 
@@ -210,6 +221,13 @@ git tag v0.X.Y && git push origin v0.X.Y
 5. Pull Request öffnen
 
 ## Changelog
+
+### Version 0.6.5 (2026-03-06)
+
+**Verbesserungen:**
+- CLI: Chromium `service_worker_storage` Fehlermeldung beim headless PDF-Export unterdrückt
+- macOS Quick Action: Markdown-Dateien direkt im Finder per Rechtsklick in PDF konvertieren (mit Benachrichtigung)
+- Quick Action unterstützt Mehrfachauswahl und zeigt macOS-Notification bei Erfolg/Fehler
 
 ### Version 0.6.3 (2026-03-01)
 
