@@ -57,6 +57,7 @@
 | **Editor-Ops** | Zeile duplizieren/löschen/verschieben, Block ein-/ausrücken, Kommentar-Toggle |
 | **CLI** | Headless Markdown-zu-PDF Konvertierung vom Terminal |
 | **Quick Action** | macOS Rechtsklick-Kontextmenü für Markdown → PDF Konvertierung |
+| **Windows Kontextmenü** | Windows Rechtsklick → "Mit MrxDown zu PDF konvertieren" (automatisch per Installer) |
 
 ## Download & Installation
 
@@ -102,9 +103,13 @@ Markdown-Dateien direkt im Finder per Rechtsklick in PDF konvertieren.
 
 #### Installation
 
-**Variante A — Automatisch aus Release:**
-1. `MrxDown PDF.workflow` aus dem [Release](https://github.com/pepperonas/mrxdown/releases/latest) herunterladen
-2. Doppelklick auf die `.workflow`-Datei → im Dialog **"Installieren"** wählen
+**Variante A — Aus Release herunterladen:**
+1. `MrxDown-PDF.workflow.zip` aus dem [Release](https://github.com/pepperonas/mrxdown/releases/latest) herunterladen
+2. ZIP entpacken und Installer ausführen:
+```bash
+cd ~/Downloads  # oder wo die ZIP entpackt wurde
+bash install-quick-action.sh
+```
 
 **Variante B — Manuell:**
 1. Automator öffnen → **Ablage → Neu → Schnellaktion**
@@ -131,7 +136,7 @@ done
 #### Kontextmenü verwenden
 
 1. `.md`-Datei im Finder markieren oder rechtsklicken
-2. **Rechtsklick → Schnellaktionen → MrxDown PDF**
+2. **Rechtsklick → Dienste → MrxDown PDF**
 3. macOS-Benachrichtigung zeigt Erfolg/Fehler an
 
 > Funktioniert auch mit Mehrfachauswahl — alle selektierten `.md`-Dateien werden konvertiert.
@@ -143,6 +148,25 @@ done
 3. Unter **Dateien und Ordner** den Eintrag **"MrxDown PDF"** finden
 4. Rechts auf **"ohne"** klicken und gewünschte Tastenkombination drücken (z.B. `⌃⇧P`)
 5. Ab sofort: `.md`-Datei im Finder markieren → Shortcut drücken → PDF wird erstellt
+
+### Windows Kontextmenü (optional)
+
+Der Windows-Installer registriert automatisch einen Kontextmenü-Eintrag für `.md`- und `.markdown`-Dateien.
+
+#### Verwenden
+
+1. Rechtsklick auf eine `.md`-Datei im Explorer
+2. **"Mit MrxDown zu PDF konvertieren"** auswählen
+3. PDF wird im gleichen Ordner erstellt
+
+#### Deinstallation
+
+Der Kontextmenü-Eintrag wird beim Deinstallieren von MrxDown automatisch entfernt. Für manuelle Entfernung:
+
+```cmd
+reg delete "HKCU\Software\Classes\.md\shell\MrxDownPDF" /f
+reg delete "HKCU\Software\Classes\.markdown\shell\MrxDownPDF" /f
+```
 
 ## Keyboard Shortcuts
 
@@ -273,6 +297,13 @@ Aktuelle Version: `0.x.y` (Pre-Release-Phase, API noch nicht stabil).
 ## Changelog
 
 > Ab Version 0.0.1 folgt MrxDown [Semantic Versioning](https://semver.org/lang/de/). Frühere Versionen siehe [Legacy-Changelog](#legacy-changelog).
+
+### 0.0.2 (2026-03-06)
+
+**MINOR — Neue Features:**
+- Windows: Kontextmenü-Eintrag "Mit MrxDown zu PDF konvertieren" für `.md`/`.markdown`-Dateien (automatisch per NSIS Installer)
+- CI: macOS Quick Action (`MrxDown PDF.workflow`) wird automatisch als Release-Artefakt gebaut und hochgeladen
+- Quick Action Workflow ins Repository aufgenommen (`build/MrxDown PDF.workflow/`)
 
 ### 0.0.1 (2026-03-06)
 

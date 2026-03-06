@@ -70,6 +70,12 @@ jobs:
       env:
         CSC_IDENTITY_AUTO_DISCOVERY: false
 
+    - name: Package Quick Action (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        cd build && zip -r ../dist/MrxDown-PDF.workflow.zip "MrxDown PDF.workflow" install-quick-action.sh
+        ls -la ../dist/MrxDown-PDF.workflow.zip
+
     - name: Build app for Windows
       if: matrix.os == 'windows-latest'
       run: |
@@ -91,7 +97,7 @@ jobs:
       if: matrix.os != 'windows-latest'
       run: |
         cd dist
-        find . -maxdepth 1 \( -name "*.zip" -o -name "*.AppImage" -o -name "*.deb" \) -exec shasum -a 256 {} + > checksums.txt 2>/dev/null || true
+        find . -maxdepth 1 \( -name "*.zip" -o -name "*.AppImage" -o -name "*.deb" \) -exec shasum -a 256 {} + | sort > checksums.txt 2>/dev/null || true
         cat checksums.txt || echo "No artifacts found"
 
     - name: Generate checksums (Windows)
@@ -112,6 +118,7 @@ jobs:
         name: macos-artifacts
         path: |
           dist/mrxdown-macos-*.zip
+          dist/MrxDown-PDF.workflow.zip
           dist/checksums.txt
         if-no-files-found: warn
         retention-days: 30
@@ -163,7 +170,7 @@ jobs:
         cat checksums.txt
         echo ""
         echo "All release files:"
-        ls -la mrxdown-*
+        ls -la mrxdown-* MrxDown-*.zip 2>/dev/null || true
 
     - name: Create Release
       id: create_release
@@ -176,6 +183,7 @@ jobs:
         bodyFile: release-checksums.md
         artifacts: |
           mrxdown-*
+          MrxDown-PDF.workflow.zip
         token: ${{ secrets.GITHUB_TOKEN }}
         allowUpdates: true
         replacesArtifacts: true

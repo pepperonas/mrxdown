@@ -21,7 +21,10 @@ bower_components/
 
 # Build
 dist/
-build/
+build/*
+!build/installer.nsh
+!build/install-quick-action.sh
+!build/MrxDown PDF.workflow/
 *.min.js
 !vendor/marked.min.js
 !vendor/purify.min.js
