@@ -605,19 +605,23 @@ function createWindow() {
                 detail: 'Möchten Sie vor dem Beenden speichern?'
             });
             if (response.response === 0) {
-                // Save then close
+                // Save then close — clear session on clean exit
                 mainWindow.webContents.send('menu-action', { action: 'save-file' });
-                // Wait a moment for save to complete, then force close
+                clearSessionFile();
                 setTimeout(() => {
                     documentEdited = false;
                     mainWindow.close();
                 }, 500);
             } else if (response.response === 1) {
-                // Don't save, just close
+                // Don't save, just close — clear session on clean exit
+                clearSessionFile();
                 documentEdited = false;
                 mainWindow.close();
             }
             // response === 2: Cancel, do nothing
+        } else {
+            // No unsaved changes — clear session on clean exit
+            clearSessionFile();
         }
     });
 
@@ -1107,6 +1111,10 @@ ipcMain.handle('get-session', () => {
 });
 
 ipcMain.on('clear-session', () => {
+    clearSessionFile();
+});
+
+function clearSessionFile() {
     try {
         if (fsSync.existsSync(sessionPath)) {
             fsSync.unlinkSync(sessionPath);
@@ -1114,7 +1122,7 @@ ipcMain.on('clear-session', () => {
     } catch (error) {
         console.error('Error clearing session:', error);
     }
-});
+}
 
 // Shell operations
 ipcMain.on('open-external', (event, url) => {
