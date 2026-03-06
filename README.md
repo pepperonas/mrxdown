@@ -98,13 +98,51 @@ mrxdown /path/to/ordner/        # Alle .md Dateien im Ordner → PDF
 
 ### macOS Quick Action (optional)
 
-Markdown-Dateien direkt im Finder per Rechtsklick in PDF konvertieren:
+Markdown-Dateien direkt im Finder per Rechtsklick in PDF konvertieren.
 
+#### Installation
+
+**Variante A — Automatisch aus Release:**
 1. `MrxDown PDF.workflow` aus dem [Release](https://github.com/pepperonas/mrxdown/releases/latest) herunterladen
-2. Doppelklick → in Automator "Installieren" wählen
-3. Rechtsklick auf `.md`-Datei → **Schnellaktionen** → **MrxDown PDF**
+2. Doppelklick auf die `.workflow`-Datei → im Dialog **"Installieren"** wählen
 
-> **Tipp**: Unter **Systemeinstellungen → Tastatur → Tastaturkurzbefehle → Dienste** kann ein eigener Shortcut zugewiesen werden (z.B. `Ctrl+Shift+P`).
+**Variante B — Manuell:**
+1. Automator öffnen → **Ablage → Neu → Schnellaktion**
+2. Oben einstellen: *"Arbeitsablauf empfängt: Dateien oder Ordner in Finder"*
+3. Aktion **"Shell-Skript ausführen"** hinzufügen
+4. Shell: `/bin/bash`, Eingabe: **als Argumente**
+5. Skript einfügen:
+```bash
+export PATH="/usr/local/bin:$PATH"
+for f in "$@"; do
+    if [[ "$f" == *.md || "$f" == *.markdown ]]; then
+        OUTPUT=$(mrxdown "$f" 2>&1)
+        BASENAME=$(basename "${f%.*}")
+        if echo "$OUTPUT" | grep -q "PDF erstellt"; then
+            osascript -e "display notification \"${BASENAME}.pdf erstellt\" with title \"MrxDown\" sound name \"Glass\""
+        else
+            osascript -e "display notification \"Fehler bei ${BASENAME}\" with title \"MrxDown\" sound name \"Basso\""
+        fi
+    fi
+done
+```
+6. Speichern als **"MrxDown PDF"**
+
+#### Kontextmenü verwenden
+
+1. `.md`-Datei im Finder markieren oder rechtsklicken
+2. **Rechtsklick → Schnellaktionen → MrxDown PDF**
+3. macOS-Benachrichtigung zeigt Erfolg/Fehler an
+
+> Funktioniert auch mit Mehrfachauswahl — alle selektierten `.md`-Dateien werden konvertiert.
+
+#### Tastatur-Shortcut zuweisen
+
+1. **Systemeinstellungen** → **Tastatur** → **Tastaturkurzbefehle**
+2. Links **Dienste** (bzw. **Services**) auswählen
+3. Unter **Dateien und Ordner** den Eintrag **"MrxDown PDF"** finden
+4. Rechts auf **"ohne"** klicken und gewünschte Tastenkombination drücken (z.B. `⌃⇧P`)
+5. Ab sofort: `.md`-Datei im Finder markieren → Shortcut drücken → PDF wird erstellt
 
 ## Keyboard Shortcuts
 
@@ -190,7 +228,7 @@ Builds und Releases laufen vollautomatisch über GitHub Actions:
 **Neuen Release erstellen:**
 
 ```bash
-# 1. Version in package.json hochzählen
+# 1. Version in package.json hochzählen (siehe Versionierung unten)
 # 2. Committen und pushen
 git tag v0.X.Y && git push origin v0.X.Y
 ```
@@ -212,6 +250,18 @@ git tag v0.X.Y && git push origin v0.X.Y
 - **DOMPurify** — HTML-Sanitization (lokal gebundelt)
 - **Jest** — Testsuite mit 65 Tests
 
+### Versionierung
+
+MrxDown folgt [Semantic Versioning](https://semver.org/lang/de/) (`MAJOR.MINOR.PATCH`):
+
+| Stelle | Erhöhung bei | Beispiel |
+|--------|-------------|----------|
+| **MAJOR** | Inkompatible Änderungen (Breaking Changes) | Neues Dateiformat, entfernte Features |
+| **MINOR** | Neue Features, abwärtskompatibel | Neuer Export-Typ, neue Shortcuts |
+| **PATCH** | Bugfixes, kleine Verbesserungen | Fehler behoben, Performance-Optimierung |
+
+Aktuelle Version: `0.x.y` (Pre-Release-Phase, API noch nicht stabil).
+
 ### Beitrag leisten
 
 1. Fork das Repository
@@ -222,97 +272,82 @@ git tag v0.X.Y && git push origin v0.X.Y
 
 ## Changelog
 
-### Version 0.6.5 (2026-03-06)
+> Ab Version 0.0.1 folgt MrxDown [Semantic Versioning](https://semver.org/lang/de/). Frühere Versionen siehe [Legacy-Changelog](#legacy-changelog).
 
-**Verbesserungen:**
+### 0.0.1 (2026-03-06)
+
+**MINOR — Neue Features:**
+- macOS Quick Action: Markdown-Dateien direkt im Finder per Rechtsklick → PDF konvertieren
+- Quick Action mit macOS-Benachrichtigung (Erfolg/Fehler), Mehrfachauswahl
+- Tastatur-Shortcut für Quick Action konfigurierbar über Systemeinstellungen
+
+**PATCH — Bugfixes:**
 - CLI: Chromium `service_worker_storage` Fehlermeldung beim headless PDF-Export unterdrückt
-- macOS Quick Action: Markdown-Dateien direkt im Finder per Rechtsklick in PDF konvertieren (mit Benachrichtigung)
-- Quick Action unterstützt Mehrfachauswahl und zeigt macOS-Notification bei Erfolg/Fehler
+- CLI: `--disable-features=ServiceWorker` und `--no-first-run` Flags für saubere Ausgabe
 
-### Version 0.6.3 (2026-03-01)
+---
 
-**Bugfixes:**
-- Windows: Dateien konnten nicht geöffnet/gespeichert werden (`fs.constants` war `undefined` weil `fs.promises` kein `constants` hat)
-- Windows: Einstellungen, Recent Files und Session-Daten wurden nicht zuverlässig persistiert (fehlende `await` bei `fs.writeFile()`)
-- Windows: Pfad-Erkennung bei Root-Pfaden wie `C:\` korrigiert (`lastSep >= 0` statt `> 0`)
-- Fehlende Vendor-Libraries (`marked.min.js`, `purify.min.js`) im Repository ergänzt (waren durch `*.min.js` in `.gitignore` ausgeschlossen)
-- DOMPurify als explizite Dependency in `package.json` aufgenommen
+<details>
+<summary><strong>Legacy-Changelog</strong> (vor Semantic Versioning)</summary>
 
-### Version 0.6.0 (2026-03-01)
+#### v0.6.3 (2026-03-01)
 
-**Bugfixes:**
-- XSS-Schutz in Tab-Rendering (innerHTML → sichere DOM-Methoden)
-- Externe Links öffnen korrekt im Standardbrowser via IPC
-- Alle Einstellungen werden beim Start vollständig angewendet
-- Getrennte Debounce-Timer für Suche und Ersetzen
-- Dynamische Versionsanzeige im About-Dialog
-- Debug-Logs aus Produktionscode entfernt
-- Tote Funktionen entfernt
+- Windows: Dateien konnten nicht geöffnet/gespeichert werden (`fs.constants` war `undefined`)
+- Windows: Einstellungen und Session-Daten nicht zuverlässig persistiert (fehlende `await`)
+- Windows: Pfad-Erkennung bei Root-Pfaden wie `C:\` korrigiert
+- Fehlende Vendor-Libraries im Repository ergänzt
+- DOMPurify als explizite Dependency aufgenommen
 
-**Architektur:**
+#### v0.6.0 (2026-03-01)
+
+- XSS-Schutz in Tab-Rendering, externe Links via IPC
 - PDF-CSS in gemeinsame Funktionen extrahiert (~750 Zeilen Duplikation entfernt)
 - Marked.js und DOMPurify lokal gebundelt (keine CDN-Abhängigkeiten)
-- Richtiger Einstellungs-Dialog statt prompt()-Aufrufe
-- Nicht-modale, schwebende Such-/Ersetzen-Panels
+- Durchgestrichen-Button + `Cmd+Shift+X`, Dokument-Gliederung, Tab Drag-to-Reorder
+- Light/Dark Theme Toggle, Tab-Kontextmenü, Ankerlink-Navigation
+- 65 Tests (7 neue für Wrap/Unwrap-Logik)
 
-**Neue Features:**
-- Durchgestrichen-Button + `Cmd+Shift+X` Shortcut
-- Warnung bei ungespeicherten Änderungen beim Beenden
-- Dokument-Gliederung in der Sidebar (klickbare Headings)
-- Tab Drag-to-Reorder
-- Tab-Kontextmenü: Tab schließen / Andere schließen / Alle schließen
-- Light/Dark Theme Toggle mit Persistenz
-- Ankerlink-Navigation in der Vorschau (scrollt Editor + Preview)
+#### v0.5.0 (2026-02-23)
 
-**Tests:** 65 Tests (7 neue für Wrap/Unwrap-Logik)
+- Undo/Redo repariert, Zeile duplizieren/löschen/verschieben
+- Block ein-/ausrücken, Kommentar umschalten, Smart Enter für Listen
+- Jest-Testsuite mit 58 Tests
 
-### Version 0.5.0 (2026-02-23)
+#### v0.4.0 (2025-12-06)
 
-**Editor-Verbesserungen:**
-- Undo/Redo repariert via `document.execCommand`
-- Zeile duplizieren (`Cmd+D`), löschen (`Cmd+Shift+K`), verschieben (`Alt+↑/↓`)
-- Zeile markieren (`Cmd+L`), Block ein-/ausrücken (`Tab`/`Shift+Tab`)
-- Kommentar umschalten (`Cmd+/`), Smart Enter für Listen
-- Jest-Testsuite mit 58 Tests, testbare Logik in `editor-utils.js` extrahiert
+- CLI Support: Headless Markdown-zu-PDF, Batch-Modus für Ordner
 
-### Version 0.4.0 (2025-12-06)
+#### v0.3.0 (2025-01-07)
 
-- CLI Support: Headless Markdown-zu-PDF vom Terminal
-- Batch-Modus für Ordner-Konvertierung
-- PDF-Export Bugfixes (Zeilenabstände, `<br>` Tags)
+- PDF-Export Bilddarstellung ohne Artefakte, HTML-Export Optimierung
 
-### Version 0.3.0 (2025-01-07)
+#### v0.2.0 (2025-09-03)
 
-- PDF-Export Bilddarstellung ohne Artefakte
-- HTML-Export Optimierung
+- Search & Replace mit Regex, File Watching, Batch PDF Export, Multi-Platform Builds
 
-### Version 0.2.0 (2025-09-03)
-
-- Search & Replace mit Regex
-- File Watching
-- Batch PDF Export
-- Multi-Platform Builds (macOS, Windows, Linux)
-
-### Frühere Versionen
+#### Frühere Versionen
 
 - **v0.1.2**: Schreibgeschützte Dateien, macOS Integration
 - **v0.0.10**: macOS Code Signing und Notarisierung
 - **v0.0.5**: Initiale stabile Version
 
+</details>
+
 ## Roadmap
 
-### Version 1.0.0
+### 1.0.0 — Stabile Version
 
 - [x] PDF-Export
 - [x] Undo/Redo Support
 - [x] Editor-Operationen (Zeile verschieben, duplizieren, löschen)
 - [x] Smart Enter (Listen-Fortsetzung)
-- [x] Automatisierte Tests
+- [x] Automatisierte Tests (65 Tests)
 - [x] Light/Dark Theme
 - [x] Syntax-Highlighting im Editor (CodeMirror 6)
+- [x] macOS Quick Action (Finder-Integration)
 - [ ] Mermaid-Diagramm-Support
 
-### Version 1.1.0
+### 1.1.0 — Erweiterungen
 
 - [ ] Plugin-System
 - [ ] Live-Collaboration
