@@ -108,7 +108,7 @@ Markdown-Dateien direkt im Finder per Rechtsklick in PDF konvertieren.
 2. ZIP entpacken und Installer ausführen:
 ```bash
 cd ~/Downloads  # oder wo die ZIP entpackt wurde
-bash install-quick-action.sh
+open install-quick-action.command
 ```
 
 **Variante B — Manuell:**

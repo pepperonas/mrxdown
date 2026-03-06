@@ -73,7 +73,7 @@ jobs:
     - name: Package Quick Action (macOS)
       if: matrix.os == 'macos-latest'
       run: |
-        cd build && zip -r ../dist/MrxDown-PDF.workflow.zip "MrxDown PDF.workflow" install-quick-action.sh
+        cd build && zip -r ../dist/MrxDown-PDF.workflow.zip "MrxDown PDF.workflow" install-quick-action.command
         ls -la ../dist/MrxDown-PDF.workflow.zip
 
     - name: Build app for Windows
