@@ -37,7 +37,7 @@ Push a version tag to trigger CI builds for all platforms with GitHub Release:
 git tag v0.X.Y && git push origin v0.X.Y
 ```
 
-Artifact naming: `mrxdown-macos-{arch}.zip`, `mrxdown-windows-x64.exe`, `mrxdown-linux-x64.AppImage`. CI skips DMG (hdiutil fails on GitHub runners); build locally for DMG.
+Artifact naming: `mrxdown-macos-{arch}.zip`, `mrxdown-windows-x64.exe`, `mrxdown-linux-x64.AppImage`, `MrxDown-PDF.workflow.zip`. CI skips DMG (hdiutil fails on GitHub runners); build locally for DMG.
 
 ## Architecture
 
@@ -93,6 +93,12 @@ Tests in `tests/` cover pure functions from `editor-utils.js`:
 
 GitHub Actions workflows in `.github/workflows/`:
 - **build.yml**: Runs on every push to main. Tests + builds for macOS (ZIP only), Windows (NSIS), Linux (AppImage + deb).
-- **release.yml**: Triggered by `v*` tags. Same builds + creates GitHub Release with SHA256 checksums.
+- **release.yml**: Triggered by `v*` tags. Same builds + creates GitHub Release with SHA256 checksums. Also zips `build/MrxDown PDF.workflow` + `install-quick-action.command` as macOS Quick Action artifact.
 
 macOS CI builds ZIP only (no DMG) because `hdiutil` fails on GitHub runners. Ubuntu runners require specific apt packages (see workflow) — `libgconf-2-4` was removed for Ubuntu 24.04 (Noble) compatibility.
+
+### Build Assets (`build/`)
+
+- **`MrxDown PDF.workflow/`** — macOS Automator Quick Action for Finder → PDF conversion. Includes `Info.plist` (required for service registration) and `document.wflow`.
+- **`install-quick-action.command`** — Double-clickable installer: copies workflow to `~/Library/Services/`, clears quarantine, registers in pbs with `ContextMenu=1`, restarts Finder. Without this, macOS won't show the service in the Finder context menu.
+- **`installer.nsh`** — NSIS custom macros for Windows. `customInstall` registers `.md`/`.markdown` context menu entries in `HKCU\Software\Classes\`, `customUnInstall` removes them. Auto-detected by electron-builder (no package.json config needed).
