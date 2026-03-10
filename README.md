@@ -20,6 +20,8 @@
 [![CodeMirror](https://img.shields.io/badge/CodeMirror-6-d30707?logo=codemirror&logoColor=white)](https://codemirror.net/)
 [![Marked](https://img.shields.io/badge/Marked.js-12-f7df1e?logo=markdown&logoColor=black)](https://marked.js.org/)
 [![DOMPurify](https://img.shields.io/badge/DOMPurify-3-8B5CF6)](https://github.com/cure53/DOMPurify)
+[![morphdom](https://img.shields.io/badge/morphdom-2-4CAF50)](https://github.com/patrick-steele-iber/morphdom)
+[![highlight.js](https://img.shields.io/badge/highlight.js-11-F7DF1E)](https://highlightjs.org/)
 [![Jest](https://img.shields.io/badge/Jest-65%20tests-C21325?logo=jest&logoColor=white)](https://jestjs.io/)
 <br>
 [![JavaScript](https://img.shields.io/github/languages/top/pepperonas/mrxdown?color=f7df1e&logo=javascript&logoColor=black)](https://github.com/pepperonas/mrxdown)
@@ -45,16 +47,22 @@
 
 | Kategorie | Feature |
 |-----------|---------|
-| **Editor** | Live-Vorschau mit Scroll-Sync, Syntax-Highlighting, Zeilennummern, Autocomplete |
-| **Formatierung** | Toolbar mit Fett, Kursiv, Durchgestrichen, Code, Links, Tabellen, H1-H6 |
+| **Editor** | Live-Vorschau mit Paragraph-Level Scroll-Sync, Syntax-Highlighting, Zeilennummern, Autocomplete |
+| **Formatierung** | Toolbar mit Fett, Kursiv, Durchgestrichen, Code, Links, Bilder, Tabellen, H1-H6, Undo/Redo |
 | **Themes** | Dark & Light Theme mit Toggle-Button |
-| **Tabs** | Multi-Tab-Editor mit Drag-to-Reorder, Tab schließen / alle / andere |
-| **Sidebar** | Datei-Explorer mit Ordnerstruktur + Dokument-Gliederung (Outline) |
+| **Tabs** | Multi-Tab-Editor mit Drag-to-Reorder, Undo-History pro Tab, Tab-Übersicht (`Cmd+Shift+T`) |
+| **Sidebar** | Rekursiver Datei-Explorer mit Lazy Loading, aktive Datei-Hervorhebung, Gliederung |
 | **Suche** | Nicht-modale Suche & Ersetzen mit Regex, Groß/Klein, Ganze Wörter |
-| **Export** | HTML mit eingebetteten Bildern, PDF, Batch-PDF aller Tabs |
-| **Schreiben** | Smart Enter (Listen), Auto-Save, Session Recovery |
+| **Command Palette** | `Cmd+Shift+P` — Fuzzy-Suche über alle Befehle und Shortcuts |
+| **Export** | HTML, PDF, Batch-PDF aller Tabs, PDF-Optionen (Seitenformat, TOC, Seitenzahlen) |
+| **PDF** | Syntax-Highlighting in Code-Blöcken, Inhaltsverzeichnis, konfigurierbare Ränder/Schriftgröße |
+| **Schreiben** | Smart Enter (Listen), Auto-Save, Session Recovery, Schreibziel-Tracker, Fokus-Modus |
+| **Dashboard** | Dokument-Info-Panel, Live-Statistiken (Zeichen/Wörter/Absätze/Lesezeit), Markdown-Lint |
+| **Bilder** | Drag & Drop, Clipboard-Paste — automatisch in `images/`-Unterordner gespeichert |
 | **Dateien** | Drag & Drop (Dateien + Ordner), File Watching, Recent Files, Einstellungen |
-| **Editor-Ops** | Zeile duplizieren/löschen/verschieben, Block ein-/ausrücken, Kommentar-Toggle |
+| **Editor-Ops** | Zeile duplizieren/löschen/verschieben, Block ein-/ausrücken, Kommentar-Toggle, Checkbox-Toggle |
+| **Rendering** | YAML-Frontmatter-Unterstützung, Typewriter-Modus, inkrementelles DOM-Diffing (morphdom) |
+| **Rechtschreibung** | Integrierte Rechtschreibprüfung (DE/EN) mit Korrekturvorschlägen |
 | **CLI** | Headless Markdown-zu-PDF Konvertierung vom Terminal |
 | **Quick Action** | macOS Rechtsklick-Kontextmenü für Markdown → PDF Konvertierung |
 | **Windows Kontextmenü** | Windows Rechtsklick → "Mit MrxDown zu PDF konvertieren" (automatisch per Installer) |
@@ -202,12 +210,15 @@ reg delete "HKCU\Software\Classes\.markdown\shell\MrxDownPDF" /f
 | `Tab` / `Shift + Tab` | Einrücken / Ausrücken |
 | `Enter` | Smart Enter (Listen fortsetzen) |
 
-### Navigation
+### Navigation & Tools
 
 | Shortcut | Aktion |
 |----------|--------|
 | `Cmd/Ctrl + F` | Suchen |
 | `Cmd/Ctrl + R` | Ersetzen |
+| `Cmd/Ctrl + Shift + P` | Command Palette |
+| `Cmd/Ctrl + Shift + T` | Tab-Übersicht |
+| `Cmd/Ctrl + Shift + F` | Fokus-Modus |
 | `Cmd/Ctrl + \` | Sidebar umschalten |
 | `Cmd/Ctrl + Tab` | Nächster Tab |
 | `Cmd/Ctrl + Shift + Tab` | Vorheriger Tab |
@@ -266,9 +277,11 @@ git tag v0.X.Y && git push origin v0.X.Y
 ### Technischer Stack
 
 - **Electron 28** — Desktop-App-Framework
-- **CodeMirror 6** — Editor mit Syntax-Highlighting
+- **CodeMirror 6** — Editor mit Syntax-Highlighting, Fokus-Modus, Typewriter-Modus
 - **Marked.js** — Markdown-Parser (lokal gebundelt)
 - **DOMPurify** — HTML-Sanitization (lokal gebundelt)
+- **morphdom** — Inkrementelles DOM-Diffing für die Vorschau (~4 KB)
+- **highlight.js** — Syntax-Highlighting in PDF-Code-Blöcken
 - **Jest** — Testsuite mit 65 Tests
 
 ### Versionierung
@@ -294,6 +307,58 @@ Aktuelle Version: `0.x.y` (Pre-Release-Phase, API noch nicht stabil).
 ## Changelog
 
 > Ab Version 0.0.1 folgt MrxDown [Semantic Versioning](https://semver.org/lang/de/). Frühere Versionen siehe [Legacy-Changelog](#legacy-changelog).
+
+### 0.1.0 (2026-03-10)
+
+**MINOR — Großes Feature-Update (38 neue Features in 6 Phasen):**
+
+**Stabilität & Robustheit (Phase 1):**
+- Race-Condition beim Schließen behoben — async Save mit Promise statt fire-and-forget
+- Browser-Dialoge (`confirm`/`prompt`/`alert`) durch native Electron-Dialoge ersetzt
+- Crash-Handler: `uncaughtException` + automatische Session-Wiederherstellung
+- PDF-Bild-Limits: 10s Timeout, 10 MB Limit, Fallback-Platzhalter
+- Intelligentes PDF-Wait mit MutationObserver statt fixem Timeout
+- Undo-History pro Tab: separater CM6 EditorState wird beim Tab-Wechsel gespeichert/wiederhergestellt
+- macOS `open-file` Handler: Dateien öffnen sich im laufenden Editor
+
+**Info-Dashboard (Phase 2):**
+- Erweiterter Dokumentstatus: Zeichen, Wörter, Sätze, Absätze, Headings, Bilder, Links, Code-Blöcke, Lesezeit
+- Schreibziel-Tracker: Wortziel mit Fortschrittsbalken in Statusleiste
+- Dokument-Info-Panel: Dateipfad, Größe, Erstellt/Geändert, Heading-Struktur
+- Live-Statistiken in Statusleiste: Zeichen, Wörter, Zeilen, Absätze, Lesezeit
+- Session-Statistik: Wörter geschrieben, aktive Schreibzeit
+- Tab-Übersicht (`Cmd+Shift+T`): sortierbare Tabelle aller offenen Tabs
+- Markdown-Lint: Heading-Sprünge, doppelte Headings, leere Links erkennen
+
+**Editor-Verbesserungen (Phase 3):**
+- Command Palette (`Cmd+Shift+P`): Fuzzy-Suche über 35+ Befehle
+- Bild einfügen per Paste: Clipboard-Bilder automatisch in `images/`-Unterordner speichern
+- Rechtschreibprüfung (DE/EN) mit Korrekturvorschlägen im Kontextmenü
+- Fokus-Modus (`Cmd+Shift+F`): aktueller Absatz hervorgehoben, Rest abgedimmt
+- Typewriter-Modus: Cursor bleibt bei 40% der Editorhöhe
+- Checkbox-Toggle: Checkboxen in Vorschau klicken ändert `[ ]`/`[x]` im Quelltext
+- Bild Drag & Drop: Bilder auf Editor ziehen kopiert in `images/`-Unterordner
+
+**Rendering & Export (Phase 4):**
+- Syntax-Highlighting in PDF (highlight.js mit One-Light-Farbschema)
+- PDF-Optionen-Dialog: Seitenformat, Ausrichtung, Ränder, Schriftgröße, TOC, Seitenzahlen
+- Inhaltsverzeichnis im PDF (optional)
+- Seitenzahlen im PDF via CSS `@page`
+- YAML-Frontmatter: `---`-Block am Dateianfang wird als Info-Box in der Vorschau gerendert
+
+**UI/UX Polish (Phase 5):**
+- Fensterposition und -größe merken (inkl. maximiert-Status)
+- Sidebar resizable: Drag-Handle, 150–500px, Breite wird gespeichert
+- Vollständiger Dateibaum: rekursive Ordner-Navigation mit Lazy Loading, aktive Datei-Hervorhebung
+- Paragraph-Level Scroll-Sync: `data-source-line`-Attribute für präzise Editor/Vorschau-Synchronisation
+- Natives Kontextmenü: Ausschneiden, Kopieren, Einfügen, Fett, Kursiv, Code, Link, Alles auswählen
+- Tab-Previews: Hover zeigt erste 5 Zeilen des Dokuments
+- Toolbar erweitert: Undo, Redo, Bild einfügen, PDF-Export
+
+**Performance (Phase 6):**
+- Inkrementelles Rendering mit morphdom — DOM-Diffing statt vollem Replacement
+- Event-basiertes File Watching (fs.watch statt Polling)
+- Separater EditorState pro Tab mit Preview-Scroll-Restoration
 
 ### 0.0.2 (2026-03-06)
 
@@ -365,22 +430,27 @@ Aktuelle Version: `0.x.y` (Pre-Release-Phase, API noch nicht stabil).
 
 ### 1.0.0 — Stabile Version
 
-- [x] PDF-Export
-- [x] Undo/Redo Support
+- [x] PDF-Export mit Optionen-Dialog, Syntax-Highlighting, TOC, Seitenzahlen
+- [x] Undo/Redo Support mit separatem EditorState pro Tab
 - [x] Editor-Operationen (Zeile verschieben, duplizieren, löschen)
 - [x] Smart Enter (Listen-Fortsetzung)
 - [x] Automatisierte Tests (65 Tests)
-- [x] Light/Dark Theme
+- [x] Light/Dark Theme mit vollständigen Overrides
 - [x] Syntax-Highlighting im Editor (CodeMirror 6)
 - [x] macOS Quick Action (Finder-Integration)
+- [x] Command Palette, Fokus-Modus, Typewriter-Modus
+- [x] Dokument-Dashboard mit Live-Statistiken und Markdown-Lint
+- [x] Inkrementelles Rendering (morphdom)
+- [x] Rechtschreibprüfung (DE/EN)
 - [ ] Mermaid-Diagramm-Support
+- [ ] KaTeX Math-Formeln
 
 ### 1.1.0 — Erweiterungen
 
+- [ ] Minimap (Canvas-basiert)
 - [ ] Plugin-System
 - [ ] Live-Collaboration
 - [ ] Cloud-Sync
-- [ ] Math-Formeln (KaTeX)
 
 ## Support
 

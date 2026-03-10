@@ -116,6 +116,16 @@ body.platform-darwin .toolbar {
     background-color: #d45557;
 }
 
+.toolbar-button-compact {
+    padding: 2px;
+    margin: 0;
+    min-width: auto;
+}
+
+.toolbar-spacer {
+    flex: 1;
+}
+
 /* Tooltips */
 .tooltip {
     position: relative;

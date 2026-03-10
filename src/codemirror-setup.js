@@ -11,6 +11,7 @@ import { syntaxHighlighting, HighlightStyle, indentOnInput, bracketMatching, fol
 import { tags } from '@lezer/highlight';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+import { ViewPlugin, Decoration } from '@codemirror/view';
 
 // Theme compartment for dynamic switching
 const themeCompartment = new Compartment();
@@ -19,6 +20,8 @@ const wordWrapCompartment = new Compartment();
 const tabSizeCompartment = new Compartment();
 const fontSizeCompartment = new Compartment();
 const readOnlyCompartment = new Compartment();
+const focusModeCompartment = new Compartment();
+const typewriterCompartment = new Compartment();
 
 // Dark theme highlight style (One Dark inspired, matching original editor-highlight colors)
 const darkHighlightStyle = HighlightStyle.define([
@@ -161,6 +164,78 @@ const lightEditorTheme = EditorView.theme({
     },
 }, { dark: false });
 
+// C4: Focus Mode — dims all lines except the current paragraph
+function createFocusModeExtension() {
+    return ViewPlugin.fromClass(class {
+        constructor(view) {
+            this.decorations = this.buildDecorations(view);
+        }
+        update(update) {
+            if (update.docChanged || update.selectionSet) {
+                this.decorations = this.buildDecorations(update.view);
+            }
+        }
+        buildDecorations(view) {
+            const { state } = view;
+            const cursor = state.selection.main.head;
+            const cursorLine = state.doc.lineAt(cursor).number;
+
+            // Find paragraph boundaries (blank line delimited)
+            let paraStart = cursorLine;
+            while (paraStart > 1 && state.doc.line(paraStart - 1).text.trim() !== '') {
+                paraStart--;
+            }
+            let paraEnd = cursorLine;
+            while (paraEnd < state.doc.lines && state.doc.line(paraEnd + 1).text.trim() !== '') {
+                paraEnd++;
+            }
+
+            const builder = [];
+            const dimMark = Decoration.line({ class: 'cm-focus-dim' });
+            for (let i = 1; i <= state.doc.lines; i++) {
+                if (i < paraStart || i > paraEnd) {
+                    builder.push(dimMark.range(state.doc.line(i).from));
+                }
+            }
+            return Decoration.set(builder);
+        }
+    }, {
+        decorations: v => v.decorations,
+    });
+}
+
+// Focus mode theme (adds dim styling)
+const focusModeTheme = EditorView.theme({
+    '.cm-focus-dim': { opacity: '0.3', transition: 'opacity 0.2s ease' },
+});
+
+// C5: Typewriter Mode — keeps cursor line at ~40% vertical
+function createTypewriterExtension() {
+    return ViewPlugin.fromClass(class {
+        constructor(view) {
+            this.lastLine = -1;
+        }
+        update(update) {
+            if (update.selectionSet || update.docChanged) {
+                const { state } = update.view;
+                const line = state.doc.lineAt(state.selection.main.head).number;
+                if (line !== this.lastLine) {
+                    this.lastLine = line;
+                    // Scroll cursor to 40% of viewport
+                    const coords = update.view.coordsAtPos(state.selection.main.head);
+                    if (coords) {
+                        const target = update.view.scrollDOM.clientHeight * 0.4;
+                        const delta = coords.top - update.view.scrollDOM.getBoundingClientRect().top - target;
+                        if (Math.abs(delta) > 10) {
+                            update.view.scrollDOM.scrollBy({ top: delta, behavior: 'smooth' });
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
 /**
  * Create a new CodeMirror editor instance.
  * @param {HTMLElement} parentElement - DOM element to mount the editor in
@@ -230,6 +305,12 @@ function createEditor(parentElement, options = {}) {
 
             // Read-only compartment (for future use)
             readOnlyCompartment.of(EditorState.readOnly.of(false)),
+
+            // C4: Focus mode (off by default)
+            focusModeCompartment.of([]),
+
+            // C5: Typewriter mode (off by default)
+            typewriterCompartment.of([]),
 
             // Markdown language support with code block language detection
             markdown({
@@ -303,6 +384,20 @@ function createEditor(parentElement, options = {}) {
         },
         undo() { undo(view); },
         redo() { redo(view); },
+        setFocusMode(enabled) {
+            view.dispatch({
+                effects: focusModeCompartment.reconfigure(
+                    enabled ? [createFocusModeExtension(), focusModeTheme] : []
+                ),
+            });
+        },
+        setTypewriterMode(enabled) {
+            view.dispatch({
+                effects: typewriterCompartment.reconfigure(
+                    enabled ? createTypewriterExtension() : []
+                ),
+            });
+        },
     };
 }
 

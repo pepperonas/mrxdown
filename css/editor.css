@@ -65,3 +65,7 @@
 #editor:focus {
     outline: none;
 }
+
+body.light-theme .editor-header {
+    border-color: #dee2e6;
+}

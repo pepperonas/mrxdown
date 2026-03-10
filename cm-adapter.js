@@ -132,6 +132,29 @@ class EditorAdapter {
         return this._view.scrollDOM.clientHeight;
     }
 
+    // E4: Get first visible line number (1-based) for scroll sync
+    getFirstVisibleLine() {
+        try {
+            const top = this._view.scrollDOM.scrollTop;
+            const block = this._view.lineBlockAtHeight(top);
+            const line = this._view.state.doc.lineAt(block.from);
+            return line.number;
+        } catch (e) {
+            return 1;
+        }
+    }
+
+    // E4: Scroll to a specific line number (1-based)
+    scrollToLine(lineNum) {
+        try {
+            const line = this._view.state.doc.line(Math.max(1, Math.min(lineNum, this._view.state.doc.lines)));
+            const block = this._view.lineBlockAt(line.from);
+            this._view.scrollDOM.scrollTop = block.top;
+        } catch (e) {
+            // fallback: ignore
+        }
+    }
+
     // --- DOM compat ---
 
     focus() {
@@ -237,6 +260,16 @@ class EditorAdapter {
         this._cm.setLineNumbers(show);
     }
 
+    // --- C4: Focus Mode ---
+    setFocusMode(enabled) {
+        if (this._cm.setFocusMode) this._cm.setFocusMode(enabled);
+    }
+
+    // --- C5: Typewriter Mode ---
+    setTypewriterMode(enabled) {
+        if (this._cm.setTypewriterMode) this._cm.setTypewriterMode(enabled);
+    }
+
     // --- Event system (textarea-compatible) ---
 
     addEventListener(event, handler) {
@@ -258,6 +291,25 @@ class EditorAdapter {
                 handler(data || { target: this });
             }
         }
+    }
+
+    // --- A6: EditorState save/restore per tab ---
+
+    /**
+     * Returns the full CM6 EditorState for saving (includes undo history, cursor, etc.)
+     */
+    getState() {
+        return this._view.state;
+    }
+
+    /**
+     * Replaces the entire CM6 EditorState (restores undo history, cursor, etc.)
+     * @param {EditorState} state
+     */
+    setState(state) {
+        this._suppressNextChange = true;
+        this._view.setState(state);
+        this._suppressNextChange = false;
     }
 
     // --- CM6 direct access (for advanced operations) ---

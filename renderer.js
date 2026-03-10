@@ -1,3 +1,63 @@
+// A2: Electron dialog helpers (replace browser confirm/prompt/alert)
+async function showConfirm(message, detail) {
+    if (window.electronAPI && window.electronAPI.showConfirmDialog) {
+        const result = await window.electronAPI.showConfirmDialog({
+            message,
+            detail,
+            buttons: ['OK', 'Abbrechen'],
+            defaultId: 0,
+            cancelId: 1
+        });
+        return result === 0;
+    }
+    return confirm(message); // fallback
+}
+
+async function showAlert(message, detail) {
+    if (window.electronAPI && window.electronAPI.showAlertDialog) {
+        await window.electronAPI.showAlertDialog({ message, detail });
+        return;
+    }
+    alert(message); // fallback
+}
+
+function showInputDialog(title, placeholder, defaultValue) {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('inputDialog');
+        const titleEl = document.getElementById('inputDialogTitle');
+        const field = document.getElementById('inputDialogField');
+        const okBtn = document.getElementById('inputDialogOk');
+        const cancelBtn = document.getElementById('inputDialogCancel');
+        if (!overlay || !field) { resolve(null); return; }
+
+        titleEl.textContent = title;
+        field.placeholder = placeholder || '';
+        field.value = defaultValue || '';
+        overlay.style.display = '';
+        overlay.classList.add('visible');
+        field.focus();
+        field.select();
+
+        function cleanup() {
+            overlay.style.display = 'none';
+            overlay.classList.remove('visible');
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+            field.removeEventListener('keydown', onKey);
+        }
+        function onOk() { cleanup(); resolve(field.value); }
+        function onCancel() { cleanup(); resolve(null); }
+        function onKey(e) {
+            if (e.key === 'Enter') { e.preventDefault(); onOk(); }
+            if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+        }
+
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+        field.addEventListener('keydown', onKey);
+    });
+}
+
 // Application State
 let tabs = [];
 let activeTabId = 0;
@@ -20,7 +80,8 @@ let settings = {
     showLineNumbers: false,
     wordWrap: true,
     tabSize: 4,
-    syncScroll: true
+    syncScroll: true,
+    writingGoal: 0
 };
 
 // DOM Elements - will be initialized in initializeApp
@@ -75,6 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.toggleTheme = toggleTheme;
     window.closeOtherTabs = closeOtherTabs;
     window.closeAllTabs = closeAllTabs;
+    window.showInputDialog = showInputDialog;
 });
 
 function initializeApp() {
@@ -136,6 +198,15 @@ function initializeApp() {
     // Setup resizable divider
     setupResizableDivider();
     
+    // E2: Setup sidebar resize
+    setupSidebarResize();
+
+    // C2: Setup image paste handler
+    setupImagePaste();
+
+    // C7: Setup image drag & drop
+    setupImageDragDrop();
+
     // Initial render
     renderMarkdown();
 
@@ -326,15 +397,15 @@ function createNewTab(content = '', filePath = null) {
     return tab;
 }
 
-function closeTab(tabId) {
+async function closeTab(tabId) {
     const tabIndex = tabs.findIndex(tab => tab.id === tabId);
     if (tabIndex === -1) return;
-    
+
     const tab = tabs[tabIndex];
-    
+
     if (tab.isModified) {
-        const shouldSave = confirm('Ungespeicherte Änderungen gehen verloren. Trotzdem schließen?');
-        if (!shouldSave) return;
+        const shouldClose = await showConfirm('Ungespeicherte Änderungen gehen verloren. Trotzdem schließen?');
+        if (!shouldClose) return;
     }
     
     // Stop watching the file if it has one
@@ -396,11 +467,11 @@ function showTabContextMenu(x, y, tabId) {
     setTimeout(() => document.addEventListener('click', removeMenu), 0);
 }
 
-function closeOtherTabs(keepTabId) {
+async function closeOtherTabs(keepTabId) {
     const tabsToClose = tabs.filter(t => t.id !== keepTabId);
     const hasUnsaved = tabsToClose.some(t => t.isModified);
     if (hasUnsaved) {
-        if (!confirm('Ungespeicherte Änderungen in anderen Tabs gehen verloren. Fortfahren?')) return;
+        if (!(await showConfirm('Ungespeicherte Änderungen in anderen Tabs gehen verloren. Fortfahren?'))) return;
     }
     // Stop watchers for closing tabs
     tabsToClose.forEach(t => {
@@ -414,10 +485,10 @@ function closeOtherTabs(keepTabId) {
     loadTabContent(keepTabId);
 }
 
-function closeAllTabs() {
+async function closeAllTabs() {
     const hasUnsaved = tabs.some(t => t.isModified);
     if (hasUnsaved) {
-        if (!confirm('Ungespeicherte Änderungen gehen verloren. Alle Tabs schließen?')) return;
+        if (!(await showConfirm('Ungespeicherte Änderungen gehen verloren. Alle Tabs schließen?'))) return;
     }
     tabs.forEach(t => {
         if (t.filePath && window.electronAPI) {
@@ -446,27 +517,47 @@ function saveCurrentTabState() {
         activeTab.content = editor.value;
         activeTab.cursorPosition = editor.selectionStart;
         activeTab.scrollPosition = editor.scrollTop;
+        // F3: Save preview scroll position per tab
+        if (preview) activeTab.previewScrollPosition = preview.scrollTop;
+        // A6: Save full CM6 EditorState (includes undo history)
+        if (editor.getState) {
+            activeTab.editorState = editor.getState();
+        }
     }
 }
 
 function loadTabContent(tabId) {
     const tab = tabs.find(tab => tab.id === tabId);
     if (!tab) return;
-    
-    editor.value = tab.content;
-    editor.selectionStart = tab.cursorPosition;
-    editor.selectionEnd = tab.cursorPosition;
+
+    // A6: Restore full CM6 EditorState if available (preserves undo history)
+    if (tab.editorState && editor.setState) {
+        editor.setState(tab.editorState);
+    } else {
+        editor.value = tab.content;
+        editor.selectionStart = tab.cursorPosition;
+        editor.selectionEnd = tab.cursorPosition;
+    }
     editor.scrollTop = tab.scrollPosition;
-    
+
+    // F3: Restore preview scroll position per tab
+    if (preview && tab.previewScrollPosition !== undefined) {
+        // Defer to after renderMarkdown fills the preview content
+        setTimeout(() => { preview.scrollTop = tab.previewScrollPosition; }, 50);
+    }
+
     fileName.textContent = tab.title;
-    
+
     if (window.electronAPI) {
         window.electronAPI.updateWindowTitle(tab.title + (tab.isModified ? ' •' : ''));
     }
-    
+
     // Update UI based on file type
     updateUIForFileType(tab);
     renderMarkdown();
+
+    // E3: Highlight active file in sidebar tree
+    highlightActiveFileInTree();
 }
 
 function renderTabs() {
@@ -507,6 +598,11 @@ function renderTabs() {
             tabs.splice(toIndex, 0, moved);
             renderTabs();
         });
+
+        // E6: Tab preview tooltip — show first 5 lines
+        const previewContent = (tab.id === activeTabId ? editor.value : (tab.content || ''));
+        const previewLines = previewContent.split('\n').slice(0, 5).join('\n');
+        tabElement.title = previewLines || tab.title;
 
         const titleDiv = document.createElement('div');
         titleDiv.className = 'tab-title';
@@ -647,7 +743,15 @@ function renderMarkdown() {
         // For .md files, show preview and render markdown
         preview.style.display = 'block';
         editor.parentElement.style.width = '';
-        const markdown = editor.value;
+        let markdown = editor.value;
+
+        // D7: Parse YAML frontmatter
+        let frontmatter = null;
+        const fmMatch = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+        if (fmMatch) {
+            frontmatter = fmMatch[1];
+            markdown = markdown.substring(fmMatch[0].length);
+        }
 
         // Configure marked with a custom renderer to add IDs to headings
         if (typeof marked !== 'undefined') {
@@ -710,18 +814,40 @@ function renderMarkdown() {
             KEEP_CONTENT: true
         });
 
-        preview.innerHTML = sanitized;
+        // F1: Build new content in temporary container for morphdom diffing
+        const newPreview = document.createElement('div');
+        newPreview.id = 'preview';
+        newPreview.className = preview.className;
+
+        // D7: Render frontmatter as info box if present
+        if (frontmatter) {
+            const fmBox = document.createElement('div');
+            fmBox.className = 'frontmatter-box';
+            const fmTitle = document.createElement('div');
+            fmTitle.className = 'frontmatter-title';
+            fmTitle.textContent = 'Frontmatter';
+            fmBox.appendChild(fmTitle);
+            const fmPre = document.createElement('pre');
+            fmPre.textContent = frontmatter;
+            fmBox.appendChild(fmPre);
+            newPreview.appendChild(fmBox);
+        }
+
+        // Set sanitized content
+        const contentDiv = document.createElement('div');
+        contentDiv.innerHTML = sanitized;
+        while (contentDiv.firstChild) {
+            newPreview.appendChild(contentDiv.firstChild);
+        }
 
         // Post-processing: Fix heading IDs to match GitHub algorithm
-        // This runs AFTER rendering to ensure IDs are correct regardless of marked.js behavior
-        const headings = preview.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        const headings = newPreview.querySelectorAll('h1, h2, h3, h4, h5, h6');
         const idCounts = {};
 
         headings.forEach(heading => {
             const text = heading.textContent || '';
             const startsWithEmoji = /^[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(text.trim());
 
-            // Generate ID using GitHub algorithm
             let id = text
                 .toLowerCase()
                 .trim()
@@ -731,7 +857,6 @@ function renderMarkdown() {
                 .replace(/-+$/g, '')
                 .replace(/^-+/, startsWithEmoji ? '-' : '');
 
-            // Handle duplicates
             if (idCounts[id] !== undefined) {
                 idCounts[id]++;
                 id = `${id}-${idCounts[id]}`;
@@ -742,9 +867,79 @@ function renderMarkdown() {
             heading.id = id;
         });
 
+        // F1: Use morphdom for incremental DOM updates (preserves scroll, less layout thrashing)
+        if (typeof morphdom !== 'undefined') {
+            morphdom(preview, newPreview, {
+                onBeforeElUpdated: function(fromEl, toEl) {
+                    // Preserve scroll position of preview
+                    return true;
+                }
+            });
+        } else {
+            // Fallback: full replacement
+            preview.textContent = '';
+            while (newPreview.firstChild) {
+                preview.appendChild(newPreview.firstChild);
+            }
+        }
+
+        // E4: Add data-source-line attributes to block-level elements for scroll sync
+        addSourceLineAttributes(markdown, frontmatter ? fmMatch[0].split('\n').length - 1 : 0);
+
+        // C6: Setup checkbox toggle — map preview checkboxes to source lines
+        setupCheckboxToggle();
+
         // Update document outline in sidebar
         updateDocumentOutline();
     }
+}
+
+// E4: Map preview block elements to source line numbers for paragraph-level scroll sync
+function addSourceLineAttributes(markdown, lineOffset) {
+    const lines = markdown.split('\n');
+    const blockElements = preview.querySelectorAll('h1, h2, h3, h4, h5, h6, p, ul, ol, pre, blockquote, table, hr');
+    let searchFromLine = 0;
+
+    blockElements.forEach(el => {
+        const text = (el.textContent || '').trim();
+        if (!text && el.tagName !== 'HR') return;
+
+        // For headings, match by heading marker + text
+        if (/^H[1-6]$/.test(el.tagName)) {
+            const level = parseInt(el.tagName[1]);
+            const prefix = '#'.repeat(level) + ' ';
+            for (let i = searchFromLine; i < lines.length; i++) {
+                if (lines[i].startsWith(prefix)) {
+                    el.setAttribute('data-source-line', i + lineOffset);
+                    searchFromLine = i + 1;
+                    return;
+                }
+            }
+        }
+
+        // For HRs, match --- or *** or ___
+        if (el.tagName === 'HR') {
+            for (let i = searchFromLine; i < lines.length; i++) {
+                if (/^(\*{3,}|-{3,}|_{3,})\s*$/.test(lines[i])) {
+                    el.setAttribute('data-source-line', i + lineOffset);
+                    searchFromLine = i + 1;
+                    return;
+                }
+            }
+        }
+
+        // For other blocks, find a line whose content overlaps the element text
+        const firstWords = text.substring(0, 60).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (firstWords.length < 3) return;
+        for (let i = searchFromLine; i < lines.length; i++) {
+            const lineClean = lines[i].replace(/^[>\-*+\d.]+\s*/, '').replace(/[`*_~\[\]()]/g, '');
+            if (lineClean.length > 2 && text.includes(lineClean.trim().substring(0, 30))) {
+                el.setAttribute('data-source-line', i + lineOffset);
+                searchFromLine = i + 1;
+                return;
+            }
+        }
+    });
 }
 
 function updateDocumentOutline() {
@@ -805,13 +1000,34 @@ function updateStats() {
     if (!editor || !charCount || !wordCount || !lineCount) return;
 
     const text = editor.value;
-    const chars = text.length;
-    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-    const lines = text.split('\n').length;
 
-    charCount.textContent = `${chars} Zeichen`;
-    wordCount.textContent = `${words} Wörter`;
-    lineCount.textContent = `${lines} Zeilen`;
+    // B1/B4: Use analyzeDocument for comprehensive stats
+    if (typeof analyzeDocument === 'function') {
+        const stats = analyzeDocument(text);
+        charCount.textContent = `${stats.chars} Zeichen`;
+        wordCount.textContent = `${stats.words} Wörter`;
+        lineCount.textContent = `${stats.lineCount} Zeilen`;
+
+        const paragraphEl = document.getElementById('paragraphCount');
+        if (paragraphEl) paragraphEl.textContent = `${stats.paragraphs} Absätze`;
+
+        const readingEl = document.getElementById('readingTime');
+        if (readingEl) readingEl.textContent = `~${stats.readingTimeMin} Min.`;
+
+        // B5: Update session word tracking
+        updateSessionStats(stats.words);
+
+        // B7: Run lint
+        updateLintWarnings(text);
+    } else {
+        // Fallback
+        const chars = text.length;
+        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+        const lines = text.split('\n').length;
+        charCount.textContent = `${chars} Zeichen`;
+        wordCount.textContent = `${words} Wörter`;
+        lineCount.textContent = `${lines} Zeilen`;
+    }
 
     updateLineNumbers();
     updateCursorPosition();
@@ -849,31 +1065,68 @@ function syncScroll(event) {
     }
 
     const sourceElement = event.target;
-    const targetElement = sourceElement === editor ? preview : editor;
+    const fromEditor = (sourceElement === editor);
 
-    if (sourceElement && targetElement) {
-        // Use requestAnimationFrame for throttled scroll sync
-        if (scrollSyncRAF) cancelAnimationFrame(scrollSyncRAF);
-        scrollSyncRAF = requestAnimationFrame(() => {
-            const sourceScrollHeight = sourceElement.scrollHeight - sourceElement.clientHeight;
-            const targetScrollHeight = targetElement.scrollHeight - targetElement.clientHeight;
+    if (scrollSyncRAF) cancelAnimationFrame(scrollSyncRAF);
+    scrollSyncRAF = requestAnimationFrame(() => {
+        isScrollSyncing = true;
 
-            if (sourceScrollHeight <= 0 || targetScrollHeight <= 0) return;
+        // E4: Paragraph-level scroll sync using data-source-line attributes
+        const lineElements = preview.querySelectorAll('[data-source-line]');
 
-            isScrollSyncing = true;
-
-            const scrollRatio = sourceElement.scrollTop / sourceScrollHeight;
-            const targetScrollTop = scrollRatio * targetScrollHeight;
-
-            if (Math.abs(targetElement.scrollTop - targetScrollTop) > 5) {
-                targetElement.scrollTop = targetScrollTop;
+        if (lineElements.length > 1 && fromEditor && editor.getFirstVisibleLine) {
+            // Editor → Preview: find first visible line, scroll preview to matching element
+            const visibleLine = editor.getFirstVisibleLine();
+            let bestEl = null;
+            let bestLine = -1;
+            for (const el of lineElements) {
+                const srcLine = parseInt(el.getAttribute('data-source-line'), 10);
+                if (srcLine <= visibleLine && srcLine > bestLine) {
+                    bestLine = srcLine;
+                    bestEl = el;
+                }
             }
+            if (bestEl) {
+                const elTop = bestEl.offsetTop - preview.offsetTop;
+                if (Math.abs(preview.scrollTop - elTop) > 10) {
+                    preview.scrollTop = elTop;
+                }
+            }
+        } else if (lineElements.length > 1 && !fromEditor && editor.scrollToLine) {
+            // Preview → Editor: find visible element in preview, scroll editor to that line
+            const previewTop = preview.scrollTop;
+            let bestEl = null;
+            let bestDist = Infinity;
+            for (const el of lineElements) {
+                const dist = Math.abs(el.offsetTop - preview.offsetTop - previewTop);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    bestEl = el;
+                }
+            }
+            if (bestEl) {
+                const srcLine = parseInt(bestEl.getAttribute('data-source-line'), 10);
+                editor.scrollToLine(srcLine);
+            }
+        } else {
+            // Fallback: ratio-based scroll sync
+            const src = fromEditor ? editor : preview;
+            const tgt = fromEditor ? preview : editor;
+            const srcMax = src.scrollHeight - src.clientHeight;
+            const tgtMax = tgt.scrollHeight - tgt.clientHeight;
+            if (srcMax > 0 && tgtMax > 0) {
+                const ratio = src.scrollTop / srcMax;
+                const targetTop = ratio * tgtMax;
+                if (Math.abs(tgt.scrollTop - targetTop) > 5) {
+                    tgt.scrollTop = targetTop;
+                }
+            }
+        }
 
-            setTimeout(() => {
-                isScrollSyncing = false;
-            }, 50);
-        });
-    }
+        setTimeout(() => {
+            isScrollSyncing = false;
+        }, 50);
+    });
 }
 
 // --- Autocomplete ---
@@ -1110,14 +1363,14 @@ function formatCode() {
     }
 }
 
-function insertLink() {
-    const url = prompt('URL eingeben:');
+async function insertLink() {
+    const url = await showInputDialog('Link einfügen', 'https://...', '');
     if (url) {
         const start = editor.selectionStart;
         const end = editor.selectionEnd;
         const selectedText = editor.value.substring(start, end);
         const linkText = selectedText || 'Link Text';
-        
+
         insertAtCursor(`[${linkText}](${url})`);
     }
 }
@@ -1264,7 +1517,7 @@ function indentSelection() {
     replaceRange(lineStart, lineEnd, indented);
 
     // Adjust selection: first line gets 4 chars added at start
-    const firstLineOffset = selStart === lineStart ? 4 : 4;
+    const firstLineOffset = 4;
     editor.selectionStart = selStart + firstLineOffset;
     editor.selectionEnd = selEnd + (indented.length - block.length);
 }
@@ -1328,11 +1581,11 @@ function toggleBlockComment(text) {
 // getSmartEnterText() is provided by editor-utils.js
 
 async function insertImage() {
-    // Try native file picker first (Electron), fall back to URL prompt
+    // Try native file picker first (Electron), fall back to URL input
     if (window.electronAPI && window.electronAPI.selectImage) {
         const imagePath = await window.electronAPI.selectImage();
         if (imagePath) {
-            const alt = prompt('Alt-Text eingeben:') || 'Bild';
+            const alt = (await showInputDialog('Alt-Text eingeben', 'Beschreibung...', 'Bild')) || 'Bild';
             // Use relative path if possible
             const activeTab = tabs.find(tab => tab.id === activeTabId);
             let insertPath = imagePath;
@@ -1348,10 +1601,10 @@ async function insertImage() {
             return;
         }
     }
-    // Fallback: prompt for URL
-    const url = prompt('Bild-URL eingeben:');
+    // Fallback: input dialog for URL
+    const url = await showInputDialog('Bild einfügen', 'https://...', '');
     if (url) {
-        const alt = prompt('Alt-Text eingeben:') || 'Bild';
+        const alt = (await showInputDialog('Alt-Text eingeben', 'Beschreibung...', 'Bild')) || 'Bild';
         insertAtCursor(`![${alt}](${url})`);
         handleEditorInput();
     }
@@ -1445,6 +1698,15 @@ function handleMenuAction(action, data = {}) {
         case 'show-about':
             showAboutDialog(data.version);
             break;
+        case 'undo':
+            if (editor && editor.undo) editor.undo();
+            break;
+        case 'redo':
+            if (editor && editor.redo) editor.redo();
+            break;
+        case 'print-to-pdf':
+            exportPDF();
+            break;
     }
 
     handleEditorInput();
@@ -1467,10 +1729,10 @@ function saveCurrentFileAs() {
     }
 }
 
-function openFileContent(filePath, content) {
+async function openFileContent(filePath, content) {
     // Warn about very large files
     if (content.length > 1024 * 1024) { // > 1MB
-        const proceed = confirm(`Die Datei ist sehr groß (${(content.length / 1024 / 1024).toFixed(1)} MB). Das Offnen konnte langsam sein. Fortfahren?`);
+        const proceed = await showConfirm(`Die Datei ist sehr groß (${(content.length / 1024 / 1024).toFixed(1)} MB). Das Öffnen könnte langsam sein. Fortfahren?`);
         if (!proceed) return;
     }
 
@@ -1511,90 +1773,138 @@ function openRecentFile(filePath) {
     }
 }
 
-// Sidebar File Tree
+// E3: Sidebar File Tree — fully recursive with lazy loading and active file highlighting
+let fileTreeRootDir = '';
+
+function getFileIcon(name, isDirectory) {
+    if (isDirectory) return 'folder-closed';
+    if (name.endsWith('.md') || name.endsWith('.markdown')) return 'file-text';
+    return 'file';
+}
+
 async function loadFileTree(dirPath) {
     if (!window.electronAPI || !window.electronAPI.listDirectory) return;
     const fileExplorer = document.getElementById('fileExplorer');
     if (!fileExplorer) return;
 
+    fileTreeRootDir = dirPath;
+
     try {
         const entries = await window.electronAPI.listDirectory(dirPath);
         fileExplorer.textContent = '';
-
-        for (const entry of entries) {
-            const item = document.createElement('div');
-            item.className = 'file-item';
-            if (entry.isDirectory) {
-                item.className += ' file-tree-folder';
-            }
-
-            const icon = document.createElement('div');
-            icon.className = 'file-icon';
-            // Safe: getIcon() returns static SVG from hardcoded ICON_PATHS, no user input
-            if (entry.isDirectory) {
-                icon.innerHTML = getIcon('folder-closed', 14);
-            } else if (entry.name.endsWith('.md') || entry.name.endsWith('.markdown')) {
-                icon.innerHTML = getIcon('file-text', 14);
-            } else if (entry.name.endsWith('.txt')) {
-                icon.innerHTML = getIcon('file', 14);
-            } else {
-                icon.innerHTML = getIcon('file', 14);
-            }
-
-            const name = document.createElement('div');
-            name.className = 'file-name';
-            name.textContent = entry.name;
-
-            item.appendChild(icon);
-            item.appendChild(name);
-
-            if (entry.isDirectory) {
-                const children = document.createElement('div');
-                children.className = 'file-tree-children collapsed';
-                let loaded = false;
-
-                item.addEventListener('click', async () => {
-                    if (!loaded) {
-                        const subEntries = await window.electronAPI.listDirectory(entry.path);
-                        for (const sub of subEntries) {
-                            const subItem = document.createElement('div');
-                            subItem.className = 'file-item';
-                            const subIcon = document.createElement('div');
-                            subIcon.className = 'file-icon';
-                            // Safe: getIcon() returns static SVG from hardcoded ICON_PATHS
-                            subIcon.innerHTML = sub.isDirectory ? getIcon('folder-closed', 14) :
-                                (sub.name.endsWith('.md') || sub.name.endsWith('.markdown')) ? getIcon('file-text', 14) : getIcon('file', 14);
-                            const subName = document.createElement('div');
-                            subName.className = 'file-name';
-                            subName.textContent = sub.name;
-                            subItem.appendChild(subIcon);
-                            subItem.appendChild(subName);
-                            if (!sub.isDirectory) {
-                                subItem.addEventListener('click', (e) => {
-                                    e.stopPropagation();
-                                    window.electronAPI.openFilePath(sub.path);
-                                });
-                            }
-                            children.appendChild(subItem);
-                        }
-                        loaded = true;
-                    }
-                    children.classList.toggle('collapsed');
-                    // Safe: getIcon() returns static SVG from hardcoded ICON_PATHS
-                    icon.innerHTML = children.classList.contains('collapsed') ? getIcon('folder-closed', 14) : getIcon('folder-open', 14);
-                });
-
-                fileExplorer.appendChild(item);
-                fileExplorer.appendChild(children);
-            } else {
-                item.addEventListener('click', () => {
-                    window.electronAPI.openFilePath(entry.path);
-                });
-                fileExplorer.appendChild(item);
-            }
-        }
+        renderFileTreeEntries(entries, fileExplorer, 0);
+        highlightActiveFileInTree();
     } catch (error) {
         console.error('Error loading file tree:', error);
+    }
+}
+
+function renderFileTreeEntries(entries, container, depth) {
+    for (const entry of entries) {
+        if (entry.isDirectory) {
+            renderFolderNode(entry, container, depth);
+        } else {
+            renderFileNode(entry, container, depth);
+        }
+    }
+}
+
+function renderFolderNode(entry, container, depth) {
+    const item = document.createElement('div');
+    item.className = 'file-item file-tree-folder';
+    item.style.paddingLeft = (8 + depth * 16) + 'px';
+
+    const icon = document.createElement('div');
+    icon.className = 'file-icon';
+    // Safe: getIcon() returns static SVG from hardcoded ICON_PATHS
+    icon.innerHTML = getIcon('folder-closed', 14);
+
+    const name = document.createElement('div');
+    name.className = 'file-name';
+    name.textContent = entry.name;
+
+    item.appendChild(icon);
+    item.appendChild(name);
+
+    const children = document.createElement('div');
+    children.className = 'file-tree-children collapsed';
+    let loaded = false;
+
+    item.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!loaded) {
+            try {
+                const subEntries = await window.electronAPI.listDirectory(entry.path);
+                renderFileTreeEntries(subEntries, children, depth + 1);
+                loaded = true;
+            } catch (err) {
+                console.error('Error loading subdirectory:', err);
+                return;
+            }
+        }
+        children.classList.toggle('collapsed');
+        // Safe: getIcon() returns static SVG from hardcoded ICON_PATHS
+        icon.innerHTML = children.classList.contains('collapsed') ? getIcon('folder-closed', 14) : getIcon('folder-open', 14);
+    });
+
+    container.appendChild(item);
+    container.appendChild(children);
+}
+
+function renderFileNode(entry, container, depth) {
+    const item = document.createElement('div');
+    item.className = 'file-item';
+    item.dataset.filepath = entry.path;
+    item.style.paddingLeft = (8 + depth * 16) + 'px';
+
+    const icon = document.createElement('div');
+    icon.className = 'file-icon';
+    // Safe: getIcon() returns static SVG from hardcoded ICON_PATHS
+    icon.innerHTML = getIcon(getFileIcon(entry.name, false), 14);
+
+    const name = document.createElement('div');
+    name.className = 'file-name';
+    name.textContent = entry.name;
+
+    item.appendChild(icon);
+    item.appendChild(name);
+
+    item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.electronAPI.openFilePath(entry.path);
+    });
+
+    container.appendChild(item);
+}
+
+function highlightActiveFileInTree() {
+    const activeTab = tabs.find(t => t.id === activeTabId);
+    const activeFilePath = activeTab ? activeTab.filePath : null;
+    const fileExplorer = document.getElementById('fileExplorer');
+    if (!fileExplorer) return;
+
+    const fileItems = fileExplorer.querySelectorAll('.file-item[data-filepath]');
+    fileItems.forEach(item => {
+        if (item.dataset.filepath === activeFilePath) {
+            item.classList.add('active');
+        } else {
+            item.classList.remove('active');
+        }
+    });
+}
+
+function refreshFileTree() {
+    if (fileTreeRootDir) {
+        loadFileTree(fileTreeRootDir);
+    } else {
+        // Try to determine root from active tab
+        const activeTab = tabs.find(t => t.id === activeTabId);
+        if (activeTab && activeTab.filePath) {
+            const lastSep = Math.max(activeTab.filePath.lastIndexOf('/'), activeTab.filePath.lastIndexOf('\\'));
+            if (lastSep >= 0) {
+                loadFileTree(activeTab.filePath.substring(0, lastSep));
+            }
+        }
     }
 }
 
@@ -1630,7 +1940,7 @@ function generateHTMLExport() {
     const previewElement = document.getElementById('preview');
 
     if (!previewElement || !previewElement.innerHTML || previewElement.innerHTML.trim().length === 0) {
-        alert('Der Preview-Bereich ist leer. Bitte stellen Sie sicher, dass Markdown-Inhalt vorhanden ist.');
+        showAlert('Der Preview-Bereich ist leer.', 'Bitte stellen Sie sicher, dass Markdown-Inhalt vorhanden ist.');
         return null;
     }
 
@@ -1740,31 +2050,32 @@ function exportPDF() {
     }
 }
 
-function batchExportPDF() {
+async function batchExportPDF() {
+    // Ensure current tab content is saved to the tabs array before exporting
+    saveCurrentTabState();
+
     // Get all tabs that have file paths (saved files)
     const tabsWithFiles = tabs.filter(tab => tab.filePath && tab.filePath !== null);
-    
+
     if (tabsWithFiles.length === 0) {
-        alert('Keine gespeicherten Dateien gefunden. Speichern Sie zuerst Ihre Markdown-Dateien.');
+        await showAlert('Keine gespeicherten Dateien gefunden.', 'Speichern Sie zuerst Ihre Markdown-Dateien.');
         return;
     }
-    
-    const confirmExport = confirm(`${tabsWithFiles.length} Markdown-Dateien als PDF exportieren?`);
+
+    const confirmExport = await showConfirm(`${tabsWithFiles.length} Markdown-Dateien als PDF exportieren?`);
     if (!confirmExport) return;
-    
+
     console.log('Batch exporting PDFs for tabs:', tabsWithFiles.map(tab => tab.filePath));
-    
+
     if (window.electronAPI && window.electronAPI.batchPrintToPDF) {
-        // Prepare tab data for export
         const tabData = tabsWithFiles.map(tab => ({
             filePath: tab.filePath,
             content: tab.content,
             title: tab.title
         }));
-        
         window.electronAPI.batchPrintToPDF(tabData);
     } else {
-        alert('PDF-Batch-Export nicht verfügbar.');
+        await showAlert('PDF-Batch-Export nicht verfügbar.');
     }
 }
 
@@ -1822,6 +2133,7 @@ function showSettings() {
     document.getElementById('settingsWordWrap').checked = settings.wordWrap !== false;
     document.getElementById('settingsSyncScroll').checked = settings.syncScroll !== false;
     document.getElementById('settingsAutoSaveInterval').value = settings.autoSaveInterval || 5;
+    document.getElementById('settingsWritingGoal').value = settings.writingGoal || 0;
 
     modal.classList.add('visible');
 }
@@ -1848,6 +2160,9 @@ function applySettings() {
     settings.syncScroll = newSyncScroll;
     settings.autoSaveInterval = Math.max(1, Math.min(60, newAutoSaveInterval || 5));
 
+    const newWritingGoal = parseInt(document.getElementById('settingsWritingGoal').value);
+    settings.writingGoal = Math.max(0, Math.min(50000, newWritingGoal || 0));
+
     // Apply font size
     editor.style.fontSize = settings.fontSize + 'px';
 
@@ -1869,6 +2184,9 @@ function applySettings() {
         syncToggle.style.opacity = settings.syncScroll ? '1' : '0.5';
     }
 
+    // B2: Apply writing goal
+    updateWritingGoal();
+
     saveSettings();
     closeSettingsDialog();
 }
@@ -1883,6 +2201,11 @@ function saveSettings() {
 function handleGlobalShortcuts(e) {
     // ESC to close dialogs
     if (e.key === 'Escape') {
+        if (commandPaletteVisible) {
+            e.preventDefault();
+            closeCommandPalette();
+            return;
+        }
         if (autocompleteVisible) {
             e.preventDefault();
             hideAutocomplete();
@@ -1912,6 +2235,18 @@ function handleGlobalShortcuts(e) {
         if (settingsModal && settingsModal.classList.contains('visible')) {
             e.preventDefault();
             closeSettingsDialog();
+            return;
+        }
+        const tabOverviewModal = document.getElementById('tabOverviewModal');
+        if (tabOverviewModal && tabOverviewModal.classList.contains('visible')) {
+            e.preventDefault();
+            closeTabOverview();
+            return;
+        }
+        const pdfOptionsModal = document.getElementById('pdfOptionsModal');
+        if (pdfOptionsModal && pdfOptionsModal.classList.contains('visible')) {
+            e.preventDefault();
+            closePdfOptionsDialog();
             return;
         }
     }
@@ -1968,7 +2303,11 @@ function handleGlobalShortcuts(e) {
                 break;
             case 't':
                 e.preventDefault();
-                showTableEditor();
+                if (e.shiftKey) {
+                    showTabOverview();
+                } else {
+                    showTableEditor();
+                }
                 break;
             case '`':
                 e.preventDefault();
@@ -1976,7 +2315,11 @@ function handleGlobalShortcuts(e) {
                 break;
             case 'f':
                 e.preventDefault();
-                showSearchDialog();
+                if (e.shiftKey) {
+                    toggleFocusMode();
+                } else {
+                    showSearchDialog();
+                }
                 break;
             case 'r':
                 e.preventDefault();
@@ -2009,7 +2352,11 @@ function handleGlobalShortcuts(e) {
                 break;
             case 'p':
                 e.preventDefault();
-                exportPDF();
+                if (e.shiftKey) {
+                    showCommandPalette();
+                } else {
+                    exportPDF();
+                }
                 break;
             case 'Tab':
                 e.preventDefault();
@@ -2065,6 +2412,11 @@ async function loadSettings() {
             // Apply line numbers
             if (settings.showLineNumbers && !lineNumbers) {
                 toggleLineNumbers();
+            }
+
+            // E2: Apply sidebar width
+            if (settings.sidebarWidth && sidebar) {
+                sidebar.style.width = settings.sidebarWidth + 'px';
             }
 
             // Apply sync scroll
@@ -2126,6 +2478,7 @@ function saveSessionState() {
             scrollPosition: tab.scrollPosition
         })),
         activeTabId: activeTabId,
+        activeTabIndex: tabs.findIndex(t => t.id === activeTabId),
         timestamp: Date.now()
     };
     window.electronAPI.saveSession(sessionData);
@@ -2151,7 +2504,7 @@ async function checkSessionRestore() {
             return;
         }
 
-        const restore = confirm('Es wurde eine vorherige Sitzung gefunden. Mochten Sie sie wiederherstellen?');
+        const restore = await showConfirm('Es wurde eine vorherige Sitzung gefunden. Möchten Sie sie wiederherstellen?');
         if (restore) {
             // Clear the default empty tab
             tabs.length = 0;
@@ -2171,7 +2524,17 @@ async function checkSessionRestore() {
             }
 
             if (tabs.length > 0) {
-                activeTabId = tabs[0].id;
+                // Restore the previously active tab.
+                // The saved activeTabId may not match restored IDs (tabs get new sequential IDs),
+                // so we also save/restore the active tab index as a fallback.
+                const matchingTab = tabs.find(t => t.id === session.activeTabId);
+                if (matchingTab) {
+                    activeTabId = matchingTab.id;
+                } else if (session.activeTabIndex != null && session.activeTabIndex < tabs.length) {
+                    activeTabId = tabs[session.activeTabIndex].id;
+                } else {
+                    activeTabId = tabs[0].id;
+                }
                 renderTabs();
                 loadTabContent(activeTabId);
             }
@@ -2195,8 +2558,15 @@ function showAutoSaveIndicator() {
 
 // Context Menu Functions
 function handleContextMenu(e) {
+    // E5: Let native Electron context menu handle editor and preview panes
+    const editorPane = document.getElementById('editorPane');
+    const previewPane = document.getElementById('previewPane');
+    if ((editorPane && editorPane.contains(e.target)) || (previewPane && previewPane.contains(e.target))) {
+        return; // Don't prevent default — let Electron's native context menu show
+    }
+
     e.preventDefault();
-    
+
     contextMenu.style.left = e.pageX + 'px';
     contextMenu.style.top = e.pageY + 'px';
     contextMenu.classList.add('visible');
@@ -2328,7 +2698,7 @@ function insertTable() {
     const cols = parseInt(document.getElementById('tableCols').value) || 3;
     
     if (rows < 1 || rows > 20 || cols < 1 || cols > 10) {
-        alert('Ungültige Tabellengröße. Zeilen: 1-20, Spalten: 1-10');
+        showAlert('Ungültige Tabellengröße.', 'Zeilen: 1-20, Spalten: 1-10');
         return;
     }
     
@@ -2516,20 +2886,20 @@ function setupResizableDivider() {
 }
 
 // File change detection
-function handleFileChangedExternally(filePath, newContent) {
+async function handleFileChangedExternally(filePath, newContent) {
     console.log('handleFileChangedExternally called with:', filePath);
     const tab = tabs.find(tab => tab.filePath === filePath);
     if (!tab) {
         console.log('No tab found for file:', filePath);
         return;
     }
-    
+
     console.log('Tab found:', tab.title, 'isModified:', tab.isModified);
-    
+
     // Check if the current tab has unsaved changes
     if (tab.isModified) {
-        const result = confirm(
-            `Die Datei "${tab.title}" wurde extern geändert und hat auch ungespeicherte Änderungen.\n\n` +
+        const result = await showConfirm(
+            `Die Datei "${tab.title}" wurde extern geändert.`,
             'Möchten Sie die externe Version laden? (Ungespeicherte Änderungen gehen verloren)'
         );
         if (!result) return;
@@ -2560,7 +2930,7 @@ function handleFileDeletedExternally(filePath) {
 
     // Mark as modified (unsaved) and update title to show deletion
     tab.isModified = true;
-    tab.title = tab.title + ' (geloscht)';
+    tab.title = tab.title + ' (gelöscht)';
     tab.filePath = null; // Clear file path so save triggers Save As
     renderTabs();
 
@@ -2611,7 +2981,7 @@ function handleBatchExportPrepareTab(filePath, content) {
                     error: `Error getting preview content: ${error.message}`
                 });
             }
-        }, 1000); // Give more time for rendering
+        }, 1500); // TODO: Replace with a promise-based approach (e.g., MutationObserver or render callback) instead of a fixed timeout
         
     } catch (error) {
         console.error('Error in handleBatchExportPrepareTab:', error);
@@ -2927,7 +3297,7 @@ function replaceNext() {
     findNextReplace();
 }
 
-function replaceAll() {
+async function replaceAll() {
     const replaceSearchInput = document.getElementById('replaceSearchInput');
     const replaceInput = document.getElementById('replaceInput');
     const searchTerm = replaceSearchInput?.value || '';
@@ -2941,7 +3311,7 @@ function replaceAll() {
         return;
     }
 
-    const confirmReplace = confirm(`${matches.length} Treffer gefunden. Alle ersetzen?`);
+    const confirmReplace = await showConfirm(`${matches.length} Treffer gefunden. Alle ersetzen?`);
     if (!confirmReplace) return;
 
     // Build new value by replacing from end to start to maintain indices
@@ -2971,5 +3341,711 @@ function replaceAll() {
 }
 
 
-// Initialize when DOM is ready - removed duplicate initialization
-// Already handled by DOMContentLoaded listener at the top of the file
+// --- E2: Sidebar Resize ---
+function setupSidebarResize() {
+    const handle = document.getElementById('sidebarResizeHandle');
+    if (!handle || !sidebar) return;
+
+    let startX = 0;
+    let startWidth = 0;
+
+    handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        startX = e.clientX;
+        startWidth = sidebar.offsetWidth;
+        handle.classList.add('active');
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    });
+
+    function onMouseMove(e) {
+        const delta = e.clientX - startX;
+        const newWidth = Math.max(150, Math.min(500, startWidth + delta));
+        sidebar.style.width = newWidth + 'px';
+    }
+
+    function onMouseUp() {
+        handle.classList.remove('active');
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        // Persist sidebar width in settings
+        settings.sidebarWidth = sidebar.offsetWidth;
+        saveSettings();
+    }
+}
+
+// --- D4: PDF Options Dialog ---
+function showPdfOptionsDialog() {
+    const modal = document.getElementById('pdfOptionsModal');
+    if (modal) modal.classList.add('visible');
+}
+
+function closePdfOptionsDialog() {
+    const modal = document.getElementById('pdfOptionsModal');
+    if (modal) modal.classList.remove('visible');
+}
+
+function exportPDFWithOptions() {
+    const activeTab = tabs.find(tab => tab.id === activeTabId);
+    const pdfOptions = {
+        pageSize: document.getElementById('pdfPageSize').value,
+        orientation: document.getElementById('pdfOrientation').value,
+        margin: parseInt(document.getElementById('pdfMargin').value) || 20,
+        fontSize: parseInt(document.getElementById('pdfFontSize').value) || 11,
+        toc: document.getElementById('pdfToc').checked,
+        pageNumbers: document.getElementById('pdfPageNumbers').checked
+    };
+
+    if (window.electronAPI && window.electronAPI.printToPDFOptions) {
+        window.electronAPI.printToPDFOptions({
+            filePath: activeTab ? activeTab.filePath : null,
+            pdfOptions
+        });
+    }
+    closePdfOptionsDialog();
+}
+
+// --- C4: Focus Mode ---
+let focusModeActive = false;
+
+function toggleFocusMode() {
+    focusModeActive = !focusModeActive;
+    if (editor && editor.setFocusMode) {
+        editor.setFocusMode(focusModeActive);
+    }
+}
+
+// --- C5: Typewriter Mode ---
+let typewriterModeActive = false;
+
+function toggleTypewriterMode() {
+    typewriterModeActive = !typewriterModeActive;
+    if (editor && editor.setTypewriterMode) {
+        editor.setTypewriterMode(typewriterModeActive);
+    }
+}
+
+// --- C6: Checkbox Toggle in Preview ---
+function setupCheckboxToggle() {
+    const checkboxes = preview.querySelectorAll('input[type="checkbox"]');
+    const text = editor.value;
+    const lines = text.split('\n');
+
+    // Find all task list lines and map to checkboxes in order
+    const taskLines = [];
+    for (let i = 0; i < lines.length; i++) {
+        if (/^\s*[-*+]\s+\[([ xX])\]/.test(lines[i])) {
+            taskLines.push(i);
+        }
+    }
+
+    checkboxes.forEach((cb, idx) => {
+        if (idx < taskLines.length) {
+            cb.dataset.line = taskLines[idx];
+            cb.style.cursor = 'pointer';
+            cb.disabled = false;
+            cb.addEventListener('change', (e) => {
+                const lineIdx = parseInt(e.target.dataset.line);
+                const text = editor.value;
+                const lines = text.split('\n');
+                if (lineIdx < lines.length) {
+                    // Calculate char position of this line
+                    let lineStart = 0;
+                    for (let i = 0; i < lineIdx; i++) lineStart += lines[i].length + 1;
+
+                    // Find the exact position of [ ] or [x] within the line
+                    const line = lines[lineIdx];
+                    const bracketMatch = e.target.checked
+                        ? line.match(/\[\s\]/)
+                        : line.match(/\[[xX]\]/);
+                    if (bracketMatch) {
+                        const bracketStart = lineStart + bracketMatch.index;
+                        const bracketEnd = bracketStart + 3; // [ ] or [x] is always 3 chars
+                        const replacement = e.target.checked ? '[x]' : '[ ]';
+                        replaceRange(bracketStart, bracketEnd, replacement);
+                    }
+                    handleEditorInput();
+                }
+            });
+        }
+    });
+}
+
+// --- C2: Image Paste Handler ---
+function setupImagePaste() {
+    document.addEventListener('paste', async (e) => {
+        if (!e.clipboardData || !e.clipboardData.items) return;
+
+        for (const item of e.clipboardData.items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                const blob = item.getAsFile();
+                if (!blob) return;
+
+                const activeTab = tabs.find(tab => tab.id === activeTabId);
+                const dirPath = activeTab && activeTab.filePath
+                    ? activeTab.filePath.replace(/[/\\][^/\\]+$/, '')
+                    : null;
+
+                if (!dirPath || !window.electronAPI || !window.electronAPI.saveClipboardImage) {
+                    await showAlert('Bitte speichern Sie die Datei zuerst, bevor Sie Bilder einfügen.');
+                    return;
+                }
+
+                const ext = item.type.split('/')[1] === 'jpeg' ? 'jpg' : item.type.split('/')[1];
+                const filename = `paste-${Date.now()}.${ext}`;
+                const arrayBuffer = await blob.arrayBuffer();
+                const buffer = Array.from(new Uint8Array(arrayBuffer));
+
+                const relativePath = await window.electronAPI.saveClipboardImage({ dirPath, buffer, filename });
+                if (relativePath) {
+                    const { from, to } = editor.cmView.state.selection.main;
+                    editor.cmView.dispatch({
+                        changes: { from, to, insert: `![](${relativePath})` },
+                        selection: { anchor: from + `![](${relativePath})`.length }
+                    });
+                }
+                return;
+            }
+        }
+    });
+}
+
+// --- C7: Image Drag & Drop ---
+function setupImageDragDrop() {
+    const editorEl = document.getElementById('editorPane');
+    if (!editorEl) return;
+
+    editorEl.addEventListener('drop', async (e) => {
+        const files = e.dataTransfer ? e.dataTransfer.files : null;
+        if (!files || files.length === 0) return;
+
+        const imageExts = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'];
+        const imageFiles = Array.from(files).filter(f =>
+            imageExts.some(ext => f.name.toLowerCase().endsWith(ext))
+        );
+        if (imageFiles.length === 0) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const activeTab = tabs.find(tab => tab.id === activeTabId);
+        const dirPath = activeTab && activeTab.filePath
+            ? activeTab.filePath.replace(/[/\\][^/\\]+$/, '')
+            : null;
+
+        if (!dirPath || !window.electronAPI || !window.electronAPI.copyImageFile) {
+            await showAlert('Bitte speichern Sie die Datei zuerst, bevor Sie Bilder einfügen.');
+            return;
+        }
+
+        let insertText = '';
+        for (const file of imageFiles) {
+            const relativePath = await window.electronAPI.copyImageFile({
+                sourcePath: file.path,
+                dirPath
+            });
+            if (relativePath) {
+                insertText += `![${file.name}](${relativePath})\n`;
+            }
+        }
+
+        if (insertText) {
+            const { from, to } = editor.cmView.state.selection.main;
+            editor.cmView.dispatch({
+                changes: { from, to, insert: insertText },
+                selection: { anchor: from + insertText.length }
+            });
+        }
+    }, true);
+}
+
+// --- C1: Command Palette ---
+let commandPaletteVisible = false;
+let commandRegistry = [];
+
+function registerCommands() {
+    commandRegistry = [
+        { id: 'new-file', label: 'Neue Datei', shortcut: '\u2318N', action: () => handleMenuAction('new-file') },
+        { id: 'open-file', label: 'Datei \u00f6ffnen', shortcut: '\u2318O', action: () => handleMenuAction('open-file') },
+        { id: 'save-file', label: 'Speichern', shortcut: '\u2318S', action: () => handleMenuAction('save-file') },
+        { id: 'save-file-as', label: 'Speichern unter...', shortcut: '\u2318\u21e7S', action: () => handleMenuAction('save-file-as') },
+        { id: 'export-html', label: 'Als HTML exportieren', shortcut: '\u2318E', action: () => handleMenuAction('export-html') },
+        { id: 'export-pdf', label: 'Als PDF exportieren', shortcut: '\u2318P', action: () => handleMenuAction('print-to-pdf') },
+        { id: 'batch-pdf', label: 'Alle Tabs als PDF exportieren', action: () => handleMenuAction('batch-export-pdf') },
+        { id: 'format-bold', label: 'Fett', shortcut: '\u2318B', action: () => formatBold() },
+        { id: 'format-italic', label: 'Kursiv', shortcut: '\u2318I', action: () => formatItalic() },
+        { id: 'format-code', label: 'Code', shortcut: '\u2318`', action: () => formatCode() },
+        { id: 'format-strike', label: 'Durchgestrichen', shortcut: '\u2318\u21e7X', action: () => formatStrikethrough() },
+        { id: 'insert-link', label: 'Link einf\u00fcgen', shortcut: '\u2318K', action: () => insertLink() },
+        { id: 'insert-table', label: 'Tabelle einf\u00fcgen', shortcut: '\u2318T', action: () => showTableEditor() },
+        { id: 'heading-1', label: '\u00dcberschrift 1', shortcut: '\u23181', action: () => insertHeading(1) },
+        { id: 'heading-2', label: '\u00dcberschrift 2', shortcut: '\u23182', action: () => insertHeading(2) },
+        { id: 'heading-3', label: '\u00dcberschrift 3', shortcut: '\u23183', action: () => insertHeading(3) },
+        { id: 'heading-4', label: '\u00dcberschrift 4', shortcut: '\u23184', action: () => insertHeading(4) },
+        { id: 'find', label: 'Suchen', shortcut: '\u2318F', action: () => showSearchDialog() },
+        { id: 'replace', label: 'Suchen und Ersetzen', shortcut: '\u2318R', action: () => showReplaceDialog() },
+        { id: 'toggle-sidebar', label: 'Sidebar umschalten', shortcut: '\u2318\\', action: () => toggleSidebar() },
+        { id: 'toggle-theme', label: 'Theme wechseln', action: () => toggleTheme() },
+        { id: 'toggle-line-numbers', label: 'Zeilennummern umschalten', action: () => toggleLineNumbers() },
+        { id: 'toggle-word-wrap', label: 'Zeilenumbruch umschalten', action: () => toggleWordWrap() },
+        { id: 'toggle-comment', label: 'Zeile kommentieren', shortcut: '\u2318/', action: () => toggleComment() },
+        { id: 'delete-line', label: 'Zeile l\u00f6schen', shortcut: '\u2318\u21e7K', action: () => deleteLine() },
+        { id: 'duplicate-line', label: 'Zeile duplizieren', shortcut: '\u2318D', action: () => duplicateLine() },
+        { id: 'indent', label: 'Einr\u00fccken', action: () => indentSelection() },
+        { id: 'unindent', label: 'Ausr\u00fccken', action: () => unindentSelection() },
+        { id: 'view-editor', label: 'Nur Editor', action: () => setViewMode('editor') },
+        { id: 'view-split', label: 'Editor + Vorschau', action: () => setViewMode('split') },
+        { id: 'view-preview', label: 'Nur Vorschau', action: () => setViewMode('preview') },
+        { id: 'settings', label: 'Einstellungen', action: () => showSettings() },
+        { id: 'about', label: '\u00dcber MrxDown', action: () => showAboutDialog() },
+        { id: 'tab-overview', label: 'Tab-\u00dcbersicht', shortcut: '\u2318\u21e7T', action: () => showTabOverview() },
+        { id: 'info-panel', label: 'Dokument-Info', action: () => toggleInfoPanel() },
+        { id: 'focus-mode', label: 'Focus-Modus', shortcut: '\u2318\u21e7F', action: () => toggleFocusMode() },
+        { id: 'typewriter-mode', label: 'Typewriter-Modus', action: () => toggleTypewriterMode() },
+        { id: 'pdf-options', label: 'PDF mit Optionen exportieren', action: () => showPdfOptionsDialog() },
+    ];
+}
+
+function showCommandPalette() {
+    let overlay = document.getElementById('commandPalette');
+    if (!overlay) {
+        // Create command palette DOM using safe DOM methods
+        overlay = document.createElement('div');
+        overlay.id = 'commandPalette';
+        overlay.className = 'command-palette-overlay';
+
+        const palette = document.createElement('div');
+        palette.className = 'command-palette';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'command-palette-input';
+        input.id = 'commandPaletteInput';
+        input.placeholder = 'Befehl eingeben...';
+
+        const list = document.createElement('div');
+        list.className = 'command-palette-list';
+        list.id = 'commandPaletteList';
+
+        palette.appendChild(input);
+        palette.appendChild(list);
+        overlay.appendChild(palette);
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeCommandPalette();
+        });
+
+        input.addEventListener('input', () => renderCommandList(input.value));
+        input.addEventListener('keydown', handleCommandPaletteKey);
+    }
+
+    if (commandRegistry.length === 0) registerCommands();
+
+    overlay.style.display = 'flex';
+    commandPaletteVisible = true;
+    const input = document.getElementById('commandPaletteInput');
+    input.value = '';
+    input.focus();
+    renderCommandList('');
+}
+
+function closeCommandPalette() {
+    const overlay = document.getElementById('commandPalette');
+    if (overlay) overlay.style.display = 'none';
+    commandPaletteVisible = false;
+    editor.focus();
+}
+
+let commandSelectedIndex = 0;
+
+function renderCommandList(query) {
+    const list = document.getElementById('commandPaletteList');
+    if (!list) return;
+
+    const q = query.toLowerCase();
+    const filtered = commandRegistry.filter(cmd =>
+        cmd.label.toLowerCase().includes(q) || cmd.id.toLowerCase().includes(q)
+    );
+
+    commandSelectedIndex = 0;
+    list.textContent = '';
+
+    filtered.forEach((cmd, idx) => {
+        const item = document.createElement('div');
+        item.className = 'command-palette-item' + (idx === 0 ? ' selected' : '');
+        item.dataset.index = idx;
+
+        const label = document.createElement('span');
+        label.className = 'command-label';
+        label.textContent = cmd.label;
+
+        item.appendChild(label);
+
+        if (cmd.shortcut) {
+            const shortcut = document.createElement('span');
+            shortcut.className = 'command-shortcut';
+            shortcut.textContent = cmd.shortcut;
+            item.appendChild(shortcut);
+        }
+
+        item.addEventListener('click', () => {
+            closeCommandPalette();
+            cmd.action();
+        });
+
+        item.addEventListener('mouseenter', () => {
+            list.querySelectorAll('.command-palette-item').forEach(el => el.classList.remove('selected'));
+            item.classList.add('selected');
+            commandSelectedIndex = idx;
+        });
+
+        list.appendChild(item);
+    });
+}
+
+function handleCommandPaletteKey(e) {
+    const list = document.getElementById('commandPaletteList');
+    if (!list) return;
+    const items = list.querySelectorAll('.command-palette-item');
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        commandSelectedIndex = Math.min(commandSelectedIndex + 1, items.length - 1);
+        items.forEach((el, i) => el.classList.toggle('selected', i === commandSelectedIndex));
+        items[commandSelectedIndex]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        commandSelectedIndex = Math.max(commandSelectedIndex - 1, 0);
+        items.forEach((el, i) => el.classList.toggle('selected', i === commandSelectedIndex));
+        items[commandSelectedIndex]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (items[commandSelectedIndex]) items[commandSelectedIndex].click();
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeCommandPalette();
+    }
+}
+
+// --- B5: Session Statistics ---
+let sessionStartWords = -1;
+let sessionTotalWordsWritten = 0;
+let sessionLastWordCount = 0;
+let sessionActiveSeconds = 0;
+let sessionLastKeyTime = 0;
+let sessionActiveTimer = null;
+
+function initSessionStats() {
+    // Start active writing time tracker
+    sessionActiveTimer = setInterval(() => {
+        if (Date.now() - sessionLastKeyTime < 30000) { // 30s inactivity threshold
+            sessionActiveSeconds++;
+            const el = document.getElementById('sessionActiveTime');
+            if (el) {
+                const min = Math.floor(sessionActiveSeconds / 60);
+                const sec = sessionActiveSeconds % 60;
+                el.textContent = `${min}:${sec.toString().padStart(2, '0')}`;
+            }
+        }
+    }, 1000);
+}
+
+function updateSessionStats(currentWords) {
+    if (sessionStartWords === -1) {
+        sessionStartWords = currentWords;
+        sessionLastWordCount = currentWords;
+    }
+
+    // Track words written (only additions)
+    const delta = currentWords - sessionLastWordCount;
+    if (delta > 0) {
+        sessionTotalWordsWritten += delta;
+    }
+    sessionLastWordCount = currentWords;
+    sessionLastKeyTime = Date.now();
+
+    const writtenEl = document.getElementById('sessionWordsWritten');
+    if (writtenEl) writtenEl.textContent = sessionTotalWordsWritten.toString();
+
+    const netEl = document.getElementById('sessionNetWords');
+    if (netEl) {
+        const net = currentWords - sessionStartWords;
+        netEl.textContent = (net >= 0 ? '+' : '') + net;
+        netEl.style.color = net >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+    }
+
+    // B2: Update writing goal progress
+    updateWritingGoal();
+}
+
+// --- B3: Info Panel ---
+let infoPanelVisible = false;
+
+function toggleInfoPanel() {
+    infoPanelVisible = !infoPanelVisible;
+    const panel = document.getElementById('infoPanel');
+    if (panel) {
+        panel.style.display = infoPanelVisible ? 'block' : 'none';
+        if (infoPanelVisible) {
+            refreshInfoPanel();
+        }
+    }
+}
+
+async function refreshInfoPanel() {
+    const text = editor.value;
+    if (typeof analyzeDocument !== 'function') return;
+    const stats = analyzeDocument(text);
+
+    // Stats
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    set('infoChars', stats.chars.toLocaleString());
+    set('infoCharsNoSpaces', stats.charsNoSpaces.toLocaleString());
+    set('infoWords', stats.words.toLocaleString());
+    set('infoSentences', stats.sentences.toString());
+    set('infoParagraphs', stats.paragraphs.toString());
+    set('infoLines', stats.lineCount.toLocaleString());
+    set('infoReadingTime', `~${stats.readingTimeMin} Min.`);
+
+    // Structure
+    set('infoHeadings', `${stats.headings.total} (H1:${stats.headings.h1} H2:${stats.headings.h2} H3:${stats.headings.h3})`);
+    set('infoImages', stats.images.toString());
+    set('infoLinks', stats.links.toString());
+    set('infoCodeBlocks', Math.floor(stats.codeBlocks).toString());
+
+    // File info
+    const activeTab = tabs.find(tab => tab.id === activeTabId);
+    const fileSection = document.getElementById('infoFileSection');
+    if (activeTab && activeTab.filePath && window.electronAPI && window.electronAPI.getFileStats) {
+        if (fileSection) fileSection.style.display = 'block';
+        set('infoFilePath', activeTab.filePath);
+        const fileStats = await window.electronAPI.getFileStats(activeTab.filePath);
+        if (fileStats) {
+            const kb = (fileStats.size / 1024).toFixed(1);
+            set('infoFileSize', fileStats.size > 1024 ? `${kb} KB` : `${fileStats.size} B`);
+            set('infoFileModified', new Date(fileStats.modified).toLocaleString('de-DE'));
+        }
+    } else {
+        if (fileSection) fileSection.style.display = 'none';
+    }
+}
+
+// --- B7: Lint Warnings ---
+let lastLintWarnings = [];
+
+function updateLintWarnings(text) {
+    if (typeof lintMarkdown !== 'function') return;
+    const warnings = lintMarkdown(text);
+    lastLintWarnings = warnings;
+
+    // Update badge in status bar
+    const badge = document.getElementById('lintBadge');
+    const countEl = document.getElementById('lintCount');
+    if (badge && countEl) {
+        if (warnings.length > 0) {
+            badge.style.display = '';
+            countEl.textContent = `${warnings.length} ${warnings.length === 1 ? 'Warnung' : 'Warnungen'}`;
+            const hasError = warnings.some(w => w.type === 'error');
+            countEl.style.color = hasError ? 'var(--accent-red)' : 'var(--accent-yellow)';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    // Update panel if visible
+    if (infoPanelVisible) {
+        renderLintWarnings(warnings);
+    }
+}
+
+function renderLintWarnings(warnings) {
+    const section = document.getElementById('lintSection');
+    const container = document.getElementById('lintWarnings');
+    if (!section || !container) return;
+
+    if (warnings.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+
+    section.style.display = 'block';
+    container.textContent = '';
+
+    for (const w of warnings) {
+        const item = document.createElement('div');
+        item.className = `lint-item lint-${w.type}`;
+
+        const icon = document.createElement('span');
+        icon.className = 'lint-icon';
+        icon.textContent = w.type === 'error' ? '!' : w.type === 'warning' ? '!' : 'i';
+
+        const line = document.createElement('span');
+        line.className = 'lint-line';
+        line.textContent = `Ln ${w.line}`;
+
+        const msg = document.createElement('span');
+        msg.textContent = w.message;
+
+        item.appendChild(icon);
+        item.appendChild(line);
+        item.appendChild(msg);
+
+        // Click to jump to line
+        item.addEventListener('click', () => {
+            const lines = editor.value.split('\n');
+            let charPos = 0;
+            for (let i = 0; i < w.line - 1 && i < lines.length; i++) {
+                charPos += lines[i].length + 1;
+            }
+            editor.focus();
+            editor.setSelectionRange(charPos, charPos + (lines[w.line - 1] || '').length);
+        });
+
+        container.appendChild(item);
+    }
+}
+
+// --- B2: Writing Goal Tracker ---
+function updateWritingGoal() {
+    const goal = settings.writingGoal || 0;
+    const item = document.getElementById('writingGoalItem');
+    if (!item) return;
+
+    if (goal <= 0) {
+        item.style.display = 'none';
+        return;
+    }
+
+    item.style.display = '';
+    const written = sessionTotalWordsWritten;
+    const pct = Math.min(100, Math.round((written / goal) * 100));
+
+    const fill = document.getElementById('writingGoalFill');
+    const text = document.getElementById('writingGoalText');
+    if (fill) {
+        fill.style.width = pct + '%';
+        fill.classList.toggle('complete', pct >= 100);
+    }
+    if (text) text.textContent = `${written}/${goal}`;
+}
+
+// --- B6: Tab Overview ---
+let tabOverviewSortCol = 'name';
+let tabOverviewSortDir = 'asc';
+
+function showTabOverview() {
+    const modal = document.getElementById('tabOverviewModal');
+    if (!modal) return;
+    modal.classList.add('visible');
+    renderTabOverview();
+}
+
+function closeTabOverview() {
+    const modal = document.getElementById('tabOverviewModal');
+    if (modal) modal.classList.remove('visible');
+}
+
+function renderTabOverview() {
+    const tbody = document.getElementById('tabOverviewBody');
+    if (!tbody) return;
+    tbody.textContent = '';
+
+    // Build rows data
+    const rowData = tabs.map(tab => {
+        const content = tab.id === activeTabId ? editor.value : (tab.content || '');
+        const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+        const name = tab.filePath ? tab.filePath.split(/[/\\]/).pop() : 'Unbenannt';
+        const dir = tab.filePath ? tab.filePath.replace(/[/\\][^/\\]+$/, '') : '-';
+        return { id: tab.id, name, path: dir, words, modified: !!tab.isModified, active: tab.id === activeTabId };
+    });
+
+    // Sort
+    rowData.sort((a, b) => {
+        let cmp = 0;
+        if (tabOverviewSortCol === 'name') cmp = a.name.localeCompare(b.name);
+        else if (tabOverviewSortCol === 'path') cmp = a.path.localeCompare(b.path);
+        else if (tabOverviewSortCol === 'words') cmp = a.words - b.words;
+        else if (tabOverviewSortCol === 'status') cmp = (a.modified ? 1 : 0) - (b.modified ? 1 : 0);
+        return tabOverviewSortDir === 'desc' ? -cmp : cmp;
+    });
+
+    // Update sort indicators in headers
+    const ths = document.querySelectorAll('#tabOverviewTable th.sortable');
+    ths.forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        if (th.dataset.sort === tabOverviewSortCol) {
+            th.classList.add(tabOverviewSortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+        }
+    });
+
+    for (const row of rowData) {
+        const tr = document.createElement('tr');
+        if (row.active) tr.className = 'active-tab';
+
+        const tdName = document.createElement('td');
+        tdName.textContent = row.name;
+        tdName.title = row.name;
+
+        const tdPath = document.createElement('td');
+        tdPath.textContent = row.path;
+        tdPath.title = row.path;
+
+        const tdWords = document.createElement('td');
+        tdWords.textContent = row.words.toLocaleString();
+        tdWords.style.fontVariantNumeric = 'tabular-nums';
+
+        const tdStatus = document.createElement('td');
+        const badge = document.createElement('span');
+        badge.className = `tab-overview-status ${row.modified ? 'modified' : 'saved'}`;
+        badge.textContent = row.modified ? 'Geändert' : 'Gespeichert';
+        tdStatus.appendChild(badge);
+
+        tr.appendChild(tdName);
+        tr.appendChild(tdPath);
+        tr.appendChild(tdWords);
+        tr.appendChild(tdStatus);
+
+        // Double-click to switch to tab
+        tr.addEventListener('dblclick', () => {
+            switchTab(row.id);
+            closeTabOverview();
+        });
+
+        tbody.appendChild(tr);
+    }
+}
+
+// Setup sort click handlers for tab overview
+document.addEventListener('DOMContentLoaded', () => {
+    const ths = document.querySelectorAll('#tabOverviewTable th.sortable');
+    ths.forEach(th => {
+        th.addEventListener('click', () => {
+            const col = th.dataset.sort;
+            if (tabOverviewSortCol === col) {
+                tabOverviewSortDir = tabOverviewSortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                tabOverviewSortCol = col;
+                tabOverviewSortDir = 'asc';
+            }
+            renderTabOverview();
+        });
+    });
+});
+
+// Add to window globals
+window.toggleInfoPanel = toggleInfoPanel;
+window.showTabOverview = showTabOverview;
+window.closeTabOverview = closeTabOverview;
+window.showCommandPalette = showCommandPalette;
+window.closeCommandPalette = closeCommandPalette;
+window.showPdfOptionsDialog = showPdfOptionsDialog;
+window.closePdfOptionsDialog = closePdfOptionsDialog;
+window.exportPDFWithOptions = exportPDFWithOptions;
+window.refreshFileTree = refreshFileTree;
+
+// Initialize session stats on load
+document.addEventListener('DOMContentLoaded', () => {
+    initSessionStats();
+});

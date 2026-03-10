@@ -63,5 +63,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clearSession: () => ipcRenderer.send('clear-session'),
 
     // Shell operations
-    openExternal: (url) => ipcRenderer.send('open-external', url)
+    openExternal: (url) => ipcRenderer.send('open-external', url),
+
+    // A2: Electron dialog replacements
+    showConfirmDialog: (options) => ipcRenderer.invoke('show-confirm-dialog', options),
+    showAlertDialog: (options) => ipcRenderer.invoke('show-alert-dialog', options),
+
+    // B3: File stats
+    getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
+
+    // A7: External file open
+    onFileOpenedExternal: (callback) => ipcRenderer.on('file-opened-external', callback),
+
+    // C2: Save clipboard image
+    saveClipboardImage: (data) => ipcRenderer.invoke('save-clipboard-image', data),
+
+    // C7: Copy image file
+    copyImageFile: (data) => ipcRenderer.invoke('copy-image-file', data),
+
+    // D4: PDF export with options
+    printToPDFOptions: (data) => ipcRenderer.send('print-to-pdf-options', data)
 });

@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="css/components.css">
     <script src="vendor/marked.min.js"></script>
     <script src="vendor/purify.min.js"></script>
+    <script src="vendor/morphdom.min.js"></script>
 </head>
 <body>
     <!-- Toolbar -->
@@ -30,7 +31,19 @@
         </div>
         
         <div class="toolbar-separator"></div>
-        
+
+        <!-- E7: Undo/Redo -->
+        <div class="toolbar-group">
+            <button class="toolbar-button tooltip" data-tooltip="Rückgängig (⌘Z)" onclick="handleMenuAction('undo')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+            </button>
+            <button class="toolbar-button tooltip" data-tooltip="Wiederholen (⌘⇧Z)" onclick="handleMenuAction('redo')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
+            </button>
+        </div>
+
+        <div class="toolbar-separator"></div>
+
         <div class="toolbar-group">
             <button class="toolbar-button tooltip" data-tooltip="Fett (⌘B)" onclick="handleMenuAction('format-bold')">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8"/></svg>
@@ -46,6 +59,9 @@
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Link (⌘K)" onclick="handleMenuAction('insert-link')">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </button>
+            <button class="toolbar-button tooltip" data-tooltip="Bild einfügen" onclick="handleMenuAction('insert-image')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
             </button>
             <button class="toolbar-button tooltip" data-tooltip="Tabelle (⌘T)" onclick="handleMenuAction('insert-table')">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
@@ -94,11 +110,14 @@
             </button>
         </div>
         
-        <div style="flex: 1;"></div>
+        <div class="toolbar-spacer"></div>
         
         <div class="toolbar-group">
             <button class="toolbar-button secondary tooltip" data-tooltip="Als HTML exportieren (⌘E)" onclick="handleMenuAction('export-html')">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M4 7V4a2 2 0 0 1 2-2 2 2 0 0 0-2 2"/><path d="M4.063 20.999a2 2 0 0 0 2 1L18 22a2 2 0 0 0 2-2V7l-5-5H6"/><path d="m5 11-3 3"/><path d="m5 17-3-3"/></svg>
+            </button>
+            <button class="toolbar-button secondary tooltip" data-tooltip="Als PDF exportieren (⌘P)" onclick="handleMenuAction('print-to-pdf')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M10 12h4"/><path d="M10 16h4"/></svg>
             </button>
             <button class="toolbar-button secondary tooltip" data-tooltip="Alle Tabs als PDF exportieren" onclick="handleMenuAction('batch-export-pdf')">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
@@ -119,7 +138,10 @@
         <!-- Sidebar -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                Dateien
+                <span>Dateien</span>
+                <button class="toolbar-button tooltip toolbar-button-compact" data-tooltip="Aktualisieren" onclick="refreshFileTree()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                </button>
             </div>
             <div class="sidebar-content">
                 <div class="sidebar-actions">
@@ -133,10 +155,13 @@
                     </div>
                 </div>
                 <div class="file-explorer" id="fileExplorer"></div>
-                <div class="sidebar-header" style="margin-top: 8px;">Gliederung</div>
+                <div class="sidebar-header">Gliederung</div>
                 <div class="document-outline" id="documentOutline"></div>
             </div>
         </div>
+
+        <!-- E2: Sidebar Resize Handle -->
+        <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
 
         <!-- Editor Container -->
         <div class="editor-container">
@@ -178,7 +203,7 @@
         </div>
     </div>
 
-    <!-- Status Bar -->
+    <!-- Status Bar (B4: extended live stats) -->
     <div class="status-bar">
         <div class="status-group">
             <div class="status-item">
@@ -190,6 +215,19 @@
             <div class="status-item">
                 <span id="lineCount">1 Zeile</span>
             </div>
+            <div class="status-item">
+                <span id="paragraphCount">0 Absätze</span>
+            </div>
+            <div class="status-item">
+                <span id="readingTime">~1 Min.</span>
+            </div>
+            <!-- B2: Writing goal progress -->
+            <div class="status-item" id="writingGoalItem" style="display: none;">
+                <div class="writing-goal-bar" title="Schreibziel">
+                    <div class="writing-goal-fill" id="writingGoalFill"></div>
+                </div>
+                <span id="writingGoalText" class="status-text-small">0/0</span>
+            </div>
         </div>
         <div class="status-group">
             <div class="status-item">
@@ -197,6 +235,13 @@
             </div>
             <div class="status-item">
                 <span id="autoSaveStatus"></span>
+            </div>
+            <!-- B7: Lint badge -->
+            <div class="status-item clickable" id="lintBadge" onclick="toggleInfoPanel()" style="display: none;">
+                <span id="lintCount" class="lint-count">0 Warnungen</span>
+            </div>
+            <div class="status-item clickable" onclick="toggleInfoPanel()" title="Dokument-Info">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-right: 3px;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>Info
             </div>
             <div class="status-item">
                 <span id="encodingInfo">UTF-8</span>
@@ -209,6 +254,59 @@
             </div>
             <div class="status-item">
                 <span id="fileName">Unbenannt</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- B3: Document Info Panel -->
+    <div class="info-panel" id="infoPanel" style="display: none;">
+        <div class="info-panel-header">
+            <span>Dokument-Info</span>
+            <button class="search-panel-close" onclick="toggleInfoPanel()">×</button>
+        </div>
+        <div class="info-panel-body">
+            <div class="info-section">
+                <h4>Statistik</h4>
+                <div class="info-grid" id="infoStats">
+                    <div class="info-row"><span>Zeichen</span><span id="infoChars">0</span></div>
+                    <div class="info-row"><span>Zeichen (ohne Leerzeichen)</span><span id="infoCharsNoSpaces">0</span></div>
+                    <div class="info-row"><span>Wörter</span><span id="infoWords">0</span></div>
+                    <div class="info-row"><span>Sätze</span><span id="infoSentences">0</span></div>
+                    <div class="info-row"><span>Absätze</span><span id="infoParagraphs">0</span></div>
+                    <div class="info-row"><span>Zeilen</span><span id="infoLines">0</span></div>
+                    <div class="info-row"><span>Lesezeit</span><span id="infoReadingTime">~1 Min.</span></div>
+                </div>
+            </div>
+            <div class="info-section">
+                <h4>Struktur</h4>
+                <div class="info-grid" id="infoStructure">
+                    <div class="info-row"><span>Überschriften</span><span id="infoHeadings">0</span></div>
+                    <div class="info-row"><span>Bilder</span><span id="infoImages">0</span></div>
+                    <div class="info-row"><span>Links</span><span id="infoLinks">0</span></div>
+                    <div class="info-row"><span>Code-Blöcke</span><span id="infoCodeBlocks">0</span></div>
+                </div>
+            </div>
+            <div class="info-section" id="infoFileSection" style="display: none;">
+                <h4>Datei</h4>
+                <div class="info-grid">
+                    <div class="info-row"><span>Pfad</span><span id="infoFilePath" style="word-break: break-all;">-</span></div>
+                    <div class="info-row"><span>Größe</span><span id="infoFileSize">-</span></div>
+                    <div class="info-row"><span>Geändert</span><span id="infoFileModified">-</span></div>
+                </div>
+            </div>
+            <!-- B5: Session stats -->
+            <div class="info-section">
+                <h4>Sitzung</h4>
+                <div class="info-grid">
+                    <div class="info-row"><span>Wörter geschrieben</span><span id="sessionWordsWritten">0</span></div>
+                    <div class="info-row"><span>Netto-Änderung</span><span id="sessionNetWords">0</span></div>
+                    <div class="info-row"><span>Aktive Schreibzeit</span><span id="sessionActiveTime">0:00</span></div>
+                </div>
+            </div>
+            <!-- B7: Lint warnings -->
+            <div class="info-section" id="lintSection" style="display: none;">
+                <h4>Warnungen</h4>
+                <div id="lintWarnings" class="lint-warnings"></div>
             </div>
         </div>
     </div>
@@ -357,11 +455,102 @@
                         <label for="settingsAutoSaveInterval" style="color: var(--text-secondary); font-size: 14px;">Auto-Save Intervall (Sekunden)</label>
                         <input type="number" class="table-editor-input" id="settingsAutoSaveInterval" value="5" min="1" max="60" style="width: 80px;">
                     </div>
+                    <div class="settings-row">
+                        <label for="settingsWritingGoal" style="color: var(--text-secondary); font-size: 14px;">Schreibziel (Wörter/Sitzung, 0 = aus)</label>
+                        <input type="number" class="table-editor-input" id="settingsWritingGoal" value="0" min="0" max="50000" style="width: 80px;">
+                    </div>
                     <div class="search-buttons">
                         <button class="modal-button" onclick="applySettings()">Übernehmen</button>
                         <button class="modal-button" onclick="closeSettingsDialog()" style="background-color: var(--card-background); border: 1px solid rgba(255,255,255,0.2);">Abbrechen</button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- A2: Input Dialog (replaces browser prompt()) -->
+    <div class="modal-overlay" id="inputDialog" style="display: none;">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="inputDialogTitle">Eingabe</h2>
+            </div>
+            <div class="modal-content" style="padding: 16px 24px;">
+                <input type="text" class="search-input" id="inputDialogField" placeholder="" style="width: 100%; margin-bottom: 8px;">
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 8px; justify-content: flex-end;">
+                <button class="modal-button" id="inputDialogCancel" style="background-color: var(--card-background); border: 1px solid rgba(255,255,255,0.2);">Abbrechen</button>
+                <button class="modal-button" id="inputDialogOk">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- D4: PDF Options Dialog -->
+    <div class="modal-overlay" id="pdfOptionsModal">
+        <div class="modal" style="max-width: 420px;">
+            <div class="modal-header">
+                <h2 class="modal-title">PDF-Optionen</h2>
+            </div>
+            <div class="modal-content">
+                <div class="search-controls">
+                    <div class="settings-row">
+                        <label for="pdfPageSize" style="color: var(--text-secondary); font-size: 14px;">Seitengröße</label>
+                        <select class="search-input" id="pdfPageSize" style="width: 140px;">
+                            <option value="A4" selected>A4</option>
+                            <option value="A3">A3</option>
+                            <option value="A5">A5</option>
+                            <option value="Letter">Letter</option>
+                            <option value="Legal">Legal</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <label for="pdfOrientation" style="color: var(--text-secondary); font-size: 14px;">Orientierung</label>
+                        <select class="search-input" id="pdfOrientation" style="width: 140px;">
+                            <option value="portrait" selected>Hochformat</option>
+                            <option value="landscape">Querformat</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <label for="pdfMargin" style="color: var(--text-secondary); font-size: 14px;">Ränder (mm)</label>
+                        <input type="number" class="table-editor-input" id="pdfMargin" value="20" min="0" max="50" style="width: 80px;">
+                    </div>
+                    <div class="settings-row">
+                        <label for="pdfFontSize" style="color: var(--text-secondary); font-size: 14px;">Schriftgröße (pt)</label>
+                        <input type="number" class="table-editor-input" id="pdfFontSize" value="11" min="8" max="18" style="width: 80px;">
+                    </div>
+                    <div class="search-options">
+                        <label><input type="checkbox" id="pdfToc"> Inhaltsverzeichnis einfügen</label>
+                        <label><input type="checkbox" id="pdfPageNumbers" checked> Seitenzahlen</label>
+                    </div>
+                    <div class="search-buttons">
+                        <button class="modal-button" onclick="exportPDFWithOptions()">Exportieren</button>
+                        <button class="modal-button" onclick="closePdfOptionsDialog()" style="background-color: var(--card-background); border: 1px solid rgba(255,255,255,0.2);">Abbrechen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- B6: Tab Overview Dialog -->
+    <div class="modal-overlay" id="tabOverviewModal">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Tab-Übersicht</h2>
+            </div>
+            <div class="modal-content" style="padding: 0;">
+                <table class="tab-overview-table" id="tabOverviewTable">
+                    <thead>
+                        <tr>
+                            <th data-sort="name" class="sortable">Dateiname</th>
+                            <th data-sort="path" class="sortable">Pfad</th>
+                            <th data-sort="words" class="sortable">Wörter</th>
+                            <th data-sort="status" class="sortable">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabOverviewBody"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-button" onclick="closeTabOverview()">Schließen</button>
             </div>
         </div>
     </div>

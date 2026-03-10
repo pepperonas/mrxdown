@@ -165,3 +165,40 @@
     max-width: 100%;
     height: auto;
 }
+
+/* D7: YAML Frontmatter Box */
+.frontmatter-box {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius);
+    padding: var(--spacing-3);
+    margin-bottom: var(--spacing-4);
+    font-size: 12px;
+}
+
+.frontmatter-title {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--spacing-2);
+}
+
+.frontmatter-box pre {
+    margin: 0;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+body.light-theme .frontmatter-box {
+    background-color: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+body.light-theme .preview-header {
+    border-color: #dee2e6;
+}

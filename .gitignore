@@ -28,6 +28,7 @@ build/*
 *.min.js
 !vendor/marked.min.js
 !vendor/purify.min.js
+!vendor/morphdom.min.js
 *.min.css
 
 # Temp

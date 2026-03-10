@@ -4,6 +4,7 @@ const fs = require('fs').promises;
 const fsSync = require('fs');
 const fsWatchers = new Map();
 const packageJson = require('./package.json');
+const hljs = require('highlight.js');
 
 // --- Settings & Recent Files Persistence ---
 const userDataPath = app.getPath('userData');
@@ -58,6 +59,11 @@ function getPdfStylesheet() {
         @page {
             margin: 20mm 15mm;
             size: A4 portrait;
+            @bottom-center {
+                content: counter(page);
+                font-size: 9pt;
+                color: #999;
+            }
         }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         body {
@@ -155,16 +161,41 @@ function getPdfStylesheet() {
     `;
 }
 
+// D3: Apply syntax highlighting to code blocks for PDF
+function highlightCodeBlocks(htmlContent) {
+    return htmlContent.replace(/<pre><code class="language-(\w+)">([\s\S]*?)<\/code><\/pre>/g,
+        (match, lang, code) => {
+            try {
+                const decoded = code.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+                const result = hljs.highlight(decoded, { language: lang, ignoreIllegals: true });
+                return '<pre><code class="hljs language-' + lang + '">' + result.value + '</code></pre>';
+            } catch (e) {
+                return match;
+            }
+        }
+    );
+}
+
+function getHighlightCss() {
+    return `
+        .hljs { color: #1a1a1a; }
+        .hljs-keyword, .hljs-selector-tag, .hljs-built_in { color: #a626a4; font-weight: 600; }
+        .hljs-string, .hljs-attr { color: #50a14f; }
+        .hljs-number, .hljs-literal { color: #986801; }
+        .hljs-comment { color: #999; font-style: italic; }
+        .hljs-function .hljs-title, .hljs-title.function_ { color: #4078f2; }
+        .hljs-class .hljs-title, .hljs-title.class_ { color: #c18401; }
+        .hljs-type, .hljs-params { color: #c18401; }
+        .hljs-meta, .hljs-tag { color: #e45649; }
+        .hljs-variable, .hljs-template-variable { color: #e45649; }
+        .hljs-regexp { color: #50a14f; }
+        .hljs-symbol, .hljs-bullet { color: #4078f2; }
+    `;
+}
+
 function buildPdfHtml(bodyContent) {
-    return `<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>${getPdfStylesheet()}</style>
-</head>
-<body>${bodyContent}</body>
-</html>`;
+    const highlightedContent = highlightCodeBlocks(bodyContent);
+    return '<!DOCTYPE html>\n<html lang="de">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <style>' + getPdfStylesheet() + getHighlightCss() + '</style>\n</head>\n<body>' + highlightedContent + '</body>\n</html>';
 }
 
 // Helper function to convert images to base64 for PDF export
@@ -214,22 +245,70 @@ async function convertImageToBase64(imagePath) {
         let fullPath;
         
         if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-            // Web URL - use https module for Node.js
+            // A4: Web URL with timeout, size limit, and redirect limit
             const https = require('https');
             const http = require('http');
-            
+            const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
+            const FETCH_TIMEOUT = 10000; // 10s
+            const MAX_REDIRECTS = 5;
+
             return new Promise((resolve, reject) => {
-                const client = imagePath.startsWith('https://') ? https : http;
-                client.get(imagePath, (response) => {
-                    const chunks = [];
-                    response.on('data', chunk => chunks.push(chunk));
-                    response.on('end', () => {
-                        const buffer = Buffer.concat(chunks);
-                        const mimeType = response.headers['content-type'] || 'image/png';
-                        const base64 = buffer.toString('base64');
-                        resolve(`data:${mimeType};base64,${base64}`);
+                let redirectCount = 0;
+
+                function fetchUrl(url) {
+                    const client = url.startsWith('https://') ? https : http;
+                    const req = client.get(url, { timeout: FETCH_TIMEOUT }, (response) => {
+                        // Handle redirects
+                        if ([301, 302, 303, 307, 308].includes(response.statusCode) && response.headers.location) {
+                            redirectCount++;
+                            if (redirectCount > MAX_REDIRECTS) {
+                                reject(new Error(`Too many redirects (>${MAX_REDIRECTS})`));
+                                return;
+                            }
+                            let redirectUrl = response.headers.location;
+                            if (redirectUrl.startsWith('/')) {
+                                const parsed = new URL(url);
+                                redirectUrl = `${parsed.protocol}//${parsed.host}${redirectUrl}`;
+                            }
+                            response.resume(); // consume response
+                            fetchUrl(redirectUrl);
+                            return;
+                        }
+
+                        // Check content-length header
+                        const contentLength = parseInt(response.headers['content-length'], 10);
+                        if (contentLength && contentLength > MAX_IMAGE_SIZE) {
+                            response.resume();
+                            resolve(null); // Skip oversized image
+                            return;
+                        }
+
+                        const chunks = [];
+                        let totalSize = 0;
+                        response.on('data', chunk => {
+                            totalSize += chunk.length;
+                            if (totalSize > MAX_IMAGE_SIZE) {
+                                response.destroy();
+                                resolve(null); // Skip oversized image
+                                return;
+                            }
+                            chunks.push(chunk);
+                        });
+                        response.on('end', () => {
+                            const buffer = Buffer.concat(chunks);
+                            const mimeType = response.headers['content-type'] || 'image/png';
+                            const base64 = buffer.toString('base64');
+                            resolve(`data:${mimeType};base64,${base64}`);
+                        });
                     });
-                }).on('error', reject);
+                    req.on('error', reject);
+                    req.on('timeout', () => {
+                        req.destroy();
+                        resolve(null); // Skip timed-out image
+                    });
+                }
+
+                fetchUrl(imagePath);
             });
         } else if (path.isAbsolute(imagePath)) {
             // Absolute path
@@ -265,6 +344,7 @@ let mainWindow;
 let currentFilePath = null;
 let documentEdited = false;
 let lastSaveDirectory = null;
+let pendingOpenFile = null; // A7: file to open when app finishes launching
 
 // Store for app settings - load from disk, merge with defaults
 const defaultSettings = {
@@ -554,21 +634,54 @@ function getMenuTemplate() {
     return template;
 }
 
+// E1: Window state persistence
+const windowStatePath = path.join(userDataPath, 'window-state.json');
+
+function loadWindowState() {
+    try {
+        if (fsSync.existsSync(windowStatePath)) {
+            return JSON.parse(fsSync.readFileSync(windowStatePath, 'utf-8'));
+        }
+    } catch (e) { /* ignore */ }
+    return null;
+}
+
+function saveWindowState() {
+    if (!mainWindow) return;
+    try {
+        const bounds = mainWindow.getBounds();
+        const state = {
+            x: bounds.x, y: bounds.y,
+            width: bounds.width, height: bounds.height,
+            isMaximized: mainWindow.isMaximized()
+        };
+        fsSync.writeFileSync(windowStatePath, JSON.stringify(state, null, 2), 'utf-8');
+    } catch (e) { /* ignore */ }
+}
+
 function createWindow() {
     const isMac = process.platform === 'darwin';
+    const savedState = loadWindowState();
     const windowOptions = {
-        width: 1400,
-        height: 900,
+        width: savedState ? savedState.width : 1400,
+        height: savedState ? savedState.height : 900,
         minWidth: 900,
         minHeight: 600,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
+            spellcheck: true,
             preload: path.join(__dirname, 'preload.js')
         },
         backgroundColor: '#2B2E3B',
         icon: path.join(__dirname, 'assets/icon.png')
     };
+
+    // E1: Restore window position
+    if (savedState && savedState.x !== undefined) {
+        windowOptions.x = savedState.x;
+        windowOptions.y = savedState.y;
+    }
 
     if (isMac) {
         windowOptions.titleBarStyle = 'hiddenInset';
@@ -577,13 +690,33 @@ function createWindow() {
 
     mainWindow = new BrowserWindow(windowOptions);
 
+    // E1: Restore maximized state
+    if (savedState && savedState.isMaximized) {
+        mainWindow.maximize();
+    }
+
+    // E1: Save window state on resize/move
+    mainWindow.on('resize', saveWindowState);
+    mainWindow.on('move', saveWindowState);
+    mainWindow.on('maximize', saveWindowState);
+    mainWindow.on('unmaximize', saveWindowState);
+
     mainWindow.loadFile('index.html');
 
-    // Add platform class to body for platform-specific CSS
+    // Add platform class to body for platform-specific CSS + A7: open pending file
     mainWindow.webContents.on('did-finish-load', () => {
         mainWindow.webContents.executeJavaScript(
             `document.body.classList.add('platform-${process.platform}')`
         );
+        // A7: Open file that was requested before app was ready
+        if (pendingOpenFile) {
+            const filePath = pendingOpenFile;
+            pendingOpenFile = null;
+            fs.readFile(filePath, 'utf-8').then(content => {
+                mainWindow.webContents.send('file-opened', { filePath, content });
+                addToRecentFiles(filePath);
+            }).catch(err => console.error('Error opening pending file:', err));
+        }
     });
 
     // Enable drag and drop
@@ -593,6 +726,46 @@ function createWindow() {
 
     createApplicationMenu();
 
+    // C3/E5: Spellcheck + native editor context menu
+    mainWindow.webContents.session.setSpellCheckerLanguages(['de', 'en-US']);
+    mainWindow.webContents.on('context-menu', (event, params) => {
+        const menuItems = [];
+
+        // Spellcheck suggestions
+        if (params.misspelledWord) {
+            for (const suggestion of params.dictionarySuggestions.slice(0, 5)) {
+                menuItems.push({
+                    label: suggestion,
+                    click: () => mainWindow.webContents.replaceMisspelling(suggestion)
+                });
+            }
+            if (menuItems.length > 0) menuItems.push({ type: 'separator' });
+            menuItems.push({
+                label: 'Zum Wörterbuch hinzufügen',
+                click: () => mainWindow.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
+            });
+            menuItems.push({ type: 'separator' });
+        }
+
+        // E5: Standard edit actions
+        menuItems.push(
+            { label: 'Ausschneiden', accelerator: 'CmdOrCtrl+X', role: 'cut' },
+            { label: 'Kopieren', accelerator: 'CmdOrCtrl+C', role: 'copy' },
+            { label: 'Einfügen', accelerator: 'CmdOrCtrl+V', role: 'paste' },
+            { type: 'separator' },
+            { label: 'Fett', accelerator: 'CmdOrCtrl+B', click: () => mainWindow.webContents.send('menu-action', { action: 'format-bold' }) },
+            { label: 'Kursiv', accelerator: 'CmdOrCtrl+I', click: () => mainWindow.webContents.send('menu-action', { action: 'format-italic' }) },
+            { label: 'Code', accelerator: 'CmdOrCtrl+`', click: () => mainWindow.webContents.send('menu-action', { action: 'format-code' }) },
+            { label: 'Link einfügen', accelerator: 'CmdOrCtrl+K', click: () => mainWindow.webContents.send('menu-action', { action: 'insert-link' }) },
+            { type: 'separator' },
+            { label: 'Alles auswählen', accelerator: 'CmdOrCtrl+A', role: 'selectAll' }
+        );
+
+        const menu = Menu.buildFromTemplate(menuItems);
+        menu.popup();
+    });
+
+    // A1: Race-condition-free close handler — saves synchronously before closing
     mainWindow.on('close', async (event) => {
         if (documentEdited) {
             event.preventDefault();
@@ -605,13 +778,39 @@ function createWindow() {
                 detail: 'Möchten Sie vor dem Beenden speichern?'
             });
             if (response.response === 0) {
-                // Save then close — clear session on clean exit
-                mainWindow.webContents.send('menu-action', { action: 'save-file' });
+                // Save then close — get content directly from renderer, no race condition
+                try {
+                    const tabData = await mainWindow.webContents.executeJavaScript(`
+                        (function() {
+                            const activeTab = tabs.find(tab => tab.id === activeTabId);
+                            return {
+                                content: editor.value,
+                                filePath: activeTab ? activeTab.filePath : null
+                            };
+                        })()
+                    `);
+                    if (tabData.filePath) {
+                        await fs.writeFile(tabData.filePath, tabData.content, 'utf-8');
+                    } else {
+                        // Unsaved file — show Save As dialog
+                        const result = await dialog.showSaveDialog(mainWindow, {
+                            filters: [
+                                { name: 'Markdown', extensions: ['md'] },
+                                { name: 'Text', extensions: ['txt'] }
+                            ]
+                        });
+                        if (!result.canceled) {
+                            await fs.writeFile(result.filePath, tabData.content, 'utf-8');
+                        } else {
+                            return; // User cancelled Save As, don't close
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error saving on close:', err);
+                }
                 clearSessionFile();
-                setTimeout(() => {
-                    documentEdited = false;
-                    mainWindow.close();
-                }, 500);
+                documentEdited = false;
+                mainWindow.close();
             } else if (response.response === 1) {
                 // Don't save, just close — clear session on clean exit
                 clearSessionFile();
@@ -626,11 +825,10 @@ function createWindow() {
     });
 
     mainWindow.on('closed', () => {
-        // Clean up all file watchers
+        // F2: Clean up all file watchers
         for (const [filePath, watcher] of fsWatchers.entries()) {
-            console.log('Cleaning up file watcher for:', filePath);
-            if (watcher && watcher.type === 'watchFile') {
-                fsSync.unwatchFile(watcher.filePath);
+            if (watcher && watcher.close) {
+                watcher.close();
             }
         }
         fsWatchers.clear();
@@ -818,6 +1016,106 @@ ipcMain.on('export-html', async (event, { content, filePath }) => {
     }
 });
 
+// D4: PDF export with user-specified options (page size, margins, orientation, TOC)
+ipcMain.on('print-to-pdf-options', async (event, { filePath, pdfOptions } = {}) => {
+    try {
+        const opts = pdfOptions || {};
+        const pageSize = opts.pageSize || 'A4';
+        const landscape = opts.orientation === 'landscape';
+        const margin = opts.margin !== undefined ? opts.margin : 20;
+        const fontSize = opts.fontSize || 11;
+        const showToc = opts.toc || false;
+        const showPageNumbers = opts.pageNumbers !== false;
+
+        const pdfWindow = new BrowserWindow({
+            width: 800, height: 1000, show: false,
+            webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, 'preload.js') }
+        });
+
+        let content = await mainWindow.webContents.executeJavaScript(
+            '(function() { var p = document.querySelector("#preview"); return p ? p.innerHTML : ""; })()'
+        );
+
+        if (!content || content.trim().length === 0) {
+            dialog.showErrorBox('PDF-Export Fehler', 'Der Dokumentinhalt ist leer.');
+            pdfWindow.close();
+            return;
+        }
+
+        content = await convertImagesToBase64(content);
+
+        // Build custom stylesheet with user options
+        let customStyle = getPdfStylesheet();
+        customStyle = customStyle.replace(/margin:\s*20mm\s*15mm/, 'margin: ' + margin + 'mm');
+        customStyle = customStyle.replace(/size:\s*A4\s*portrait/, 'size: ' + pageSize + ' ' + (landscape ? 'landscape' : 'portrait'));
+        customStyle = customStyle.replace(/font-size:\s*11pt/, 'font-size: ' + fontSize + 'pt');
+
+        if (!showPageNumbers) {
+            customStyle = customStyle.replace(/@bottom-center\s*\{[^}]+\}/, '');
+        }
+
+        // D5: TOC generation
+        let tocHtml = '';
+        if (showToc) {
+            const headingRegex = /<h([1-3])[^>]*id="([^"]*)"[^>]*>([\s\S]*?)<\/h\1>/gi;
+            let match;
+            const tocItems = [];
+            while ((match = headingRegex.exec(content)) !== null) {
+                const level = parseInt(match[1]);
+                const text = match[3].replace(/<[^>]+>/g, '');
+                tocItems.push({ level, text });
+            }
+            if (tocItems.length > 0) {
+                const tocLines = ['<div class="pdf-toc"><h2>Inhaltsverzeichnis</h2><ul>'];
+                for (const item of tocItems) {
+                    const indent = (item.level - 1) * 20;
+                    tocLines.push('<li style="margin-left:' + indent + 'px">' + item.text + '</li>');
+                }
+                tocLines.push('</ul></div><div style="page-break-after:always"></div>');
+                tocHtml = tocLines.join('');
+            }
+        }
+
+        const tocStyle = '.pdf-toc { margin-bottom: 2em; } .pdf-toc h2 { border-bottom: 2px solid #333; padding-bottom: 0.5rem; } .pdf-toc ul { list-style: none; padding: 0; } .pdf-toc li { padding: 4px 0; color: #1a1a1a; }';
+        const fullHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' + customStyle + tocStyle + '</style></head><body>' + tocHtml + content + '</body></html>';
+
+        await pdfWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(fullHtml));
+
+        // Smart wait for images
+        await pdfWindow.webContents.executeJavaScript(
+            'new Promise(function(resolve) { var imgs = document.querySelectorAll("img"); var ps = Array.from(imgs).map(function(img) { if (img.complete) return Promise.resolve(); return new Promise(function(r) { img.onload = r; img.onerror = r; }); }); Promise.all(ps).then(function() { if (typeof requestIdleCallback !== "undefined") { requestIdleCallback(function() { resolve(); }, { timeout: 2000 }); } else { setTimeout(resolve, 500); } }); })'
+        );
+
+        const pdfData = await pdfWindow.webContents.printToPDF({
+            marginsType: 0,
+            pageSize: pageSize,
+            printBackground: true,
+            landscape: landscape,
+            preferCSSPageSize: true,
+            generateTaggedPDF: true,
+            generateDocumentOutline: true
+        });
+
+        pdfWindow.close();
+
+        const baseFilePath = filePath || currentFilePath;
+        const defaultFileName = baseFilePath ?
+            path.basename(baseFilePath, path.extname(baseFilePath)) + '.pdf' :
+            'Untitled.pdf';
+
+        const result = await dialog.showSaveDialog(mainWindow, {
+            filters: [{ name: 'PDF', extensions: ['pdf'] }],
+            defaultPath: defaultFileName
+        });
+
+        if (!result.canceled) {
+            await fs.writeFile(result.filePath, pdfData);
+        }
+    } catch (error) {
+        dialog.showErrorBox('Fehler', 'PDF-Export fehlgeschlagen: ' + error.message);
+    }
+});
+
 ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
     try {
         // Create a new window for PDF generation with proper styling
@@ -862,8 +1160,23 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
         // Load HTML with optimized print styles
         await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildPdfHtml(content))}`);
 
-        await pdfWindow.webContents.once('did-finish-load', () => {});
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for emoji rendering
+        // A5: Smart wait — wait for images to load + DOM idle instead of fixed 2s
+        await pdfWindow.webContents.executeJavaScript(`
+            new Promise(resolve => {
+                const images = document.querySelectorAll('img');
+                const imagePromises = Array.from(images).map(img => {
+                    if (img.complete) return Promise.resolve();
+                    return new Promise(r => { img.onload = r; img.onerror = r; });
+                });
+                Promise.all(imagePromises).then(() => {
+                    if (typeof requestIdleCallback !== 'undefined') {
+                        requestIdleCallback(() => resolve(), { timeout: 2000 });
+                    } else {
+                        setTimeout(resolve, 500);
+                    }
+                });
+            })
+        `);
 
         const pdfData = await pdfWindow.webContents.printToPDF({
             marginsType: 0, // Use custom margins from @page
@@ -877,7 +1190,7 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
         });
 
         pdfWindow.close();
-        
+
         // Use the provided filePath from the active tab or fall back to currentFilePath
         const baseFilePath = filePath || currentFilePath;
         const defaultFileName = baseFilePath ? 
@@ -958,8 +1271,23 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                 // Load HTML with shared print styles
                 await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildPdfHtml(htmlContent))}`);
 
-                await pdfWindow.webContents.once('did-finish-load', () => {});
-                await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for emoji rendering
+                // A5: Smart wait — wait for images + DOM idle
+                await pdfWindow.webContents.executeJavaScript(`
+                    new Promise(resolve => {
+                        const images = document.querySelectorAll('img');
+                        const imagePromises = Array.from(images).map(img => {
+                            if (img.complete) return Promise.resolve();
+                            return new Promise(r => { img.onload = r; img.onerror = r; });
+                        });
+                        Promise.all(imagePromises).then(() => {
+                            if (typeof requestIdleCallback !== 'undefined') {
+                                requestIdleCallback(() => resolve(), { timeout: 2000 });
+                            } else {
+                                setTimeout(resolve, 500);
+                            }
+                        });
+                    })
+                `);
 
                 const pdfData = await pdfWindow.webContents.printToPDF({
                     marginsType: 0, // Use custom margins from @page
@@ -971,7 +1299,7 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                     generateTaggedPDF: true, // Enable tagged PDF for better accessibility and structure
                     generateDocumentOutline: true // Try to generate document outline from headings
                 });
-                
+
                 pdfWindow.close();
                 
                 // Generate PDF path in same directory as MD file
@@ -1087,6 +1415,71 @@ ipcMain.handle('select-image', async () => {
     return null;
 });
 
+// A2: Electron dialog replacements for confirm/alert
+ipcMain.handle('show-confirm-dialog', async (event, { message, detail, buttons, defaultId, cancelId }) => {
+    const response = await dialog.showMessageBox(mainWindow, {
+        type: 'question',
+        buttons: buttons || ['OK', 'Abbrechen'],
+        defaultId: defaultId || 0,
+        cancelId: cancelId !== undefined ? cancelId : 1,
+        message: message || '',
+        detail: detail || undefined
+    });
+    return response.response;
+});
+
+ipcMain.handle('show-alert-dialog', async (event, { message, detail, type }) => {
+    await dialog.showMessageBox(mainWindow, {
+        type: type || 'info',
+        buttons: ['OK'],
+        message: message || '',
+        detail: detail || undefined
+    });
+});
+
+// File stats for info panel (B3)
+ipcMain.handle('get-file-stats', async (event, filePath) => {
+    try {
+        const stat = await fs.stat(filePath);
+        return {
+            size: stat.size,
+            created: stat.birthtime.toISOString(),
+            modified: stat.mtime.toISOString()
+        };
+    } catch (error) {
+        return null;
+    }
+});
+
+// C2: Save pasted clipboard image to disk
+ipcMain.handle('save-clipboard-image', async (event, { dirPath, buffer, filename }) => {
+    try {
+        const imagesDir = path.join(dirPath, 'images');
+        try { await fs.mkdir(imagesDir, { recursive: true }); } catch (e) { /* exists */ }
+        const filePath = path.join(imagesDir, filename);
+        await fs.writeFile(filePath, Buffer.from(buffer));
+        return `images/${filename}`;
+    } catch (error) {
+        console.error('Error saving clipboard image:', error);
+        return null;
+    }
+});
+
+// C7: Copy dropped image file to images/ subfolder
+ipcMain.handle('copy-image-file', async (event, { sourcePath, dirPath }) => {
+    try {
+        const imagesDir = path.join(dirPath, 'images');
+        try { await fs.mkdir(imagesDir, { recursive: true }); } catch (e) { /* exists */ }
+        const fileName = path.basename(sourcePath);
+        const destPath = path.join(imagesDir, fileName);
+        await fs.copyFile(sourcePath, destPath);
+        return `images/${fileName}`;
+    } catch (error) {
+        console.error('Error copying image file:', error);
+        return null;
+    }
+});
+
 // Session state persistence for crash recovery
 const sessionPath = path.join(userDataPath, 'session.json');
 
@@ -1141,43 +1534,35 @@ ipcMain.on('set-document-edited', (event, edited) => {
     mainWindow.setDocumentEdited(edited);
 });
 
-// File watching handlers
+// F2: File watching handlers — fs.watch (event-based, no polling)
 ipcMain.on('watch-file', (event, filePath) => {
     if (!filePath || fsWatchers.has(filePath)) return;
 
-    // Limit total watchers to prevent resource exhaustion
     if (fsWatchers.size >= 50) {
         console.warn('File watcher limit reached (50), not adding:', filePath);
         return;
     }
 
     try {
-        console.log('Setting up file watcher for:', filePath);
-
         if (!fsSync.existsSync(filePath)) {
             console.error('File does not exist:', filePath);
             return;
         }
 
-        fsSync.watchFile(filePath, {
-            persistent: true,
-            interval: 2000
-        }, (curr, prev) => {
-            // File was deleted (nlink === 0 or size === 0 with zero mtime)
-            if (curr.nlink === 0) {
-                console.log('File was deleted:', filePath);
-                if (mainWindow && !mainWindow.isDestroyed()) {
-                    mainWindow.webContents.send('file-deleted-externally', { filePath });
+        let debounceTimer = null;
+        const watcher = fsSync.watch(filePath, { persistent: true }, (eventType) => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                if (!fsSync.existsSync(filePath)) {
+                    // File was deleted
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('file-deleted-externally', { filePath });
+                    }
+                    watcher.close();
+                    fsWatchers.delete(filePath);
+                    return;
                 }
-                // Stop watching deleted file
-                fsSync.unwatchFile(filePath);
-                fsWatchers.delete(filePath);
-                return;
-            }
-
-            if (curr.mtime > prev.mtime) {
-                console.log('File was modified, reading content...');
-                setTimeout(() => {
+                if (eventType === 'change') {
                     fs.readFile(filePath, 'utf-8').then(content => {
                         if (mainWindow && !mainWindow.isDestroyed()) {
                             mainWindow.webContents.send('file-changed-externally', { filePath, content });
@@ -1185,13 +1570,17 @@ ipcMain.on('watch-file', (event, filePath) => {
                     }).catch(err => {
                         console.error('Error reading changed file:', err);
                     });
-                }, 200);
-            }
+                }
+            }, 200);
         });
 
-        const watcher = { filePath, type: 'watchFile' };
+        watcher.on('error', (err) => {
+            console.error('File watcher error:', err);
+            watcher.close();
+            fsWatchers.delete(filePath);
+        });
+
         fsWatchers.set(filePath, watcher);
-        console.log('File watcher added, total watchers:', fsWatchers.size);
     } catch (error) {
         console.error('Error setting up file watcher:', error);
     }
@@ -1199,13 +1588,11 @@ ipcMain.on('watch-file', (event, filePath) => {
 
 ipcMain.on('unwatch-file', (event, filePath) => {
     if (fsWatchers.has(filePath)) {
-        console.log('Removing file watcher for:', filePath);
         const watcher = fsWatchers.get(filePath);
-        if (watcher && watcher.type === 'watchFile') {
-            fsSync.unwatchFile(watcher.filePath);
+        if (watcher && watcher.close) {
+            watcher.close();
         }
         fsWatchers.delete(filePath);
-        console.log('File watcher removed, total watchers:', fsWatchers.size);
     }
 });
 
@@ -1467,6 +1854,38 @@ if (cliArg) {
     // GUI mode
     app.whenReady().then(createWindow);
 }
+
+// A7: macOS file association — handle open-file before and after ready
+app.on('open-file', (event, filePath) => {
+    event.preventDefault();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        // App is running — open file in new tab
+        mainWindow.webContents.send('file-opened-external', { filePath });
+        fs.readFile(filePath, 'utf-8').then(content => {
+            mainWindow.webContents.send('file-opened', { filePath, content });
+            addToRecentFiles(filePath);
+        }).catch(err => console.error('Error opening file:', err));
+    } else {
+        // App not ready yet — remember for later
+        pendingOpenFile = filePath;
+    }
+});
+
+// A3: Crash handlers
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught exception:', error);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        dialog.showErrorBox('Unerwarteter Fehler', `${error.message}\n\nDie App versucht weiterzulaufen.`);
+    }
+});
+
+app.on('render-process-gone', (event, webContents, details) => {
+    console.error('Render process gone:', details.reason);
+    if (details.reason !== 'clean-exit') {
+        // Recreate window on crash
+        createWindow();
+    }
+});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {

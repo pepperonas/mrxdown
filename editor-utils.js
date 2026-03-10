@@ -102,6 +102,101 @@ function toggleLineComment(line) {
     return indent + '<!-- ' + content + ' -->';
 }
 
+/**
+ * B1: Analyze document and return comprehensive statistics.
+ * @param {string} text - The full document text
+ * @returns {Object} Document statistics
+ */
+function analyzeDocument(text) {
+    const chars = text.length;
+    const charsNoSpaces = text.replace(/\s/g, '').length;
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const lines = text.split('\n');
+    const lineCount = lines.length;
+
+    // Sentences: split on .!? followed by space or end
+    const sentences = text.trim() ? (text.match(/[.!?]+(?:\s|$)/g) || []).length : 0;
+
+    // Paragraphs: blocks separated by blank lines
+    const paragraphs = text.trim() ? text.split(/\n\s*\n/).filter(p => p.trim()).length : 0;
+
+    // Headings by level
+    const headings = { total: 0, h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 };
+    for (const line of lines) {
+        const m = line.match(/^(#{1,6})\s+/);
+        if (m) {
+            headings.total++;
+            headings[`h${m[1].length}`]++;
+        }
+    }
+
+    // Images
+    const images = (text.match(/!\[([^\]]*)\]\([^)]+\)/g) || []).length;
+
+    // Links (excluding images)
+    const links = (text.match(/(?<!!)\[([^\]]+)\]\([^)]+\)/g) || []).length;
+
+    // Code blocks (fenced)
+    const codeBlocks = (text.match(/^```/gm) || []).length / 2;
+
+    // Reading time: ~200 words per minute
+    const readingTimeMin = Math.max(1, Math.ceil(words / 200));
+
+    return { chars, charsNoSpaces, words, sentences, paragraphs, lineCount, headings, images, links, codeBlocks, readingTimeMin };
+}
+
+/**
+ * B7: Lint markdown text and return warnings.
+ * @param {string} text - The full document text
+ * @returns {Array<{line: number, message: string, type: string}>} List of warnings
+ */
+function lintMarkdown(text) {
+    const warnings = [];
+    const lines = text.split('\n');
+    let lastHeadingLevel = 0;
+    const headingTexts = new Set();
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const lineNum = i + 1;
+
+        // Heading level jumps (e.g., H1 → H3)
+        const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
+        if (headingMatch) {
+            const level = headingMatch[1].length;
+            const headingText = headingMatch[2].trim();
+
+            if (lastHeadingLevel > 0 && level > lastHeadingLevel + 1) {
+                warnings.push({ line: lineNum, message: `Heading-Sprung: H${lastHeadingLevel} → H${level}`, type: 'warning' });
+            }
+            lastHeadingLevel = level;
+
+            // Duplicate headings
+            if (headingTexts.has(headingText.toLowerCase())) {
+                warnings.push({ line: lineNum, message: `Doppelte Überschrift: "${headingText}"`, type: 'info' });
+            }
+            headingTexts.add(headingText.toLowerCase());
+        }
+
+        // Empty links: [text]() or []()
+        if (/\[[^\]]*\]\(\s*\)/.test(line)) {
+            warnings.push({ line: lineNum, message: 'Leerer Link (kein URL)', type: 'error' });
+        }
+
+        // Broken relative image references (can't check file existence, but can flag suspicious patterns)
+        const imgMatch = line.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+        if (imgMatch) {
+            const src = imgMatch[2];
+            // Flag relative paths with spaces (common mistake)
+            if (!src.startsWith('http') && !src.startsWith('data:') && src.includes(' ') && !src.includes('%20')) {
+                warnings.push({ line: lineNum, message: `Bild-Pfad mit Leerzeichen: "${src}"`, type: 'warning' });
+            }
+        }
+    }
+
+    return warnings;
+}
+
 // Export for Node.js (tests), no-op in browser
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -109,6 +204,8 @@ if (typeof module !== 'undefined' && module.exports) {
         getSmartEnterText,
         indentLines,
         unindentLines,
-        toggleLineComment
+        toggleLineComment,
+        analyzeDocument,
+        lintMarkdown
     };
 }
