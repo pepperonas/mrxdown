@@ -1832,7 +1832,9 @@ async function runCLIBatch(inputDir) {
 }
 
 // Check for CLI arguments
-const args = process.argv.slice(2);
+// In packaged mode process.argv has no script path at [1], so user args start at [1].
+// In dev mode (electron main.js) they start at [2].
+const args = process.argv.slice(app.isPackaged ? 1 : 2);
 // --pdf flag explicitly requests PDF conversion (used by context menu and mrxdown.cmd wrapper)
 const hasPdfFlag = args.includes('--pdf');
 const cliArg = args.find(arg => !arg.startsWith('-'));
