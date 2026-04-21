@@ -23,24 +23,25 @@
   ; Notify Explorer of file association change
   System::Call 'shell32.dll::SHChangeNotify(i, i, i, i) v (0x08000000, 0, 0, 0)'
 
-  ; --- PATH: add $INSTDIR so "mrxdown" command works in CMD/PowerShell ---
+  ; --- PATH: append $INSTDIR unconditionally (duplicates are harmless on Windows) ---
   ReadRegStr $0 HKCU "Environment" "PATH"
-  ${If} $0 == ""
+  StrCmp $0 "" 0 hasPath
     WriteRegExpandStr HKCU "Environment" "PATH" "$INSTDIR"
-  ${Else}
+    Goto pathDone
+  hasPath:
     WriteRegExpandStr HKCU "Environment" "PATH" "$0;$INSTDIR"
-  ${EndIf}
+  pathDone:
   SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
 !macroend
 
 !macro customUnInstall
   ; Remove file association (only if it still points to this install)
   ReadRegStr $0 HKCU "Software\Classes\MrxDown.Document\shell\open\command" ""
-  ${If} $0 == '"$INSTDIR\MrxDown.exe" "%1"'
+  StrCmp $0 '"$INSTDIR\MrxDown.exe" "%1"' 0 skipAssoc
     DeleteRegKey HKCU "Software\Classes\MrxDown.Document"
     DeleteRegValue HKCU "Software\Classes\.md" ""
     DeleteRegValue HKCU "Software\Classes\.markdown" ""
-  ${EndIf}
+  skipAssoc:
 
   ; Remove context menu entries
   DeleteRegKey HKCU "Software\Classes\.md\shell\MrxDownPDF"
