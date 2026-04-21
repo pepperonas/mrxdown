@@ -2497,8 +2497,8 @@ async function checkSessionRestore() {
             return;
         }
 
-        // Check if any tabs had unsaved content
-        const hasUnsaved = session.tabs.some(t => t.isModified || !t.filePath);
+        // Only restore if there is real unsaved work: a modified tab, or a new tab with content
+        const hasUnsaved = session.tabs.some(t => t.isModified || (!t.filePath && t.content && t.content.trim()));
         if (!hasUnsaved) {
             window.electronAPI.clearSession();
             return;

@@ -345,6 +345,7 @@ let currentFilePath = null;
 let documentEdited = false;
 let lastSaveDirectory = null;
 let pendingOpenFile = null; // A7: file to open when app finishes launching
+let isCleanShutdown = false; // Prevents beforeunload race: blocks session save during clean close
 
 // Store for app settings - load from disk, merge with defaults
 const defaultSettings = {
@@ -808,11 +809,13 @@ function createWindow() {
                 } catch (err) {
                     console.error('Error saving on close:', err);
                 }
+                isCleanShutdown = true;
                 clearSessionFile();
                 documentEdited = false;
                 mainWindow.close();
             } else if (response.response === 1) {
                 // Don't save, just close — clear session on clean exit
+                isCleanShutdown = true;
                 clearSessionFile();
                 documentEdited = false;
                 mainWindow.close();
@@ -820,6 +823,7 @@ function createWindow() {
             // response === 2: Cancel, do nothing
         } else {
             // No unsaved changes — clear session on clean exit
+            isCleanShutdown = true;
             clearSessionFile();
         }
     });
@@ -1484,6 +1488,11 @@ ipcMain.handle('copy-image-file', async (event, { sourcePath, dirPath }) => {
 const sessionPath = path.join(userDataPath, 'session.json');
 
 ipcMain.on('save-session', async (event, sessionData) => {
+    // During clean shutdown the beforeunload fires after clearSessionFile() — ignore it
+    if (isCleanShutdown) {
+        clearSessionFile();
+        return;
+    }
     try {
         await fs.writeFile(sessionPath, JSON.stringify(sessionData, null, 2), 'utf-8');
     } catch (error) {
@@ -1824,35 +1833,58 @@ async function runCLIBatch(inputDir) {
 
 // Check for CLI arguments
 const args = process.argv.slice(2);
+// --pdf flag explicitly requests PDF conversion (used by context menu and mrxdown.cmd wrapper)
+const hasPdfFlag = args.includes('--pdf');
 const cliArg = args.find(arg => !arg.startsWith('-'));
 
-// App lifecycle
-if (cliArg) {
-    const absolutePath = path.isAbsolute(cliArg) ? cliArg : path.resolve(process.cwd(), cliArg);
-
+// Determine whether this invocation is headless PDF conversion or GUI mode
+function isHeadlessMode() {
+    if (!cliArg) return false;
+    if (hasPdfFlag) return true;
     try {
-        const stat = fsSync.statSync(absolutePath);
-        if (stat.isDirectory()) {
-            // CLI mode - batch convert directory
-            app.whenReady().then(() => runCLIBatch(cliArg));
-        } else if (cliArg.endsWith('.md') || cliArg.endsWith('.markdown')) {
-            // CLI mode - convert single file
-            app.whenReady().then(() => runCLI(cliArg));
+        return fsSync.statSync(path.isAbsolute(cliArg) ? cliArg : path.resolve(process.cwd(), cliArg)).isDirectory();
+    } catch { return false; }
+}
+
+if (isHeadlessMode()) {
+    // Headless PDF conversion — skip single-instance lock so it always runs
+    app.whenReady().then(() => {
+        if (fsSync.existsSync(path.isAbsolute(cliArg) ? cliArg : path.resolve(process.cwd(), cliArg)) &&
+            fsSync.statSync(path.isAbsolute(cliArg) ? cliArg : path.resolve(process.cwd(), cliArg)).isDirectory()) {
+            runCLIBatch(cliArg);
         } else {
-            // GUI mode
-            app.whenReady().then(createWindow);
+            runCLI(cliArg);
         }
-    } catch {
-        // File doesn't exist, try as single file (will show error)
-        if (cliArg.endsWith('.md') || cliArg.endsWith('.markdown')) {
-            app.whenReady().then(() => runCLI(cliArg));
-        } else {
-            app.whenReady().then(createWindow);
-        }
-    }
+    });
 } else {
-    // GUI mode
-    app.whenReady().then(createWindow);
+    // GUI mode — enforce single instance so file-opens go to the running window
+    const gotSingleInstanceLock = app.requestSingleInstanceLock();
+    if (!gotSingleInstanceLock) {
+        app.quit();
+    } else {
+        app.on('second-instance', (event, commandLine, workingDirectory) => {
+            if (mainWindow) {
+                if (mainWindow.isMinimized()) mainWindow.restore();
+                mainWindow.focus();
+            }
+            // Open the file passed to the second instance in the already-running editor
+            const secondArg = commandLine.slice(2).find(a => !a.startsWith('-'));
+            if (secondArg && mainWindow && !commandLine.includes('--pdf')) {
+                const absPath = path.isAbsolute(secondArg) ? secondArg : path.resolve(workingDirectory, secondArg);
+                fs.readFile(absPath, 'utf-8').then(content => {
+                    mainWindow.webContents.send('file-opened', { filePath: absPath, content });
+                    addToRecentFiles(absPath);
+                }).catch(err => console.error('Error opening file from second instance:', err));
+            }
+        });
+
+        if (cliArg) {
+            // GUI mode with a file argument (file association / double-click)
+            const absolutePath = path.isAbsolute(cliArg) ? cliArg : path.resolve(process.cwd(), cliArg);
+            pendingOpenFile = absolutePath;
+        }
+        app.whenReady().then(createWindow);
+    }
 }
 
 // A7: macOS file association — handle open-file before and after ready

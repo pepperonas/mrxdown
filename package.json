@@ -1,6 +1,6 @@
 {
   "name": "mrxdown",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Ein moderner Markdown-Editor mit Live-Vorschau",
   "main": "main.js",
   "homepage": "https://github.com/pepperonas/mrxdown",
@@ -122,6 +122,12 @@
     },
     "win": {
       "artifactName": "mrxdown-windows-${arch}.${ext}",
+      "extraFiles": [
+        {
+          "from": "build/mrxdown.cmd",
+          "to": "mrxdown.cmd"
+        }
+      ],
       "target": [
         {
           "target": "nsis",

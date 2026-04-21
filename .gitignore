@@ -23,6 +23,7 @@ bower_components/
 dist/
 build/*
 !build/installer.nsh
+!build/mrxdown.cmd
 !build/install-quick-action.command
 !build/MrxDown PDF.workflow/
 *.min.js

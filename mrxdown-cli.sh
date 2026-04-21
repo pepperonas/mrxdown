@@ -22,4 +22,5 @@ fi
     --disable-software-rasterizer \
     --disable-features=ServiceWorker \
     --no-first-run \
+    --pdf \
     "$FILE" 2>&1 | grep -v "\[.*ERROR:service_worker_storage\|Failed to delete the database"
