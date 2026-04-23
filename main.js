@@ -191,6 +191,13 @@ function getPdfStylesheet() {
 function highlightCodeBlocks(htmlContent) {
     return htmlContent.replace(/<pre><code class="language-(\w+)">([\s\S]*?)<\/code><\/pre>/g,
         (match, lang, code) => {
+            // Mermaid blocks are rendered in the preview as SVG placeholders; the PDF
+            // export uses the renderer's already-rendered HTML, so the language-mermaid
+            // block only appears in CLI mode. Skip to avoid hljs warning + messy output.
+            if (lang === 'mermaid') return match;
+            // Unknown-language guard — highlight.js warns loudly on unregistered langs,
+            // so we check first and fall back to untouched markup for those.
+            if (!getHljs().getLanguage(lang)) return match;
             try {
                 const decoded = code.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
                 const result = getHljs().highlight(decoded, { language: lang, ignoreIllegals: true });
@@ -219,9 +226,51 @@ function getHighlightCss() {
     `;
 }
 
+// Server-side KaTeX for CLI mode. The renderer's browser-side KaTeX can't run in
+// headless-CLI context, so we pre-process $...$ / $$...$$ into KaTeX HTML here.
+// Matches the delimiter set used by renderMathInPreview() in renderer.js.
+let _katex = null;
+function renderMathForCLI(markdown) {
+    if (!_katex) {
+        try { _katex = require('katex'); } catch { return markdown; }
+    }
+    // Block math first (greedy-safe because we match $$ pairs).
+    markdown = markdown.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => {
+        try { return _katex.renderToString(expr.trim(), { displayMode: true, throwOnError: false }); }
+        catch { return _; }
+    });
+    // Inline math — require a non-dollar on both sides to avoid matching `$5.00 or $10`.
+    // Single $...$ pairs on one line, no unescaped $ inside.
+    markdown = markdown.replace(/(^|[^\\$])\$([^$\n]+?)\$(?!\d)/g, (m, prefix, expr) => {
+        try { return prefix + _katex.renderToString(expr, { displayMode: false, throwOnError: false }); }
+        catch { return m; }
+    });
+    return markdown;
+}
+
+// KaTeX CSS is inlined into the PDF stylesheet so rendered math is correctly laid out.
+// Font URLs are rewritten to absolute file:// paths that resolve both from the on-disk
+// vendor tree (dev) and from inside app.asar (packaged). Cached after first read.
+let _katexCssCache = null;
+function getKatexCss() {
+    if (_katexCssCache !== null) return _katexCssCache;
+    try {
+        const katexCssPath = path.join(__dirname, 'vendor', 'katex', 'katex.min.css');
+        let css = fsSync.readFileSync(katexCssPath, 'utf-8');
+        const fontsDir = path.join(__dirname, 'vendor', 'katex', 'fonts');
+        // Rewrite relative url(./fonts/X) and url(fonts/X) and url("fonts/X") to absolute file://
+        css = css.replace(/url\((['"]?)(?:\.\/)?fonts\//g, (_, quote) => `url(${quote}file://${fontsDir}/`);
+        _katexCssCache = css;
+    } catch (err) {
+        console.warn('Could not load KaTeX CSS for PDF:', err.message);
+        _katexCssCache = '';
+    }
+    return _katexCssCache;
+}
+
 function buildPdfHtml(bodyContent) {
     const highlightedContent = highlightCodeBlocks(bodyContent);
-    return '<!DOCTYPE html>\n<html lang="de">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <style>' + getPdfStylesheet() + getHighlightCss() + '</style>\n</head>\n<body>' + highlightedContent + '</body>\n</html>';
+    return '<!DOCTYPE html>\n<html lang="de">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <style>' + getPdfStylesheet() + getHighlightCss() + getKatexCss() + '</style>\n</head>\n<body>' + highlightedContent + '</body>\n</html>';
 }
 
 // Helper function to convert images to base64 for PDF export
@@ -1744,8 +1793,11 @@ async function runCLI(inputFile) {
         // Read markdown content
         const markdownContent = await fs.readFile(absolutePath, 'utf-8');
 
+        // D2: Render KaTeX server-side so CLI PDFs include math. Mermaid is GUI-only.
+        const markdownWithMath = renderMathForCLI(markdownContent);
+
         // Convert to HTML
-        const htmlContent = marked.parse(markdownContent);
+        const htmlContent = marked.parse(markdownWithMath);
 
         // Convert images to base64
         currentFilePath = absolutePath;
@@ -1847,8 +1899,11 @@ async function runCLIBatch(inputDir) {
                 // Read markdown content
                 const markdownContent = await fs.readFile(filePath, 'utf-8');
 
+                // D2: Server-side KaTeX for CLI batch mode (same as single-file CLI)
+                const markdownWithMath = renderMathForCLI(markdownContent);
+
                 // Convert to HTML
-                const htmlContent = marked.parse(markdownContent);
+                const htmlContent = marked.parse(markdownWithMath);
 
                 // Convert images to base64
                 currentFilePath = filePath;

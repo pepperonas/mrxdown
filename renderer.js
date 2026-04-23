@@ -864,6 +864,12 @@ function renderMarkdown() {
             newPreview.appendChild(contentDiv.firstChild);
         }
 
+        // D1/D2: Post-processing passes on newPreview before morphdom
+        renderMathInPreview(newPreview);
+        highlightCodeBlocksInPreview(newPreview);
+        // Mermaid blocks extracted here, rendered async after morphdom lands
+        const mermaidBlocks = extractMermaidBlocks(newPreview);
+
         // F1: Use morphdom for incremental DOM updates (preserves scroll, less layout thrashing)
         if (typeof morphdom !== 'undefined') {
             morphdom(preview, newPreview, {
@@ -888,6 +894,131 @@ function renderMarkdown() {
 
         // Update document outline in sidebar
         updateDocumentOutline();
+
+        // D1: Render mermaid diagrams async (lazy-loads mermaid on first block)
+        if (mermaidBlocks.length > 0) {
+            renderMermaidBlocks(mermaidBlocks);
+        }
+    }
+}
+
+// D2: KaTeX math renderer, applied to newPreview before morphdom.
+// renderMathInElement is from KaTeX's auto-render contrib, loaded via script defer in index.html.
+function renderMathInPreview(root) {
+    if (typeof renderMathInElement !== 'function') return;
+    try {
+        renderMathInElement(root, {
+            delimiters: [
+                { left: '$$', right: '$$', display: true },
+                { left: '\\[', right: '\\]', display: true },
+                { left: '$', right: '$', display: false },
+                { left: '\\(', right: '\\)', display: false }
+            ],
+            throwOnError: false,
+            errorColor: '#e06c75',
+            ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        });
+    } catch (e) {
+        console.warn('KaTeX render failed:', e);
+    }
+}
+
+// D3: Syntax-highlight fenced code blocks via hljs (mirrors the PDF pipeline).
+// hljs.highlight() emits well-formed HTML with only <span class="hljs-*"> wrappers;
+// output is still piped through DOMPurify as defense in depth.
+function highlightCodeBlocksInPreview(root) {
+    if (typeof hljs === 'undefined') return;
+    root.querySelectorAll('pre > code[class*="language-"]').forEach(codeEl => {
+        const langMatch = codeEl.className.match(/language-(\S+)/);
+        if (!langMatch) return;
+        const lang = langMatch[1];
+        if (lang === 'mermaid') return; // handled by mermaid renderer
+        try {
+            const result = hljs.getLanguage(lang)
+                ? hljs.highlight(codeEl.textContent, { language: lang, ignoreIllegals: true })
+                : hljs.highlightAuto(codeEl.textContent);
+            const safe = DOMPurify.sanitize(result.value, {
+                ALLOWED_TAGS: ['span'],
+                ALLOWED_ATTR: ['class']
+            });
+            codeEl.innerHTML = safe;
+            codeEl.classList.add('hljs');
+        } catch (_) { /* unknown language — leave as plain text */ }
+    });
+}
+
+// D1: Mermaid integration. Mermaid is ~3 MB, so we lazy-load on first use
+// and cache rendered SVG via source hash to avoid re-rendering unchanged blocks.
+const mermaidSvgCache = new Map(); // source -> svgHtml
+let _mermaidLoadPromise = null;
+
+function loadMermaid() {
+    if (typeof mermaid !== 'undefined') return Promise.resolve();
+    if (_mermaidLoadPromise) return _mermaidLoadPromise;
+    _mermaidLoadPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'vendor/mermaid.min.js';
+        script.onload = () => {
+            if (typeof mermaid !== 'undefined') {
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: document.body.classList.contains('light-theme') ? 'default' : 'dark',
+                    securityLevel: 'strict'
+                });
+            }
+            resolve();
+        };
+        script.onerror = () => reject(new Error('Failed to load mermaid'));
+        document.head.appendChild(script);
+    });
+    return _mermaidLoadPromise;
+}
+
+function extractMermaidBlocks(root) {
+    const blocks = [];
+    root.querySelectorAll('pre > code.language-mermaid, pre > code[class*="language-mermaid"]').forEach(codeEl => {
+        const pre = codeEl.parentElement;
+        const placeholder = document.createElement('div');
+        placeholder.className = 'mermaid-placeholder';
+        placeholder.dataset.mermaidSource = codeEl.textContent;
+        pre.parentNode.replaceChild(placeholder, pre);
+        blocks.push(placeholder);
+    });
+    return blocks;
+}
+
+async function renderMermaidBlocks(placeholders) {
+    try {
+        await loadMermaid();
+    } catch (e) {
+        console.warn('Mermaid load failed:', e);
+        return;
+    }
+    if (typeof mermaid === 'undefined') return;
+    // The placeholders were in newPreview; after morphdom they are in `preview`.
+    // Re-query by the data attribute to get the live nodes.
+    const live = preview.querySelectorAll('.mermaid-placeholder');
+    for (let i = 0; i < live.length; i++) {
+        const el = live[i];
+        const source = el.dataset.mermaidSource;
+        if (!source) continue;
+        if (mermaidSvgCache.has(source)) {
+            el.innerHTML = DOMPurify.sanitize(mermaidSvgCache.get(source), {
+                USE_PROFILES: { svg: true, svgFilters: true }
+            });
+            continue;
+        }
+        try {
+            const id = 'mermaid-' + Math.random().toString(36).slice(2, 10);
+            const { svg } = await mermaid.render(id, source);
+            mermaidSvgCache.set(source, svg);
+            el.innerHTML = DOMPurify.sanitize(svg, {
+                USE_PROFILES: { svg: true, svgFilters: true }
+            });
+        } catch (err) {
+            el.textContent = 'Mermaid-Fehler: ' + (err && err.message ? err.message : String(err));
+            el.style.color = '#e06c75';
+        }
     }
 }
 
@@ -2110,6 +2241,17 @@ function toggleTheme() {
     const isLight = document.body.classList.toggle('light-theme');
     settings.theme = isLight ? 'light' : 'dark';
     editor.setTheme(!isLight);
+    // Keep hljs + mermaid themes in sync with the app theme
+    const hljsLink = document.getElementById('hljs-theme');
+    if (hljsLink) hljsLink.href = isLight ? 'vendor/hljs-light.css' : 'vendor/hljs-dark.css';
+    if (typeof mermaid !== 'undefined') {
+        mermaidSvgCache.clear();
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: isLight ? 'default' : 'dark',
+            securityLevel: 'strict'
+        });
+    }
     saveSettings();
 }
 
@@ -2438,13 +2580,16 @@ async function loadSettings() {
             }
 
             // Apply theme
-            if (settings.theme === 'light') {
+            const isLight = settings.theme === 'light';
+            if (isLight) {
                 document.body.classList.add('light-theme');
                 editor.setTheme(false);
             } else {
                 document.body.classList.remove('light-theme');
                 editor.setTheme(true);
             }
+            const hljsLink = document.getElementById('hljs-theme');
+            if (hljsLink) hljsLink.href = isLight ? 'vendor/hljs-light.css' : 'vendor/hljs-dark.css';
         }
     } catch (error) {
         console.error('Failed to load settings:', error);

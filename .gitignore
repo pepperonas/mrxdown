@@ -30,7 +30,14 @@ build/*
 !vendor/marked.min.js
 !vendor/purify.min.js
 !vendor/morphdom.min.js
+!vendor/highlight.min.js
+!vendor/mermaid.min.js
+!vendor/katex/katex.min.js
+!vendor/katex/auto-render.min.js
 *.min.css
+!vendor/katex/katex.min.css
+!vendor/hljs-dark.css
+!vendor/hljs-light.css
 
 # Temp
 tmp/
