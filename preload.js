@@ -93,5 +93,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     copyImageFile: (data) => ipcRenderer.invoke('copy-image-file', data),
 
     // D4: PDF export with options
-    printToPDFOptions: (data) => ipcRenderer.send('print-to-pdf-options', data)
+    printToPDFOptions: (data) => ipcRenderer.send('print-to-pdf-options', data),
+
+    // Phase C: PDF template catalog for the export dialog
+    getPdfTemplates: () => ipcRenderer.invoke('get-pdf-templates'),
+
+    // Auto-updater bridge
+    checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+    onUpdaterStatus: (callback) => onOnce('updater-status', callback)
 });

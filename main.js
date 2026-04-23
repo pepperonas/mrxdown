@@ -79,8 +79,146 @@ async function saveRecentFilesToDisk() {
     }
 }
 
-// Shared PDF stylesheet used by single export, batch export, and CLI
+// --- PDF Template System ---
+// Templates live in pdf-templates/<name>.css alongside a templates.json manifest.
+// Selection order: frontmatter `template:` > settings default > 'default'.
+// Templates may opt into a title page by providing .mrx-titlepage styles.
+
+const pdfTemplatesDir = path.join(__dirname, 'pdf-templates');
+let _pdfTemplatesManifest = null;
+const _pdfTemplateCssCache = new Map(); // name -> css string
+
+function getPdfTemplatesManifest() {
+    if (_pdfTemplatesManifest) return _pdfTemplatesManifest;
+    try {
+        const raw = fsSync.readFileSync(path.join(pdfTemplatesDir, 'templates.json'), 'utf-8');
+        _pdfTemplatesManifest = JSON.parse(raw);
+    } catch (err) {
+        console.warn('PDF templates manifest missing or invalid:', err.message);
+        _pdfTemplatesManifest = { default: { name: 'Standard', description: '', supportsTitlePage: true } };
+    }
+    return _pdfTemplatesManifest;
+}
+
+function loadPdfTemplateCss(name) {
+    // Guard against traversal via user-supplied frontmatter values
+    if (!/^[a-z0-9_-]+$/i.test(name || '')) name = 'default';
+    if (_pdfTemplateCssCache.has(name)) return _pdfTemplateCssCache.get(name);
+    const filePath = path.join(pdfTemplatesDir, `${name}.css`);
+    try {
+        const css = fsSync.readFileSync(filePath, 'utf-8');
+        _pdfTemplateCssCache.set(name, css);
+        return css;
+    } catch (err) {
+        if (name !== 'default') {
+            console.warn(`PDF template '${name}' not found, falling back to 'default'`);
+            return loadPdfTemplateCss('default');
+        }
+        console.error('Could not load any PDF template CSS:', err);
+        return '';
+    }
+}
+
+// Minimal YAML-lite parser for the frontmatter we care about (key: value pairs,
+// block scalars via `|` or `>`, simple comments). Handles multi-line abstracts.
+// NOT a full YAML implementation — just enough for frontmatter in practice.
+function parseFrontmatterYaml(raw) {
+    if (!raw) return {};
+    const out = {};
+    const lines = raw.split(/\r?\n/);
+    let i = 0;
+    while (i < lines.length) {
+        const line = lines[i];
+        if (!line.trim() || line.trim().startsWith('#')) { i++; continue; }
+        const m = line.match(/^([A-Za-z0-9_-]+)\s*:\s*(.*)$/);
+        if (!m) { i++; continue; }
+        const key = m[1];
+        let val = m[2].trim();
+        if (val === '|' || val === '>') {
+            // Block scalar — collect until dedent or blank line
+            i++;
+            const indent = (lines[i] || '').match(/^(\s*)/)[1].length || 2;
+            const collected = [];
+            while (i < lines.length) {
+                const l = lines[i];
+                if (!l.trim()) { collected.push(''); i++; continue; }
+                if (l.match(/^(\s*)/)[1].length < indent) break;
+                collected.push(l.slice(indent));
+                i++;
+            }
+            out[key] = val === '>' ? collected.join(' ').trim() : collected.join('\n').trimEnd();
+            continue;
+        }
+        // Strip surrounding quotes
+        val = val.replace(/^"(.*)"$/, '$1').replace(/^'(.*)'$/, '$1');
+        out[key] = val;
+        i++;
+    }
+    return out;
+}
+
+function extractFrontmatter(markdown) {
+    const m = (markdown || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+    if (!m) return { frontmatter: {}, body: markdown || '' };
+    return {
+        frontmatter: parseFrontmatterYaml(m[1]),
+        body: markdown.slice(m[0].length)
+    };
+}
+
+// Escape HTML for title-page text fields
+function escHtml(s) {
+    return String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function renderTitlePage(frontmatter, templateName) {
+    const manifest = getPdfTemplatesManifest();
+    const tpl = manifest[templateName] || manifest.default || {};
+    if (!tpl.supportsTitlePage) return '';
+    if (!frontmatter || !frontmatter.title) return '';
+    const parts = [];
+    parts.push(`<h1>${escHtml(frontmatter.title)}</h1>`);
+    if (frontmatter.subtitle) parts.push(`<div class="mrx-subtitle">${escHtml(frontmatter.subtitle)}</div>`);
+    if (frontmatter.author) parts.push(`<div class="mrx-author">${escHtml(frontmatter.author)}</div>`);
+    if (frontmatter.affiliation) parts.push(`<div class="mrx-affiliation">${escHtml(frontmatter.affiliation)}</div>`);
+    if (frontmatter.date) parts.push(`<div class="mrx-date">${escHtml(frontmatter.date)}</div>`);
+    if (frontmatter.abstract) {
+        parts.push('<div class="mrx-abstract">');
+        parts.push('<div class="mrx-abstract-label">Abstract</div>');
+        parts.push(escHtml(frontmatter.abstract).replace(/\n/g, '<br>'));
+        parts.push('</div>');
+    }
+    return `<div class="mrx-titlepage">${parts.join('')}</div>`;
+}
+
+function resolvePdfTemplateName(frontmatter, fallback) {
+    const manifest = getPdfTemplatesManifest();
+    const candidates = [
+        frontmatter && frontmatter.template,
+        fallback,
+        'default'
+    ];
+    for (const c of candidates) {
+        if (c && manifest[c]) return c;
+    }
+    return 'default';
+}
+
+// Shared PDF stylesheet — kept as a thin wrapper that loads the 'default' template
+// for callers that predate the template system. New code should prefer loadPdfTemplateCss().
 function getPdfStylesheet() {
+    return loadPdfTemplateCss('default');
+}
+
+// Original (inlined) stylesheet replaced by pdf-templates/default.css. Kept in
+// git history for reference. The stub below is only hit if the templates dir is
+// missing at runtime — which shouldn't happen given electron-builder's `files`
+// config, but we fall through gracefully just in case.
+function _getPdfStylesheetFallback_DO_NOT_CALL() {
     return `
         @page {
             margin: 20mm 15mm;
@@ -268,9 +406,23 @@ function getKatexCss() {
     return _katexCssCache;
 }
 
-function buildPdfHtml(bodyContent) {
+// buildPdfHtml accepts either a bare bodyContent string (legacy) or an options
+// object with { bodyContent, template, frontmatter }. Template selection falls
+// through frontmatter.template -> settings.pdfTemplate -> 'default'.
+function buildPdfHtml(bodyContentOrOpts) {
+    const opts = typeof bodyContentOrOpts === 'string'
+        ? { bodyContent: bodyContentOrOpts }
+        : (bodyContentOrOpts || {});
+    const bodyContent = opts.bodyContent || '';
+    const frontmatter = opts.frontmatter || {};
+    const fallback = opts.template || (settings && settings.pdfTemplate) || 'default';
+    const templateName = resolvePdfTemplateName(frontmatter, fallback);
+
     const highlightedContent = highlightCodeBlocks(bodyContent);
-    return '<!DOCTYPE html>\n<html lang="de">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <style>' + getPdfStylesheet() + getHighlightCss() + getKatexCss() + '</style>\n</head>\n<body>' + highlightedContent + '</body>\n</html>';
+    const titlePage = renderTitlePage(frontmatter, templateName);
+    const stylesheet = loadPdfTemplateCss(templateName);
+
+    return '<!DOCTYPE html>\n<html lang="de">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <style>' + stylesheet + getHighlightCss() + getKatexCss() + '</style>\n</head>\n<body>' + titlePage + highlightedContent + '</body>\n</html>';
 }
 
 // Helper function to convert images to base64 for PDF export
@@ -441,7 +593,8 @@ const defaultSettings = {
     autoSaveInterval: 5,
     showLineNumbers: true,
     wordWrap: true,
-    tabSize: 4
+    tabSize: 4,
+    pdfTemplate: 'default'
 };
 let settings = { ...defaultSettings, ...loadSettingsFromDisk() };
 const recentFiles = loadRecentFilesFromDisk();
@@ -500,6 +653,10 @@ function getMenuTemplate() {
                     click: () => {
                         if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'show-about', version: packageJson.version });
                     }
+                },
+                {
+                    label: 'Nach Updates suchen…',
+                    click: () => triggerManualUpdateCheck()
                 },
                 { type: 'separator' },
                 { role: 'services' },
@@ -568,6 +725,10 @@ function getMenuTemplate() {
                 click: () => {
                     if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'show-about', version: packageJson.version });
                 }
+            },
+            {
+                label: 'Nach Updates suchen…',
+                click: () => triggerManualUpdateCheck()
             },
             { type: 'separator' },
             { role: 'quit', label: 'Beenden' }
@@ -1129,9 +1290,12 @@ ipcMain.on('print-to-pdf-options', async (event, { filePath, pdfOptions } = {}) 
             webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, 'preload.js') }
         });
 
-        let content = await mainWindow.webContents.executeJavaScript(
-            '(function() { var p = document.querySelector("#preview"); return p ? p.innerHTML : ""; })()'
+        const pageData = await mainWindow.webContents.executeJavaScript(
+            '(function() { var p = document.querySelector("#preview"); var html = p ? p.innerHTML : ""; var raw = (typeof editor !== "undefined" && editor && editor.value) ? editor.value : ""; return { previewHtml: html, rawMarkdown: raw }; })()'
         );
+        let content = pageData && pageData.previewHtml ? pageData.previewHtml : '';
+        const rawMarkdown = pageData && pageData.rawMarkdown ? pageData.rawMarkdown : '';
+        const { frontmatter } = extractFrontmatter(rawMarkdown);
 
         if (!content || content.trim().length === 0) {
             dialog.showErrorBox('PDF-Export Fehler', 'Der Dokumentinhalt ist leer.');
@@ -1139,10 +1303,16 @@ ipcMain.on('print-to-pdf-options', async (event, { filePath, pdfOptions } = {}) 
             return;
         }
 
+        // Strip the preview's frontmatter info-box from the exported body
+        content = content.replace(/<div class="frontmatter-box">[\s\S]*?<\/div>\s*(?=<)/, '');
+
         content = await convertImagesToBase64(content);
 
-        // Build custom stylesheet with user options
-        let customStyle = getPdfStylesheet();
+        // Template selection: dialog > frontmatter > settings > 'default'
+        const templateName = resolvePdfTemplateName(frontmatter, opts.template || (settings && settings.pdfTemplate));
+
+        // Build custom stylesheet on top of the selected template
+        let customStyle = loadPdfTemplateCss(templateName);
         customStyle = customStyle.replace(/margin:\s*20mm\s*15mm/, 'margin: ' + margin + 'mm');
         customStyle = customStyle.replace(/size:\s*A4\s*portrait/, 'size: ' + pageSize + ' ' + (landscape ? 'landscape' : 'portrait'));
         customStyle = customStyle.replace(/font-size:\s*11pt/, 'font-size: ' + fontSize + 'pt');
@@ -1150,6 +1320,9 @@ ipcMain.on('print-to-pdf-options', async (event, { filePath, pdfOptions } = {}) 
         if (!showPageNumbers) {
             customStyle = customStyle.replace(/@bottom-center\s*\{[^}]+\}/, '');
         }
+
+        // Title page from frontmatter (only if template + frontmatter support it)
+        const titlePage = renderTitlePage(frontmatter, templateName);
 
         // D5: TOC generation
         let tocHtml = '';
@@ -1174,7 +1347,7 @@ ipcMain.on('print-to-pdf-options', async (event, { filePath, pdfOptions } = {}) 
         }
 
         const tocStyle = '.pdf-toc { margin-bottom: 2em; } .pdf-toc h2 { border-bottom: 2px solid #333; padding-bottom: 0.5rem; } .pdf-toc ul { list-style: none; padding: 0; } .pdf-toc li { padding: 4px 0; color: #1a1a1a; }';
-        const fullHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' + customStyle + tocStyle + '</style></head><body>' + tocHtml + content + '</body></html>';
+        const fullHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' + customStyle + tocStyle + getHighlightCss() + getKatexCss() + '</style></head><body>' + titlePage + tocHtml + content + '</body></html>';
 
         await pdfWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(fullHtml));
 
@@ -1227,19 +1400,19 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
             }
         });
 
-        // Get the current content from the main window
-        let content = await mainWindow.webContents.executeJavaScript(`
+        // Pull preview HTML and raw editor markdown so we can extract frontmatter
+        // for template selection + title-page rendering.
+        const pageData = await mainWindow.webContents.executeJavaScript(`
             (function() {
                 const previewElement = document.querySelector('#preview');
-                if (!previewElement) {
-                    console.error('Preview element not found');
-                    return '';
-                }
-                const html = previewElement.innerHTML;
-                console.log('Preview HTML length:', html.length);
-                return html;
+                const previewHtml = previewElement ? previewElement.innerHTML : '';
+                const rawMarkdown = (typeof editor !== 'undefined' && editor && editor.value) ? editor.value : '';
+                return { previewHtml, rawMarkdown };
             })()
         `);
+        let content = pageData && pageData.previewHtml ? pageData.previewHtml : '';
+        const rawMarkdown = pageData && pageData.rawMarkdown ? pageData.rawMarkdown : '';
+        const { frontmatter } = extractFrontmatter(rawMarkdown);
 
         // Check if content is empty
         if (!content || content.trim().length === 0) {
@@ -1249,13 +1422,16 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
             return;
         }
 
+        // Strip the frontmatter info-box the preview adds (not part of the exported doc).
+        content = content.replace(/<div class="frontmatter-box">[\s\S]*?<\/div>\s*(?=<)/, '');
+
         // Convert images to base64 for embedding
         content = await convertImagesToBase64(content);
 
         // Keep <br> tags - styled via CSS
 
-        // Load HTML with optimized print styles
-        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildPdfHtml(content))}`);
+        // Load HTML with optimized print styles — template picked from frontmatter/settings
+        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildPdfHtml({ bodyContent: content, frontmatter }))}`);
 
         // A5: Smart wait — wait for images to load + DOM idle instead of fixed 2s
         await pdfWindow.webContents.executeJavaScript(`
@@ -1350,6 +1526,9 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                 // Convert images to base64 for embedding
                 htmlContent = await convertImagesToBase64(htmlContent);
 
+                // Extract frontmatter from tab's source markdown for template selection
+                const { frontmatter: tabFrontmatter } = extractFrontmatter(tab.content || '');
+
                 // Keep <br> tags - styled via CSS
 
                 // Create a new window for PDF generation
@@ -1364,8 +1543,8 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                     }
                 });
                 
-                // Load HTML with shared print styles
-                await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildPdfHtml(htmlContent))}`);
+                // Load HTML with shared print styles — template per tab from frontmatter
+                await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildPdfHtml({ bodyContent: htmlContent, frontmatter: tabFrontmatter }))}`);
 
                 // A5: Smart wait — wait for images + DOM idle
                 await pdfWindow.webContents.executeJavaScript(`
@@ -1442,6 +1621,18 @@ ipcMain.handle('get-settings', () => {
 ipcMain.on('save-settings', (event, newSettings) => {
     settings = { ...settings, ...newSettings };
     saveSettingsToDisk();
+});
+
+// PDF template catalog for the export dialog (and whoever else wants it)
+ipcMain.handle('get-pdf-templates', () => {
+    const manifest = getPdfTemplatesManifest();
+    return Object.entries(manifest).map(([key, meta]) => ({
+        key,
+        name: meta.name || key,
+        description: meta.description || '',
+        supportsTitlePage: meta.supportsTitlePage !== false,
+        titlePageFields: meta.titlePageFields || []
+    }));
 });
 
 // Recent files handlers
@@ -1793,8 +1984,11 @@ async function runCLI(inputFile) {
         // Read markdown content
         const markdownContent = await fs.readFile(absolutePath, 'utf-8');
 
+        // Extract frontmatter once — drives both KaTeX rendering and PDF template selection
+        const { frontmatter, body: markdownBody } = extractFrontmatter(markdownContent);
+
         // D2: Render KaTeX server-side so CLI PDFs include math. Mermaid is GUI-only.
-        const markdownWithMath = renderMathForCLI(markdownContent);
+        const markdownWithMath = renderMathForCLI(markdownBody);
 
         // Convert to HTML
         const htmlContent = marked.parse(markdownWithMath);
@@ -1805,7 +1999,7 @@ async function runCLI(inputFile) {
 
         // Create temporary HTML file (data URLs are too long for Electron)
         const tempHtmlPath = path.join(os.tmpdir(), `mrxdown-cli-${Date.now()}.html`);
-        await fs.writeFile(tempHtmlPath, buildPdfHtml(htmlWithImages), 'utf-8');
+        await fs.writeFile(tempHtmlPath, buildPdfHtml({ bodyContent: htmlWithImages, frontmatter }), 'utf-8');
 
         // Create hidden window for PDF generation
         const pdfWindow = new BrowserWindow({
@@ -1899,8 +2093,11 @@ async function runCLIBatch(inputDir) {
                 // Read markdown content
                 const markdownContent = await fs.readFile(filePath, 'utf-8');
 
+                // Extract frontmatter — drives KaTeX + PDF template choice
+                const { frontmatter, body: markdownBody } = extractFrontmatter(markdownContent);
+
                 // D2: Server-side KaTeX for CLI batch mode (same as single-file CLI)
-                const markdownWithMath = renderMathForCLI(markdownContent);
+                const markdownWithMath = renderMathForCLI(markdownBody);
 
                 // Convert to HTML
                 const htmlContent = marked.parse(markdownWithMath);
@@ -1911,7 +2108,7 @@ async function runCLIBatch(inputDir) {
 
                 // Create temporary HTML file
                 const tempHtmlPath = path.join(os.tmpdir(), `mrxdown-cli-${Date.now()}.html`);
-                await fs.writeFile(tempHtmlPath, buildPdfHtml(htmlWithImages), 'utf-8');
+                await fs.writeFile(tempHtmlPath, buildPdfHtml({ bodyContent: htmlWithImages, frontmatter }), 'utf-8');
 
                 // Create hidden window for PDF generation
                 const pdfWindow = new BrowserWindow({
@@ -2018,9 +2215,119 @@ if (isHeadlessMode()) {
             createWindow();
             // Prune missing recent files async — deferred so offline network drives don't block startup
             setTimeout(() => pruneMissingRecentFiles(), 1000);
+            // Auto-update check: only in packaged builds, deferred so the window is interactive first.
+            // Dev builds can't update themselves; CLI mode is already excluded by the surrounding else-branch.
+            if (app.isPackaged) {
+                setTimeout(() => initAutoUpdater().catch(err => console.warn('AutoUpdater init failed:', err.message)), 3000);
+            }
         });
     }
 }
+
+// --- Auto-Updater Integration (electron-updater) ---
+// Lazy-loaded so dev mode doesn't pull the dependency at startup.
+let _autoUpdater = null;
+let _autoUpdaterReady = false;
+
+async function initAutoUpdater() {
+    if (_autoUpdaterReady) return _autoUpdater;
+    try {
+        const mod = require('electron-updater');
+        _autoUpdater = mod.autoUpdater;
+    } catch (err) {
+        console.warn('electron-updater not available:', err.message);
+        return null;
+    }
+
+    _autoUpdater.autoDownload = true;
+    _autoUpdater.autoInstallOnAppQuit = true;
+
+    _autoUpdater.on('checking-for-update', () => console.log('[updater] checking…'));
+    _autoUpdater.on('update-available', (info) => {
+        console.log('[updater] update available:', info && info.version);
+        if (mainWindow) mainWindow.webContents.send('updater-status', { state: 'available', version: info && info.version });
+    });
+    _autoUpdater.on('update-not-available', () => console.log('[updater] up to date'));
+    _autoUpdater.on('error', (err) => console.warn('[updater] error:', err && err.message));
+    _autoUpdater.on('download-progress', (p) => {
+        if (mainWindow) mainWindow.webContents.send('updater-status', {
+            state: 'downloading',
+            percent: Math.round(p.percent),
+            bytesPerSecond: p.bytesPerSecond
+        });
+    });
+    _autoUpdater.on('update-downloaded', async (info) => {
+        console.log('[updater] downloaded:', info && info.version);
+        if (mainWindow) mainWindow.webContents.send('updater-status', { state: 'downloaded', version: info && info.version });
+        const choice = await dialog.showMessageBox(mainWindow, {
+            type: 'info',
+            buttons: ['Jetzt neu starten', 'Später'],
+            defaultId: 0,
+            cancelId: 1,
+            title: 'Update bereit',
+            message: `MrxDown ${info && info.version} ist heruntergeladen.`,
+            detail: 'Beim Neustart wird die neue Version installiert.'
+        });
+        if (choice.response === 0) {
+            _autoUpdater.quitAndInstall();
+        }
+    });
+
+    _autoUpdaterReady = true;
+    try {
+        await _autoUpdater.checkForUpdates();
+    } catch (err) {
+        console.warn('[updater] check failed:', err.message);
+    }
+    return _autoUpdater;
+}
+
+// Manual update check from the menu. Shows a dialog with the result instead of
+// silently hoping the auto-download fires; user-initiated checks expect feedback.
+async function triggerManualUpdateCheck() {
+    if (!app.isPackaged) {
+        dialog.showMessageBox(mainWindow, {
+            type: 'info',
+            title: 'Update-Prüfung',
+            message: 'Dev-Build',
+            detail: 'Auto-Updates sind nur in installierten Builds verfügbar.'
+        });
+        return;
+    }
+    const upd = await initAutoUpdater();
+    if (!upd) {
+        dialog.showErrorBox('Update-Prüfung', 'Auto-Updater nicht verfügbar.');
+        return;
+    }
+    try {
+        const result = await upd.checkForUpdates();
+        if (!result || !result.updateInfo || result.updateInfo.version === packageJson.version) {
+            dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: 'Update-Prüfung',
+                message: `Du hast bereits die neueste Version (${packageJson.version}).`
+            });
+        }
+        // If there IS an update, the auto-download + downloaded handler takes over.
+    } catch (err) {
+        dialog.showErrorBox('Update-Prüfung fehlgeschlagen', err.message);
+    }
+}
+
+// Manual "check for updates" trigger (wired to menu)
+ipcMain.handle('check-for-updates', async () => {
+    if (!app.isPackaged) {
+        return { ok: false, reason: 'dev-build' };
+    }
+    const upd = await initAutoUpdater();
+    if (!upd) return { ok: false, reason: 'updater-unavailable' };
+    try {
+        const result = await upd.checkForUpdates();
+        return { ok: true, updateInfo: result && result.updateInfo };
+    } catch (err) {
+        return { ok: false, reason: 'check-failed', error: err.message };
+    }
+});
 
 // A7: macOS file association — handle open-file before and after ready
 app.on('open-file', (event, filePath) => {

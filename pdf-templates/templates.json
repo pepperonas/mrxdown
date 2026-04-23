@@ -1,0 +1,19 @@
+{
+  "default": {
+    "name": "Standard",
+    "description": "Klassisches Layout mit Sans-Serif, Blocksatz und farbigen Code-Blöcken.",
+    "supportsTitlePage": true
+  },
+  "academic": {
+    "name": "Wissenschaftlich",
+    "description": "Serifenschrift, nummerierte Überschriften, Titelseite mit Abstract. Ideal für Paper/Theses.",
+    "supportsTitlePage": true,
+    "titlePageFields": ["title", "subtitle", "author", "affiliation", "date", "abstract"]
+  },
+  "minimal": {
+    "name": "Minimal",
+    "description": "Reduziertes Layout für Notizen und kurze Dokumente. Kein Overhead.",
+    "supportsTitlePage": true,
+    "titlePageFields": ["title", "subtitle", "author", "date"]
+  }
+}

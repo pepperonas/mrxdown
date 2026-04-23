@@ -498,6 +498,13 @@
             <div class="modal-content">
                 <div class="search-controls">
                     <div class="settings-row">
+                        <label for="pdfTemplate" style="color: var(--text-secondary); font-size: 14px;">Vorlage</label>
+                        <select class="search-input" id="pdfTemplate" style="width: 180px;">
+                            <!-- Populated at runtime from pdf-templates/templates.json -->
+                        </select>
+                    </div>
+                    <div id="pdfTemplateDescription" style="color: var(--text-muted, #888); font-size: 12px; margin: 4px 0 8px 0;"></div>
+                    <div class="settings-row">
                         <label for="pdfPageSize" style="color: var(--text-secondary); font-size: 14px;">Seitengröße</label>
                         <select class="search-input" id="pdfPageSize" style="width: 140px;">
                             <option value="A4" selected>A4</option>

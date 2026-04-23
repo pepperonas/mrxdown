@@ -215,7 +215,10 @@ function initializeApp() {
     
     // Setup IPC listeners
     setupIPCListeners();
-    
+
+    // Accessibility pass — aria labels on toolbar, role/aria-modal on dialogs, Escape-to-close, focus trap
+    setupAccessibility();
+
     // Setup tooltip delay
     setupTooltipDelay();
     
@@ -2892,6 +2895,90 @@ function insertTable() {
 }
 
 // Enhanced tooltip delay
+// --- Accessibility pass ---
+// Everything in one place so we can reason about the a11y story without hunting
+// through the codebase. Touches three areas: toolbar buttons (aria-label from
+// existing data-tooltip), modal dialogs (role, aria-modal, Escape-to-close,
+// focus trap), and fallback focus handling on open.
+function setupAccessibility() {
+    // 1. Toolbar buttons — derive aria-label from the existing data-tooltip attribute.
+    //    Existing SVG icons mean nothing to screen readers without a label.
+    document.querySelectorAll('[data-tooltip]').forEach(el => {
+        if (!el.hasAttribute('aria-label')) {
+            el.setAttribute('aria-label', el.getAttribute('data-tooltip'));
+        }
+    });
+
+    // 2. Modal dialogs — role + aria-modal + trap focus + Escape closes.
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        const modal = overlay.querySelector('.modal');
+        if (modal) {
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            const title = modal.querySelector('.modal-title');
+            if (title && !modal.hasAttribute('aria-labelledby')) {
+                if (!title.id) title.id = 'modal-title-' + Math.random().toString(36).slice(2, 8);
+                modal.setAttribute('aria-labelledby', title.id);
+            }
+        }
+    });
+
+    // 3. Global Escape handler — close any visible modal. Wins over the editor's
+    //    internal key handling because we use capture phase and don't call
+    //    preventDefault unless a modal is actually open.
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const open = Array.from(document.querySelectorAll('.modal-overlay.visible, .modal-overlay[style*="display: block"], .modal-overlay[style*="display:block"]'));
+        if (open.length === 0) return;
+        // Close the topmost (last-opened) dialog only
+        const top = open[open.length - 1];
+        top.classList.remove('visible');
+        if (top.style.display === 'block') top.style.display = 'none';
+        e.preventDefault();
+        e.stopPropagation();
+    }, true);
+
+    // 4. Focus trap — when a modal becomes visible, focus the first focusable
+    //    element inside and keep tab navigation within the dialog.
+    const focusableSel = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    const observers = new Map();
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        const obs = new MutationObserver(() => {
+            const visible = overlay.classList.contains('visible') ||
+                (overlay.style.display && overlay.style.display !== 'none');
+            if (!visible) return;
+            const modal = overlay.querySelector('.modal');
+            if (!modal) return;
+            const focusables = modal.querySelectorAll(focusableSel);
+            if (focusables.length > 0) {
+                // Defer so CSS transitions don't steal focus mid-animation
+                setTimeout(() => focusables[0].focus(), 50);
+            }
+        });
+        obs.observe(overlay, { attributes: true, attributeFilter: ['class', 'style'] });
+        observers.set(overlay, obs);
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Tab') return;
+        const openOverlay = document.querySelector('.modal-overlay.visible');
+        if (!openOverlay) return;
+        const modal = openOverlay.querySelector('.modal');
+        if (!modal) return;
+        const focusables = Array.from(modal.querySelectorAll(focusableSel)).filter(el => !el.hasAttribute('disabled') && el.offsetParent !== null);
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+        }
+    });
+}
+
 function setupTooltipDelay() {
     const tooltips = document.querySelectorAll('.tooltip');
     
@@ -3527,9 +3614,43 @@ function setupSidebarResize() {
 }
 
 // --- D4: PDF Options Dialog ---
+
+// Cached template catalog — fetched lazily on first dialog open
+let _pdfTemplatesCatalog = null;
+
+async function populatePdfTemplateDropdown() {
+    const select = document.getElementById('pdfTemplate');
+    const desc = document.getElementById('pdfTemplateDescription');
+    if (!select) return;
+    if (!_pdfTemplatesCatalog && window.electronAPI && window.electronAPI.getPdfTemplates) {
+        try { _pdfTemplatesCatalog = await window.electronAPI.getPdfTemplates(); }
+        catch (_) { _pdfTemplatesCatalog = []; }
+    }
+    if (!_pdfTemplatesCatalog || _pdfTemplatesCatalog.length === 0) return;
+
+    // Only rebuild if empty (avoid resetting selection on each open)
+    if (select.options.length === 0) {
+        const preferred = (settings && settings.pdfTemplate) || 'default';
+        for (const tpl of _pdfTemplatesCatalog) {
+            const opt = document.createElement('option');
+            opt.value = tpl.key;
+            opt.textContent = tpl.name;
+            if (tpl.key === preferred) opt.selected = true;
+            select.appendChild(opt);
+        }
+        const updateDescription = () => {
+            const tpl = _pdfTemplatesCatalog.find(t => t.key === select.value);
+            if (desc) desc.textContent = tpl ? tpl.description : '';
+        };
+        select.addEventListener('change', updateDescription);
+        updateDescription();
+    }
+}
+
 function showPdfOptionsDialog() {
     const modal = document.getElementById('pdfOptionsModal');
     if (modal) modal.classList.add('visible');
+    populatePdfTemplateDropdown();
 }
 
 function closePdfOptionsDialog() {
@@ -3539,7 +3660,9 @@ function closePdfOptionsDialog() {
 
 function exportPDFWithOptions() {
     const activeTab = tabs.find(tab => tab.id === activeTabId);
+    const templateSelect = document.getElementById('pdfTemplate');
     const pdfOptions = {
+        template: templateSelect ? templateSelect.value : 'default',
         pageSize: document.getElementById('pdfPageSize').value,
         orientation: document.getElementById('pdfOrientation').value,
         margin: parseInt(document.getElementById('pdfMargin').value) || 20,
@@ -3547,6 +3670,12 @@ function exportPDFWithOptions() {
         toc: document.getElementById('pdfToc').checked,
         pageNumbers: document.getElementById('pdfPageNumbers').checked
     };
+
+    // Persist template choice for next invocation
+    if (pdfOptions.template && settings) {
+        settings.pdfTemplate = pdfOptions.template;
+        saveSettings();
+    }
 
     if (window.electronAPI && window.electronAPI.printToPDFOptions) {
         window.electronAPI.printToPDFOptions({
