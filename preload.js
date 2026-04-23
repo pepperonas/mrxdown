@@ -1,5 +1,13 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Idempotent listener registration: clears any prior listener on the channel before
+// attaching a new one. Guards against listener accumulation on renderer reload
+// (Ansicht > Neu laden), which previously caused events to fire N times after N reloads.
+function onOnce(channel, callback) {
+    ipcRenderer.removeAllListeners(channel);
+    ipcRenderer.on(channel, callback);
+}
+
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -9,14 +17,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openFilePath: (filePath) => ipcRenderer.send('open-file-path', filePath),
     saveFile: (content, filePath) => ipcRenderer.send('save-file', { content, filePath }),
     saveFileAs: (content, filePath, tabTitle) => ipcRenderer.send('save-file-as', { content, filePath, tabTitle }),
+    // Awaitable variants for save-on-close flow; resolve with { success, filePath } or { success: false, cancelled|error }
+    saveFileSync: (content, filePath) => ipcRenderer.invoke('save-file-sync', { content, filePath }),
+    saveFileAsSync: (content, filePath, tabTitle) => ipcRenderer.invoke('save-file-as-sync', { content, filePath, tabTitle }),
     exportHTML: (content, filePath) => ipcRenderer.send('export-html', { content, filePath }),
     printToPDF: (filePath) => ipcRenderer.send('print-to-pdf', { filePath }),
     batchPrintToPDF: (tabData) => ipcRenderer.send('batch-print-to-pdf', { tabData }),
     
     // File dialog handlers
-    onFileOpened: (callback) => ipcRenderer.on('file-opened', callback),
-    onFileSaved: (callback) => ipcRenderer.on('file-saved', callback),
-    onNewFile: (callback) => ipcRenderer.on('new-file-created', callback),
+    onFileOpened: (callback) => onOnce('file-opened', callback),
+    onFileSaved: (callback) => onOnce('file-saved', callback),
+    onNewFile: (callback) => onOnce('new-file-created', callback),
     
     // Window operations
     closeWindow: () => ipcRenderer.send('close-window'),
@@ -32,10 +43,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     addRecentFile: (filePath) => ipcRenderer.send('add-recent-file', filePath),
     
     // Drag and drop
-    onFilesDropped: (callback) => ipcRenderer.on('files-dropped', callback),
-    
+    onFilesDropped: (callback) => onOnce('files-dropped', callback),
+
     // Menu actions
-    onMenuAction: (callback) => ipcRenderer.on('menu-action', callback),
+    onMenuAction: (callback) => onOnce('menu-action', callback),
     
     // Update UI state
     updateWindowTitle: (title) => ipcRenderer.send('update-window-title', title),
@@ -44,11 +55,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // File watching
     watchFile: (filePath) => ipcRenderer.send('watch-file', filePath),
     unwatchFile: (filePath) => ipcRenderer.send('unwatch-file', filePath),
-    onFileChangedExternally: (callback) => ipcRenderer.on('file-changed-externally', callback),
-    onFileDeletedExternally: (callback) => ipcRenderer.on('file-deleted-externally', callback),
+    onFileChangedExternally: (callback) => onOnce('file-changed-externally', callback),
+    onFileDeletedExternally: (callback) => onOnce('file-deleted-externally', callback),
 
     // Batch export
-    onBatchExportPrepareTab: (callback) => ipcRenderer.on('batch-export-prepare-tab', callback),
+    onBatchExportPrepareTab: (callback) => onOnce('batch-export-prepare-tab', callback),
     sendBatchExportTabReady: (data) => ipcRenderer.send('batch-export-tab-ready', data),
 
     // Directory listing (for sidebar file tree)
@@ -73,7 +84,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
 
     // A7: External file open
-    onFileOpenedExternal: (callback) => ipcRenderer.on('file-opened-external', callback),
+    onFileOpenedExternal: (callback) => onOnce('file-opened-external', callback),
 
     // C2: Save clipboard image
     saveClipboardImage: (data) => ipcRenderer.invoke('save-clipboard-image', data),

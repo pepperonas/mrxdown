@@ -4,7 +4,14 @@ const fs = require('fs').promises;
 const fsSync = require('fs');
 const fsWatchers = new Map();
 const packageJson = require('./package.json');
-const hljs = require('highlight.js');
+
+// highlight.js is only needed during PDF export but pulls ~9 MB of language
+// definitions into memory at require() time. Lazy-load on first use.
+let _hljs = null;
+function getHljs() {
+    if (!_hljs) _hljs = require('highlight.js');
+    return _hljs;
+}
 
 // --- Settings & Recent Files Persistence ---
 const userDataPath = app.getPath('userData');
@@ -35,14 +42,33 @@ function loadRecentFilesFromDisk() {
     try {
         if (fsSync.existsSync(recentFilesPath)) {
             const data = fsSync.readFileSync(recentFilesPath, 'utf-8');
-            const files = JSON.parse(data);
-            // Filter out files that no longer exist
-            return files.filter(f => fsSync.existsSync(f));
+            return JSON.parse(data);
         }
     } catch (error) {
         console.error('Error loading recent files:', error);
     }
     return [];
+}
+
+// Async existence filter with per-file timeout. Used post-startup so that
+// recent files on offline network drives don't block app launch for 20-30s.
+async function pruneMissingRecentFiles() {
+    const PER_FILE_TIMEOUT = 300; // ms — short enough that pruning fully completes quickly
+    const checks = recentFiles.map(async (f) => {
+        const check = fs.access(f).then(() => true).catch(() => false);
+        const timeout = new Promise((resolve) => setTimeout(() => resolve(null), PER_FILE_TIMEOUT));
+        const result = await Promise.race([check, timeout]);
+        // Keep the entry on timeout (unknown) — only drop confirmed-missing files
+        return result === false ? null : f;
+    });
+    const resolved = await Promise.all(checks);
+    const filtered = resolved.filter(f => f !== null);
+    if (filtered.length !== recentFiles.length) {
+        recentFiles.length = 0;
+        recentFiles.push(...filtered);
+        saveRecentFilesToDisk();
+        updateRecentFilesMenu();
+    }
 }
 
 async function saveRecentFilesToDisk() {
@@ -167,7 +193,7 @@ function highlightCodeBlocks(htmlContent) {
         (match, lang, code) => {
             try {
                 const decoded = code.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
-                const result = hljs.highlight(decoded, { language: lang, ignoreIllegals: true });
+                const result = getHljs().highlight(decoded, { language: lang, ignoreIllegals: true });
                 return '<pre><code class="hljs language-' + lang + '">' + result.value + '</code></pre>';
             } catch (e) {
                 return match;
@@ -312,7 +338,7 @@ async function convertImageToBase64(imagePath) {
             });
         } else if (path.isAbsolute(imagePath)) {
             // Absolute path
-            fullPath = imagePath;
+            fullPath = path.resolve(imagePath);
         } else {
             // Relative path - resolve relative to current file or working directory
             if (currentFilePath) {
@@ -320,6 +346,17 @@ async function convertImageToBase64(imagePath) {
             } else {
                 fullPath = path.resolve(imagePath);
             }
+        }
+
+        // Path traversal guard: fullPath must stay within the Markdown file's directory subtree.
+        // Blocks malicious markdown like ![](../../../../etc/passwd) or ![](/Users/victim/.ssh/id_rsa)
+        // from leaking arbitrary files into the exported PDF. If no currentFilePath is known
+        // (CLI without source context), falls back to process.cwd() as the root.
+        const baseDir = currentFilePath ? path.resolve(path.dirname(currentFilePath)) : process.cwd();
+        const rel = path.relative(baseDir, fullPath);
+        if (rel.startsWith('..') || path.isAbsolute(rel)) {
+            console.log(`Blocked out-of-tree image path: ${imagePath} (resolved to ${fullPath}, base ${baseDir})`);
+            return null;
         }
 
         // Read local file
@@ -891,20 +928,23 @@ ipcMain.on('open-file', async (event) => {
     }
 });
 
-ipcMain.on('save-file', async (event, { content, filePath }) => {
+// Shared save-file implementation — returns { success, filePath?, error?, cancelled? } and
+// optionally emits the 'file-saved' event for callers that rely on the event bus.
+// Pragmatic: attempt writeFile directly and catch EACCES, rather than access() + write (TOCTOU race).
+async function doSaveFile({ content, filePath, event }) {
     const targetPath = filePath || currentFilePath;
-    
     if (!targetPath) {
-        // No file path, trigger save as
-        return ipcMain.emit('save-file-as', event, { content });
+        return doSaveFileAs({ content, filePath: null, tabTitle: null, event });
     }
-
     try {
-        // Check if file exists and is read-only
-        try {
-            await fs.access(targetPath, fsSync.constants.W_OK);
-        } catch (accessError) {
-            // File is read-only or doesn't exist, prompt for Save As
+        await fs.writeFile(targetPath, content, 'utf-8');
+        currentFilePath = targetPath;
+        documentEdited = false;
+        if (mainWindow) mainWindow.webContents.send('file-saved', { filePath: targetPath });
+        addToRecentFiles(targetPath);
+        return { success: true, filePath: targetPath };
+    } catch (error) {
+        if (error.code === 'EACCES' || error.code === 'EPERM' || error.code === 'EROFS') {
             const response = await dialog.showMessageBox(mainWindow, {
                 type: 'warning',
                 buttons: ['Speichern unter...', 'Abbrechen'],
@@ -912,43 +952,28 @@ ipcMain.on('save-file', async (event, { content, filePath }) => {
                 message: 'Diese Datei ist schreibgeschützt.',
                 detail: 'Möchten Sie die Datei unter einem anderen Namen speichern?'
             });
-            
             if (response.response === 0) {
-                return ipcMain.emit('save-file-as', event, { content });
-            } else {
-                return; // User cancelled
+                return doSaveFileAs({ content, filePath: null, tabTitle: null, event });
             }
+            return { success: false, cancelled: true };
         }
-        
-        await fs.writeFile(targetPath, content, 'utf-8');
-        currentFilePath = targetPath;
-        documentEdited = false;
-        event.reply('file-saved', { filePath: targetPath });
-        addToRecentFiles(targetPath);
-    } catch (error) {
         dialog.showErrorBox('Fehler', `Datei konnte nicht gespeichert werden: ${error.message}`);
+        return { success: false, error: error.message };
     }
-});
+}
 
-ipcMain.on('save-file-as', async (event, { content, filePath, tabTitle }) => {
-    // Use the provided filePath from the active tab or fall back to currentFilePath
+async function doSaveFileAs({ content, filePath, tabTitle, event }) {
     const baseFilePath = filePath || currentFilePath;
     let defaultFileName;
-    
+
     if (tabTitle && tabTitle !== 'Unbenannt') {
-        // Prioritize tab title (works for both existing files and new files)
-        defaultFileName = tabTitle.endsWith('.md') || tabTitle.endsWith('.txt') ? 
-            tabTitle : 
-            `${tabTitle}.md`;
+        defaultFileName = tabTitle.endsWith('.md') || tabTitle.endsWith('.txt') ? tabTitle : `${tabTitle}.md`;
     } else if (baseFilePath) {
-        // If no meaningful tab title, use file path
         defaultFileName = path.basename(baseFilePath);
     } else {
-        // Default fallback
         defaultFileName = 'untitled.md';
     }
-    
-    // Determine the best default path for Save As dialog
+
     let defaultSavePath = defaultFileName;
     if (baseFilePath) {
         defaultSavePath = path.join(path.dirname(baseFilePath), defaultFileName);
@@ -964,18 +989,37 @@ ipcMain.on('save-file-as', async (event, { content, filePath, tabTitle }) => {
         defaultPath: defaultSavePath
     });
 
-    if (!result.canceled) {
-        try {
-            await fs.writeFile(result.filePath, content, 'utf-8');
-            currentFilePath = result.filePath;
-            lastSaveDirectory = path.dirname(result.filePath);
-            documentEdited = false;
-            event.reply('file-saved', { filePath: result.filePath });
-            addToRecentFiles(result.filePath);
-        } catch (error) {
-            dialog.showErrorBox('Fehler', `Datei konnte nicht gespeichert werden: ${error.message}`);
-        }
+    if (result.canceled) {
+        return { success: false, cancelled: true };
     }
+    try {
+        await fs.writeFile(result.filePath, content, 'utf-8');
+        currentFilePath = result.filePath;
+        lastSaveDirectory = path.dirname(result.filePath);
+        documentEdited = false;
+        if (mainWindow) mainWindow.webContents.send('file-saved', { filePath: result.filePath });
+        addToRecentFiles(result.filePath);
+        return { success: true, filePath: result.filePath };
+    } catch (error) {
+        dialog.showErrorBox('Fehler', `Datei konnte nicht gespeichert werden: ${error.message}`);
+        return { success: false, error: error.message };
+    }
+}
+
+ipcMain.on('save-file', (event, { content, filePath }) => {
+    doSaveFile({ content, filePath, event });
+});
+
+ipcMain.handle('save-file-sync', (event, { content, filePath }) => {
+    return doSaveFile({ content, filePath, event });
+});
+
+ipcMain.handle('save-file-as-sync', (event, { content, filePath, tabTitle }) => {
+    return doSaveFileAs({ content, filePath, tabTitle, event });
+});
+
+ipcMain.on('save-file-as', (event, { content, filePath, tabTitle }) => {
+    doSaveFileAs({ content, filePath, tabTitle, event });
 });
 
 ipcMain.on('export-html', async (event, { content, filePath }) => {
@@ -1238,21 +1282,20 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                     content: tab.content
                 });
                 
-                // Wait for the tab to be prepared and rendered
+                // Wait for the tab to be prepared and rendered.
+                // Named listener so we can remove it on timeout — without this, a dangling
+                // `ipcMain.once` would fire on the NEXT tab's ready event and corrupt its Promise.
                 let htmlContent = await new Promise((resolve, reject) => {
+                    const onReady = (event, data) => {
+                        clearTimeout(timeout);
+                        if (data.error) reject(new Error(data.error));
+                        else resolve(data.htmlContent);
+                    };
                     const timeout = setTimeout(() => {
+                        ipcMain.removeListener('batch-export-tab-ready', onReady);
                         reject(new Error('Timeout waiting for tab preparation'));
                     }, 10000);
-                    
-                    // Listen for the rendered content
-                    ipcMain.once('batch-export-tab-ready', (event, data) => {
-                        clearTimeout(timeout);
-                        if (data.error) {
-                            reject(new Error(data.error));
-                        } else {
-                            resolve(data.htmlContent);
-                        }
-                    });
+                    ipcMain.once('batch-export-tab-ready', onReady);
                 });
                 
                 // Convert images to base64 for embedding
@@ -1526,11 +1569,38 @@ function clearSessionFile() {
     }
 }
 
-// Shell operations
-ipcMain.on('open-external', (event, url) => {
-    if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
-        shell.openExternal(url);
+// Shell operations — external links are confirmed per host (session-scoped allowlist).
+// Protects against phishing/tracking embedded in untrusted markdown documents.
+const trustedHosts = new Set();
+
+ipcMain.on('open-external', async (event, url) => {
+    if (typeof url !== 'string') return;
+    if (!url.startsWith('https://') && !url.startsWith('http://')) return;
+
+    let host;
+    try {
+        host = new URL(url).host;
+    } catch {
+        return; // malformed URL — drop silently
     }
+
+    if (!trustedHosts.has(host)) {
+        const result = await dialog.showMessageBox(mainWindow, {
+            type: 'question',
+            buttons: ['Öffnen', 'Abbrechen'],
+            defaultId: 0,
+            cancelId: 1,
+            checkboxLabel: `Für diese Sitzung ${host} vertrauen`,
+            checkboxChecked: false,
+            title: 'Externen Link öffnen?',
+            message: `Möchtest du diesen Link im Browser öffnen?`,
+            detail: url
+        });
+        if (result.response !== 0) return;
+        if (result.checkboxChecked) trustedHosts.add(host);
+    }
+
+    shell.openExternal(url);
 });
 
 // Window controls
@@ -1869,8 +1939,12 @@ if (isHeadlessMode()) {
                 if (mainWindow.isMinimized()) mainWindow.restore();
                 mainWindow.focus();
             }
-            // Open the file passed to the second instance in the already-running editor
-            const secondArg = commandLine.slice(2).find(a => !a.startsWith('-'));
+            // Open the file passed to the second instance in the already-running editor.
+            // Same argv-slicing convention as startup: packaged builds don't have the script path at [1].
+            // Filter for markdown/text files explicitly instead of "first non-flag arg" to skip
+            // any injected Electron flags (--enable-features=..., --enable-logging, etc.).
+            const sliceStart = app.isPackaged ? 1 : 2;
+            const secondArg = commandLine.slice(sliceStart).find(a => !a.startsWith('-') && /\.(md|markdown|txt)$/i.test(a));
             if (secondArg && mainWindow && !commandLine.includes('--pdf')) {
                 const absPath = path.isAbsolute(secondArg) ? secondArg : path.resolve(workingDirectory, secondArg);
                 fs.readFile(absPath, 'utf-8').then(content => {
@@ -1885,7 +1959,11 @@ if (isHeadlessMode()) {
             const absolutePath = path.isAbsolute(cliArg) ? cliArg : path.resolve(process.cwd(), cliArg);
             pendingOpenFile = absolutePath;
         }
-        app.whenReady().then(createWindow);
+        app.whenReady().then(() => {
+            createWindow();
+            // Prune missing recent files async — deferred so offline network drives don't block startup
+            setTimeout(() => pruneMissingRecentFiles(), 1000);
+        });
     }
 }
 

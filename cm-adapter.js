@@ -25,6 +25,10 @@ class EditorAdapter {
         this._container = container;
         this._listeners = {};
         this._suppressNextChange = false;
+        // Cached full-doc string. CM6's Text.toString() is O(n) and the adapter's
+        // textarea-compat API is called 100+ times per keystroke across renderer.js.
+        // Invalidated on every docChanged update.
+        this._cachedDoc = null;
 
         const cmResult = CMSetup.createEditor(container, {
             initialDoc: options.initialDoc || '',
@@ -34,6 +38,9 @@ class EditorAdapter {
             tabSize: options.tabSize || 4,
             fontSize: options.fontSize || 14,
             onUpdate: (update) => {
+                if (update.docChanged) {
+                    this._cachedDoc = null; // invalidate cache on any doc mutation
+                }
                 if (update.docChanged && !this._suppressNextChange) {
                     this._emit('input');
                 }
@@ -61,7 +68,10 @@ class EditorAdapter {
     // --- Value property (textarea-compatible) ---
 
     get value() {
-        return this._view.state.doc.toString();
+        if (this._cachedDoc === null) {
+            this._cachedDoc = this._view.state.doc.toString();
+        }
+        return this._cachedDoc;
     }
 
     set value(newValue) {
@@ -309,6 +319,7 @@ class EditorAdapter {
     setState(state) {
         this._suppressNextChange = true;
         this._view.setState(state);
+        this._cachedDoc = null; // setState replaces the whole doc — cache is stale
         this._suppressNextChange = false;
     }
 

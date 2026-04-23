@@ -15,9 +15,10 @@ else
     FILE="$1"
 fi
 
-# Run Electron with flags to suppress Chromium noise in headless mode
+# Run Electron with flags to suppress Chromium noise in headless mode.
+# Sandbox stays ON — CLI mode renders arbitrary user markdown, so OS-level
+# process isolation matters. Previous --no-sandbox was unnecessary and weakened security.
 /Applications/MrxDown.app/Contents/MacOS/MrxDown \
-    --no-sandbox \
     --disable-gpu \
     --disable-software-rasterizer \
     --disable-features=ServiceWorker \

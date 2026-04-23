@@ -139,7 +139,34 @@ document.addEventListener('DOMContentLoaded', () => {
     window.showInputDialog = showInputDialog;
 });
 
+// Per-render heading-id counter map. Reset at the top of each renderMarkdown call.
+// Declared at module scope so the custom marked renderer (configured once at startup)
+// can see it via closure without needing to be rebuilt per render.
+let markedHeadingIds = {};
+
+function configureMarkedOnce() {
+    if (typeof marked === 'undefined') return;
+    const renderer = new marked.Renderer();
+    renderer.heading = function(text, level, raw) {
+        const id = generateHeadingId(raw, markedHeadingIds);
+        return `<h${level} id="${id}">${text}</h${level}>`;
+    };
+    marked.use({
+        gfm: true,
+        breaks: false,
+        headerIds: false,
+        mangle: false,
+        renderer: renderer,
+        sanitize: false,
+        pedantic: false
+    });
+}
+
 function initializeApp() {
+    // Configure marked once — was previously rebuilt on every renderMarkdown call,
+    // which thrashed global state and made batch-export susceptible to races.
+    configureMarkedOnce();
+
     // Initialize CodeMirror editor via adapter
     const editorContainer = document.getElementById('editor');
     if (editorContainer) {
@@ -397,6 +424,17 @@ function createNewTab(content = '', filePath = null) {
     return tab;
 }
 
+// Promise-based save for close-flow. Resolves with { success, cancelled? }.
+// Uses the tab's own content, not editor.value, so we can save inactive tabs too.
+async function saveTabAndWait(tab) {
+    if (!window.electronAPI) return { success: false };
+    const content = (tab.id === activeTabId) ? editor.value : (tab.content || '');
+    if (tab.filePath) {
+        return await window.electronAPI.saveFileSync(content, tab.filePath);
+    }
+    return await window.electronAPI.saveFileAsSync(content, null, tab.title);
+}
+
 async function closeTab(tabId) {
     const tabIndex = tabs.findIndex(tab => tab.id === tabId);
     if (tabIndex === -1) return;
@@ -404,18 +442,28 @@ async function closeTab(tabId) {
     const tab = tabs[tabIndex];
 
     if (tab.isModified) {
-        const shouldClose = await showConfirm('Ungespeicherte Änderungen gehen verloren. Trotzdem schließen?');
-        if (!shouldClose) return;
+        const choice = await window.electronAPI.showConfirmDialog({
+            message: `Änderungen in "${tab.title}" speichern?`,
+            detail: 'Ungespeicherte Änderungen gehen sonst verloren.',
+            buttons: ['Speichern', 'Verwerfen', 'Abbrechen'],
+            defaultId: 0,
+            cancelId: 2
+        });
+        if (choice === 2) return; // Abbrechen
+        if (choice === 0) {
+            const result = await saveTabAndWait(tab);
+            if (!result || !result.success) return; // Save failed or user cancelled Save-As
+        }
     }
-    
+
     // Stop watching the file if it has one
     if (tab.filePath && window.electronAPI) {
         console.log('Stopping file watch for closed tab:', tab.filePath);
         window.electronAPI.unwatchFile(tab.filePath);
     }
-    
+
     tabs.splice(tabIndex, 1);
-    
+
     if (tabs.length === 0) {
         createNewTab();
     } else {
@@ -467,13 +515,36 @@ function showTabContextMenu(x, y, tabId) {
     setTimeout(() => document.addEventListener('click', removeMenu), 0);
 }
 
+// Returns true if all unsaved tabs in `candidates` were handled (saved/discarded),
+// false if the user cancelled. Saves sequentially to avoid save-dialog stacking.
+async function handleUnsavedTabs(candidates) {
+    const unsaved = candidates.filter(t => t.isModified);
+    if (unsaved.length === 0) return true;
+
+    const message = unsaved.length === 1
+        ? `Änderungen in "${unsaved[0].title}" speichern?`
+        : `${unsaved.length} Tabs mit ungespeicherten Änderungen — alle speichern?`;
+
+    const choice = await window.electronAPI.showConfirmDialog({
+        message,
+        detail: 'Ungespeicherte Änderungen gehen sonst verloren.',
+        buttons: ['Alle speichern', 'Verwerfen', 'Abbrechen'],
+        defaultId: 0,
+        cancelId: 2
+    });
+    if (choice === 2) return false; // Abbrechen
+    if (choice === 1) return true;  // Verwerfen
+    // Alle speichern — sequentiell
+    for (const t of unsaved) {
+        const result = await saveTabAndWait(t);
+        if (!result || !result.success) return false;
+    }
+    return true;
+}
+
 async function closeOtherTabs(keepTabId) {
     const tabsToClose = tabs.filter(t => t.id !== keepTabId);
-    const hasUnsaved = tabsToClose.some(t => t.isModified);
-    if (hasUnsaved) {
-        if (!(await showConfirm('Ungespeicherte Änderungen in anderen Tabs gehen verloren. Fortfahren?'))) return;
-    }
-    // Stop watchers for closing tabs
+    if (!(await handleUnsavedTabs(tabsToClose))) return;
     tabsToClose.forEach(t => {
         if (t.filePath && window.electronAPI) {
             window.electronAPI.unwatchFile(t.filePath);
@@ -486,10 +557,7 @@ async function closeOtherTabs(keepTabId) {
 }
 
 async function closeAllTabs() {
-    const hasUnsaved = tabs.some(t => t.isModified);
-    if (hasUnsaved) {
-        if (!(await showConfirm('Ungespeicherte Änderungen gehen verloren. Alle Tabs schließen?'))) return;
-    }
+    if (!(await handleUnsavedTabs(tabs))) return;
     tabs.forEach(t => {
         if (t.filePath && window.electronAPI) {
             window.electronAPI.unwatchFile(t.filePath);
@@ -555,6 +623,11 @@ function loadTabContent(tabId) {
     // Update UI based on file type
     updateUIForFileType(tab);
     renderMarkdown();
+    // Refresh stats immediately on tab-switch — no debounce, user expects to see correct counters
+    updateLineNumbers();
+    updateCursorPosition();
+    clearTimeout(statsDebounceTimer);
+    updateStatsHeavy();
 
     // E3: Highlight active file in sidebar tree
     highlightActiveFileInTree();
@@ -753,58 +826,9 @@ function renderMarkdown() {
             markdown = markdown.substring(fmMatch[0].length);
         }
 
-        // Configure marked with a custom renderer to add IDs to headings
-        if (typeof marked !== 'undefined') {
-            const renderer = new marked.Renderer();
-            const headingIds = {}; // Track heading IDs to handle duplicates
-
-            // Override heading renderer to add IDs
-            renderer.heading = function(text, level, raw) {
-                // Check if heading starts with emoji BEFORE processing
-                const startsWithEmoji = /^[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(raw.trim());
-
-                // Generate base ID from heading text (GitHub-compatible)
-                // GitHub's algorithm:
-                // 1. Replace spaces with dashes FIRST
-                // 2. Replace emojis with dash (before removing other chars)
-                // 3. Remove special characters (NOT replace with dash)
-                // 4. DON'T collapse multiple dashes
-                let baseId = raw
-                    .toLowerCase()
-                    .trim()
-                    // Step 1: Replace emojis with dash (do this before space replacement)
-                    .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '-')
-                    // Step 2: Replace all whitespace with single dash
-                    .replace(/\s+/g, '-')
-                    // Step 3: Remove all non-word characters (except hyphens and German umlauts)
-                    // This removes &, /, :, etc. WITHOUT replacing them
-                    .replace(/[^\wäöüßÄÖÜ-]/g, '')
-                    // Step 4: Trim leading/trailing hyphens (but keep one if started with emoji)
-                    .replace(/-+$/g, '')
-                    .replace(/^-+/, startsWithEmoji ? '-' : '');
-
-                // Handle duplicate IDs by adding a counter
-                let id = baseId;
-                if (headingIds[baseId]) {
-                    headingIds[baseId]++;
-                    id = `${baseId}-${headingIds[baseId]}`;
-                } else {
-                    headingIds[baseId] = 0;
-                }
-
-                return `<h${level} id="${id}">${text}</h${level}>`;
-            };
-
-            marked.use({
-                gfm: true,
-                breaks: false,
-                headerIds: false,  // Disable automatic ID generation
-                mangle: false,     // Don't mangle IDs
-                renderer: renderer,
-                sanitize: false,   // Don't sanitize HTML (we use DOMPurify instead)
-                pedantic: false    // Allow inline HTML
-            });
-        }
+        // Reset per-render heading-id counter. The custom renderer (configured once
+        // at startup via configureMarkedOnce) reads this via closure, so we just clear it.
+        markedHeadingIds = {};
 
         const html = marked.parse(markdown);
 
@@ -839,33 +863,6 @@ function renderMarkdown() {
         while (contentDiv.firstChild) {
             newPreview.appendChild(contentDiv.firstChild);
         }
-
-        // Post-processing: Fix heading IDs to match GitHub algorithm
-        const headings = newPreview.querySelectorAll('h1, h2, h3, h4, h5, h6');
-        const idCounts = {};
-
-        headings.forEach(heading => {
-            const text = heading.textContent || '';
-            const startsWithEmoji = /^[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u.test(text.trim());
-
-            let id = text
-                .toLowerCase()
-                .trim()
-                .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '-')
-                .replace(/\s+/g, '-')
-                .replace(/[^\wäöüßÄÖÜ-]/g, '')
-                .replace(/-+$/g, '')
-                .replace(/^-+/, startsWithEmoji ? '-' : '');
-
-            if (idCounts[id] !== undefined) {
-                idCounts[id]++;
-                id = `${id}-${idCounts[id]}`;
-            } else {
-                idCounts[id] = 0;
-            }
-
-            heading.id = id;
-        });
 
         // F1: Use morphdom for incremental DOM updates (preserves scroll, less layout thrashing)
         if (typeof morphdom !== 'undefined') {
@@ -996,12 +993,25 @@ function updateUIForFileType(tab) {
     }
 }
 
+// Heavy stats (full-doc scan + lint) are debounced so they don't run on every keystroke.
+// Cursor position and line-number gutter stay on the synchronous path — those must feel instant.
+let statsDebounceTimer = null;
+const STATS_DEBOUNCE_MS = 250;
+
 function updateStats() {
     if (!editor || !charCount || !wordCount || !lineCount) return;
+    // Cheap, synchronous updates — keep on the hot path
+    updateLineNumbers();
+    updateCursorPosition();
+    // Heavy, debounced updates — analyzeDocument + lintMarkdown each scan the full document
+    clearTimeout(statsDebounceTimer);
+    statsDebounceTimer = setTimeout(updateStatsHeavy, STATS_DEBOUNCE_MS);
+}
 
+function updateStatsHeavy() {
+    if (!editor || !charCount || !wordCount || !lineCount) return;
     const text = editor.value;
 
-    // B1/B4: Use analyzeDocument for comprehensive stats
     if (typeof analyzeDocument === 'function') {
         const stats = analyzeDocument(text);
         charCount.textContent = `${stats.chars} Zeichen`;
@@ -1014,13 +1024,9 @@ function updateStats() {
         const readingEl = document.getElementById('readingTime');
         if (readingEl) readingEl.textContent = `~${stats.readingTimeMin} Min.`;
 
-        // B5: Update session word tracking
         updateSessionStats(stats.words);
-
-        // B7: Run lint
         updateLintWarnings(text);
     } else {
-        // Fallback
         const chars = text.length;
         const words = text.trim() ? text.trim().split(/\s+/).length : 0;
         const lines = text.split('\n').length;
@@ -1028,9 +1034,6 @@ function updateStats() {
         wordCount.textContent = `${words} Wörter`;
         lineCount.textContent = `${lines} Zeilen`;
     }
-
-    updateLineNumbers();
-    updateCursorPosition();
 }
 
 function updateCursorPosition() {
@@ -1911,13 +1914,22 @@ function refreshFileTree() {
 function handleFileSaved(filePath) {
     const activeTab = tabs.find(tab => tab.id === activeTabId);
     if (activeTab) {
+        const previousPath = activeTab.filePath;
         activeTab.filePath = filePath;
         activeTab.title = getFileName(filePath);
         activeTab.isModified = false;
-        
+
+        // Keep the filesystem watcher in sync with the tab's new path.
+        // Otherwise Save-As silently leaves the old path watched (and new unwatched),
+        // so external changes to the freshly saved file wouldn't trigger the reload prompt.
+        if (window.electronAPI && previousPath !== filePath) {
+            if (previousPath) window.electronAPI.unwatchFile(previousPath);
+            window.electronAPI.watchFile(filePath);
+        }
+
         renderTabs();
         fileName.textContent = activeTab.title;
-        
+
         if (window.electronAPI) {
             window.electronAPI.updateWindowTitle(activeTab.title);
         }
@@ -2772,19 +2784,14 @@ function handleExternalLinks() {
             if (targetHeading) {
                 targetHeading.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
-            // Also jump editor to matching heading line
+            // Also jump editor to matching heading line.
+            // idCounts must be maintained across the loop so duplicate headings resolve to foo / foo-1 / foo-2 like in the rendered DOM.
             const lines = editor.value.split('\n');
+            const idCounts = {};
             for (let i = 0; i < lines.length; i++) {
                 const match = lines[i].match(/^(#{1,6})\s+(.+)/);
                 if (match) {
-                    const headingText = match[2];
-                    const generatedId = headingText
-                        .toLowerCase()
-                        .trim()
-                        .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '-')
-                        .replace(/\s+/g, '-')
-                        .replace(/[^\wäöüßÄÖÜ-]/g, '')
-                        .replace(/-+$/g, '');
+                    const generatedId = generateHeadingId(match[2], idCounts);
                     if (generatedId === targetId) {
                         let charPos = 0;
                         for (let j = 0; j < i; j++) charPos += lines[j].length + 1;

@@ -6,8 +6,67 @@ import { EditorState, Compartment } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, rectangularSelection, highlightSpecialChars, placeholder } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, undo, redo } from '@codemirror/commands';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
-import { languages } from '@codemirror/language-data';
-import { syntaxHighlighting, HighlightStyle, indentOnInput, bracketMatching, foldGutter, indentUnit } from '@codemirror/language';
+import { syntaxHighlighting, HighlightStyle, LanguageDescription, StreamLanguage, indentOnInput, bracketMatching, foldGutter, indentUnit } from '@codemirror/language';
+
+// Curated list of code-block languages for fenced code highlighting.
+// Replaces @codemirror/language-data (~150 langs, 1.3MB) with only what the
+// autocomplete popup actually offers. Dynamic imports let esbuild split the
+// bundle; each language is lazy-loaded by markdownLanguage on first use.
+const codeLanguages = [
+    LanguageDescription.of({
+        name: 'javascript',
+        alias: ['js', 'jsx'],
+        extensions: ['js', 'jsx'],
+        async load() { const m = await import('@codemirror/lang-javascript'); return m.javascript(); }
+    }),
+    LanguageDescription.of({
+        name: 'typescript',
+        alias: ['ts', 'tsx'],
+        extensions: ['ts', 'tsx'],
+        async load() { const m = await import('@codemirror/lang-javascript'); return m.javascript({ typescript: true, jsx: true }); }
+    }),
+    LanguageDescription.of({
+        name: 'python',
+        alias: ['py'],
+        extensions: ['py'],
+        async load() { const m = await import('@codemirror/lang-python'); return m.python(); }
+    }),
+    LanguageDescription.of({
+        name: 'html',
+        alias: ['htm'],
+        extensions: ['html', 'htm'],
+        async load() { const m = await import('@codemirror/lang-html'); return m.html(); }
+    }),
+    LanguageDescription.of({
+        name: 'css',
+        extensions: ['css'],
+        async load() { const m = await import('@codemirror/lang-css'); return m.css(); }
+    }),
+    LanguageDescription.of({
+        name: 'json',
+        extensions: ['json'],
+        async load() { const m = await import('@codemirror/lang-json'); return m.json(); }
+    }),
+    LanguageDescription.of({
+        name: 'java',
+        extensions: ['java'],
+        async load() { const m = await import('@codemirror/lang-java'); return m.java(); }
+    }),
+    LanguageDescription.of({
+        name: 'sql',
+        extensions: ['sql'],
+        async load() { const m = await import('@codemirror/lang-sql'); return m.sql(); }
+    }),
+    LanguageDescription.of({
+        name: 'bash',
+        alias: ['sh', 'shell', 'zsh'],
+        extensions: ['sh', 'bash', 'zsh'],
+        async load() {
+            const m = await import('@codemirror/legacy-modes/mode/shell');
+            return StreamLanguage.define(m.shell);
+        }
+    }),
+];
 import { tags } from '@lezer/highlight';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
@@ -315,7 +374,7 @@ function createEditor(parentElement, options = {}) {
             // Markdown language support with code block language detection
             markdown({
                 base: markdownLanguage,
-                codeLanguages: languages,
+                codeLanguages: codeLanguages,
             }),
 
             // Keybindings - filter out Tab/Enter so the app can handle them
