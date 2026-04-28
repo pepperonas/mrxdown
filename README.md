@@ -105,6 +105,8 @@ mrxdown /path/to/datei.md       # Einzelne Datei → PDF
 mrxdown /path/to/ordner/        # Alle .md Dateien im Ordner → PDF
 ```
 
+> **Update von älterer Version?** Seit v0.2.x verlangt die App ein explizites `--pdf`-Flag im CLI-Pfad. Wrapper aus Installationen vor 0.2.0 öffnen sonst stillschweigend die GUI statt zu konvertieren — also denselben `curl`-Befehl oben einmal neu ausführen, um `/usr/local/bin/mrxdown` zu aktualisieren. Die macOS Quick Action nutzt diesen Wrapper und ist damit automatisch mitgepatcht.
+
 ### macOS Quick Action (optional)
 
 Markdown-Dateien direkt im Finder per Rechtsklick in PDF konvertieren.
