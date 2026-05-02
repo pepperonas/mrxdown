@@ -2657,8 +2657,16 @@ async function checkSessionRestore() {
             return;
         }
 
-        // Only restore if there is real unsaved work: a modified tab, or a new tab with content
-        const hasUnsaved = session.tabs.some(t => t.isModified || (!t.filePath && t.content && t.content.trim()));
+        // Only restore if there is real unsaved work to protect:
+        //   - a modified tab backed by a file (data-loss risk), OR
+        //   - an untitled tab with actual content the user hasn't saved anywhere.
+        // A modified BUT empty untitled tab is visually identical to a fresh app state,
+        // so it's not worth prompting for — this was the "clicked OK and nothing happened"
+        // path users hit right after install.
+        const hasUnsaved = session.tabs.some(t =>
+            (t.isModified && t.filePath) ||
+            (!t.filePath && t.content && t.content.trim())
+        );
         if (!hasUnsaved) {
             window.electronAPI.clearSession();
             return;

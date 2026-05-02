@@ -8,11 +8,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Syntax highlighting in editor
-- Mermaid diagram support
-- Additional themes
+- Wiki-Links + Backlinks (`[[Foo]]`)
+- Renderer-Modularisierung (`renderer.js` → `src/renderer/*.js`)
+- i18n (DE/EN)
+- Code-Signing + Notarization für macOS
 - PDF-Metadaten (Titel, Autor, Keywords)
-- Header/Footer mit Seitennummerierung
+
+## [0.3.0] - 2026-05-02
+
+### ✨ Added
+- **PDF-Template-System** — `pdf-templates/{default,academic,minimal}.css` mit Manifest. Frontmatter `template: <name>` wählt Template; Settings-Default als Fallback. Titelseite aus Frontmatter (title, subtitle, author, affiliation, date, abstract). Template-Dropdown im PDF-Optionen-Dialog.
+- **KaTeX-Math** — `$inline$`, `$$display$$`, `\(...\)`, `\[...\]` in Live-Preview und PDF. Server-side-Rendering im CLI-Pfad, damit `mrxdown --pdf` Math korrekt embeddet.
+- **Mermaid-Diagramme** — ` ```mermaid ` Code-Blocks rendern als SVG. Mermaid-Lib (~3 MB) wird lazy geladen, Theme folgt App-Theme, Output durch DOMPurify mit SVG-Profil, Source-basierter Render-Cache.
+- **Code-Highlighting in Live-Preview** — hljs auf alle ` ```lang ` Blöcke (atom-one-dark/light, theme-aware). Vendor-Bundle 158 KB statt 9 MB Node-Package.
+- **Auto-Updater** — `electron-updater` aktiviert für packaged Builds. "Nach Updates suchen…" im Menü, automatischer Hintergrund-Check, Restart-Dialog nach Download.
+- **Accessibility** — `role="dialog"` + `aria-modal` auf allen Modals, `aria-label` auf Toolbar-Buttons aus `data-tooltip`, Escape-zu-Schließen, Focus-Trap mit Tab-Wrapping.
+
+### 🐛 Fixed
+- **Heading-ID-Algorithmus** in 3 Stellen dupliziert + Bug bei Duplikat-Counter (`if(0)` falsy) — auf zentralen `generateHeadingId()` aus `editor-utils.js` konsolidiert.
+- **Path-Traversal in PDF-Image-Loader** — `![](../../etc/passwd)` und absolute Pfade außerhalb des MD-Verzeichnisses werden geblockt.
+- **`open-external` mit Phishing-Schutz** — Externe Links zeigen Confirmation-Dialog mit Host-basierter Session-Allowlist.
+- **Tab-Close-Dialog** — Drei-Wege-Dialog (Speichern / Verwerfen / Abbrechen) mit Promise-basiertem `saveFileSync`/`saveFileAsSync`. Vermeidet Datenverlust bei „Speichern dann schließen".
+- **Listener-Leak** in `batch-print-to-pdf` — dangling `ipcMain.once` bei Timeout entfernt.
+- **`second-instance`-argv** — Off-by-One-Fix für packaged Builds, filtert nach `.md/.markdown/.txt`.
+- **File-Watcher nach Save-As** — folgt jetzt auf den neuen Pfad.
+- **IPC-Listener-Akkumulation** bei Renderer-Reload — preload nutzt idempotenten `onOnce()`-Helper.
+- **`--no-sandbox` im CLI-Wrapper** entfernt — Renderer-Sandbox bleibt für untrustetes Markdown an.
+- **Recent-Files-Pruning async** mit per-File-Timeout — kein Startup-Freeze mehr auf offline Network-Drives.
+- **Spurious Restore-Dialog** — leere modifizierte Untitled-Tabs lösen den Wiederherstellen-Dialog nicht mehr aus.
+
+### ⚡ Performance
+- **CodeMirror-Bundle 1.6 MB → 677 KB (−58 %)** — `@codemirror/language-data` durch 9 kuratierte Sprachen ersetzt.
+- **Keystroke-CPU −30-60 % auf großen Dokumenten** — `editor.value` mit `docChanged`-Invalidation gecacht (statt 100+ O(n)-`doc.toString()` pro Tastendruck).
+- **`updateStats()` debounced** (250 ms) — Cursor/Gutter bleiben sync, `analyzeDocument` + `lintMarkdown` warten.
+- **`marked.use()`** einmalig beim App-Start statt alle 150 ms → entfernt Global-State-Race bei Batch-Export.
+- **`highlight.js` lazy** — 9 MB Language-Defs werden nur geladen, wenn ein PDF tatsächlich exportiert wird.
+
+### 📦 Build
+- `pdf-templates/` in electron-builder `files`-Liste.
+- Neue Scripts: `npm run build:hljs`, `npm run build:vendor`.
+- KaTeX und Mermaid als runtime dependencies.
 
 ## [0.3.1] - 2025-01-10
 
