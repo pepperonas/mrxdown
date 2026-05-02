@@ -2362,6 +2362,10 @@ app.on('render-process-gone', (event, webContents, details) => {
 });
 
 app.on('window-all-closed', () => {
+    // CLI batch mode opens + closes a hidden pdfWindow per file. After the first
+    // close fires window-all-closed, app.quit() would kill the loop before iteration 2.
+    // Each CLI path explicitly calls app.exit() when done, so we just opt out here.
+    if (isHeadlessMode()) return;
     if (process.platform !== 'darwin') {
         app.quit();
     }

@@ -107,6 +107,39 @@ mrxdown /path/to/ordner/        # Alle .md Dateien im Ordner → PDF
 
 > **Update von älterer Version?** Seit v0.2.x verlangt die App ein explizites `--pdf`-Flag im CLI-Pfad. Wrapper aus Installationen vor 0.2.0 öffnen sonst stillschweigend die GUI statt zu konvertieren — also denselben `curl`-Befehl oben einmal neu ausführen, um `/usr/local/bin/mrxdown` zu aktualisieren. Die macOS Quick Action nutzt diesen Wrapper und ist damit automatisch mitgepatcht.
 
+### Headless-Installation (Linux-Server)
+
+Auf einem Server ohne grafische Oberfläche (z. B. einem VPS für automatisierte PDF-Konvertierung) braucht es nur ein virtuelles Display. Getestet auf Ubuntu 24.04 LTS:
+
+```bash
+# 1. xvfb installieren (falls nicht da)
+sudo apt-get install -y xvfb
+
+# 2. .deb aus dem aktuellen Release installieren
+curl -LO https://github.com/pepperonas/mrxdown/releases/latest/download/mrxdown-linux-amd64.deb
+sudo apt-get install -y ./mrxdown-linux-amd64.deb
+
+# 3. Headless-Wrapper anlegen, der xvfb + --pdf vorausgesetzt
+sudo tee /usr/local/bin/mrxdown >/dev/null << 'EOF'
+#!/bin/bash
+[ -z "$1" ] && { echo "Usage: mrxdown <markdown-file-or-directory>"; exit 1; }
+INPUT="$1"; [[ "$INPUT" != /* ]] && INPUT="$(pwd)/$INPUT"
+[ ! -e "$INPUT" ] && { echo "Datei nicht gefunden: $INPUT"; exit 1; }
+xvfb-run -a /opt/MrxDown/mrxdown \
+    --disable-gpu --disable-software-rasterizer \
+    --no-first-run --no-sandbox --pdf \
+    "$INPUT" 2>&1 | grep -v "ERROR:service_worker_storage\|Failed to delete the database"
+EOF
+sudo chmod +x /usr/local/bin/mrxdown
+```
+
+```bash
+mrxdown article.md           # → article.pdf
+mrxdown drafts/              # alle .md im Ordner → .pdf
+```
+
+> `--no-sandbox` ist nötig, wenn der Wrapper als root läuft (Chromium weigert sich sonst). Auf einem Server, dem du eigene Markdown-Dateien fütterst, ist das vertretbar; bei untrusted Input besser einen Non-Root-Account anlegen, dann ohne `--no-sandbox`.
+
 ### macOS Quick Action (optional)
 
 Markdown-Dateien direkt im Finder per Rechtsklick in PDF konvertieren.
