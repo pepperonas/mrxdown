@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Code-Signing + Notarization für macOS
 - PDF-Metadaten (Titel, Autor, Keywords)
 
+## [0.3.1] - 2026-05-03
+
+### 🐛 Fixed
+- **CLI-Batch-Modus brach nach erster Datei ab** — der globale `window-all-closed`-Handler löste `app.quit()` aus, sobald die hidden pdfWindow der ersten Iteration schloss. Im Headless/CLI-Modus wird der Auto-Quit jetzt unterdrückt, da die CLI-Pfade ohnehin explizit `app.exit()` aufrufen.
+
+### 📝 Docs
+- README: Neuer Abschnitt **„Headless-Installation (Linux-Server)"** mit xvfb-Wrapper-Rezept für `.deb` + `mrxdown <file>` auf headless Servern (getestet auf Ubuntu 24.04 LTS).
+
 ## [0.3.0] - 2026-05-02
 
 ### ✨ Added
