@@ -45,7 +45,7 @@ Push a version tag to trigger CI builds for all platforms with GitHub Release:
 git tag v0.X.Y && git push origin v0.X.Y
 ```
 
-Artifact naming: `mrxdown-macos-{arch}.zip`, `mrxdown-windows-x64.exe`, `mrxdown-linux-x64.AppImage`, `MrxDown-PDF.workflow.zip`. CI skips DMG (hdiutil fails on GitHub runners); build locally for DMG.
+Artifact naming: `mrxdown-macos-{arch}.zip`, `mrxdown-windows-x64.exe`, `mrxdown-linux-x64.AppImage`, `MrxDown-PDF.workflow.zip`, plus `mrxdown-cli.sh` and `mrxdown-install-macos.sh` (end-user one-liner installer; root-level `mrxdown-*` files are auto-attached by the release glob). CI skips DMG (hdiutil fails on GitHub runners); build locally for DMG.
 
 ## Architecture
 

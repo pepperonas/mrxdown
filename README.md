@@ -85,7 +85,19 @@
 | **Linux** | `mrxdown-linux-x86_64.AppImage` | `chmod +x` und starten |
 | **Linux** | `mrxdown-linux-amd64.deb` | `sudo dpkg -i mrxdown-linux-amd64.deb` |
 
-### macOS Hinweis
+### Schnellste Installation (macOS) — ein Befehl, keine Gatekeeper-Dialoge
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pepperonas/mrxdown/main/mrxdown-install-macos.sh | bash
+```
+
+Lädt automatisch das neueste Release für deine CPU (Apple Silicon/Intel),
+entfernt das Quarantäne-Attribut, installiert nach `/Applications` und startet
+die App — kein „App ist beschädigt", kein Rechtsklick→Öffnen. Auch für
+**Updates**: einfach denselben Befehl erneut ausführen (laufende Instanzen
+werden sanft beendet).
+
+### macOS Hinweis (manueller ZIP-Download)
 
 Da die App nicht mit einem Apple-Developer-Zertifikat signiert ist, zeigt macOS beim ersten Start eine Warnung. So funktioniert es:
 

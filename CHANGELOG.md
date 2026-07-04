@@ -14,7 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
 
-## [0.5.0] - 2026-07-04
+## [0.5.0] - 2026-07-05
+
+### 📦 Ein-Befehl-Installation für macOS
+- **`mrxdown-install-macos.sh`** (Release-Asset + curl-Einzeiler im README, Muster: inspector-rust): erkennt die CPU-Architektur, lädt das neueste Release, entfernt das Quarantäne-Attribut (`xattr -cr`) und installiert nach `/Applications` — **keine Gatekeeper-Dialoge, kein Rechtsklick→Öffnen**. Auch als Update-Weg: gleicher Befehl, laufende Instanz wird sanft beendet. (Die vollständige Lösung — Developer-ID + Notarization — bleibt als „Planned".)
 
 ### 📄 PDF-Export-Offensive (alle 4 Phasen des PDF-Audits)
 - **Electron 28 → 43 (Chromium 120 → 150)** — komplette Test-Suite lief auf Anhieb grün. Schaltet nativ frei:
