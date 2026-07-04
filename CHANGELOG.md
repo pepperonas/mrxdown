@@ -9,10 +9,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Planned
 - Wiki-Links + Backlinks (`[[Foo]]`)
-- Renderer-Modularisierung (`renderer.js` → `src/renderer/*.js`)
 - i18n (DE/EN)
 - Code-Signing + Notarization für macOS
 - PDF-Metadaten (Titel, Autor, Keywords)
+- Word-Export via Pandoc, Quick-Open (⌘P)
+
+## [0.4.0] - 2026-07-04
+
+### 📦 Installation
+- **`npm run install-mac`** (`scripts/install-macos.sh`, Muster: inspector-rust): baut, signiert mit einem **stabilen selbstsignierten Zertifikat** (eigene Keychain, einmalig erzeugt) und installiert nach `/Applications`. macOS behandelt jede neue Version als dieselbe vertrauenswürdige App — kein Gatekeeper-Tanz bei Updates; laufende Instanzen werden sanft beendet (nie gekillt).
+
+### 🎨 Material 3 Expressive Redesign (2026-07-04)
+- **Design-Token-System** (`css/variables.css`): eigene MrxDown-M3E-Tonpalette aus dem klassischen Seed (#2B2E3B/#688DB1) — vollständige Farbrollen (primary/secondary/tertiary/error + Container + On-Colors, 8 tonale Surface-Stufen), Dark & Light, M3E-Shape-Scale (4–28 px + Pille), State-Layer nach Spez (hover 8 %, focus/pressed 10 %). Legacy-Variablen als theme-bewusste Aliasse auf `body` (nicht `:root` — var()-Referenzen in Custom Properties werden am Deklarations-Element aufgelöst; auf :root wären die Dark-Werte eingebacken).
+- **Physikbasiertes Motion-System** (`css/motion.css` + `src/renderer/13-motion.js`): Feder-Easings als CSS `linear()`-Kurven, numerisch aus den offiziellen M3E-Spring-Tokens gesampelt (spatial fast/default/slow = stiffness 800/380/200 bei damping 0.6/0.8/0.8 mit echtem Overshoot; effects monoton) — Parameter gegen die androidx-`ExpressiveMotionTokens.kt` verifiziert. Gestaffelte Start-Entrances, Shape-Morphing beim Drücken (Pille → eckiger, per ButtonTokens-Spez), event-delegierter Material-Ripple, federnde Dialoge/Palette/Toasts, **Circular-Reveal-Theme-Wechsel** aus dem Toggle-Button (View Transitions API). Vollständiger `prefers-reduced-motion`-Guard: nur Fades, kein Morphing.
+- **Chrome-Reskin** (Preview bleibt bewusst dokumentgetreu): Docked-Toolbar auf surface-container mit Pillen-Icon-Buttons und tonalen Aktiv-/Export-Zuständen, Tabs mit M3-Indikator-Pille + Emphasized-Label bei Auswahl, Dialoge auf 28-px-XL-Shape mit Filled-/Outlined-Buttons (On-Colors statt Weiß), tonale Command-Palette-Auswahl, M3-Plain-Tooltips (inverse-surface), tonale Scrollbars. Alle hartkodierten rgba-Weiß-Overlays durch Tokens/State-Layer ersetzt; redundante Light-Theme-Overrides entfernt (Tokens sind theme-bewusst).
+- Verifiziert: 65 Unit-Tests, 57 E2E-Checks (inkl. Layout-Invarianten bei 4 Breiten), CLI-PDF-Roundtrip, Screenshot-Review Dark/Light/Dialog.
+
+
+### ✨ Added (Usability-Pass 2026-07-03)
+- **Paste-URL-über-Auswahl** — Text markieren, URL einfügen → `[Auswahl](URL)` (Konvention aus VS Code/Obsidian/Typora). Greift nicht in Code-Fences oder ohne Auswahl.
+- **Geschlossenen Tab wiederherstellen** — ⌘⇧T (Browser-Konvention, bis zu 10 Tabs, inkl. ungespeichertem Inhalt). Tab-Übersicht liegt jetzt auf ⌥⌘T.
+- **Theme „System"** — Einstellungen → Theme folgt dem OS-Erscheinungsbild (nativeTheme, live bei OS-Wechsel).
+- **Als HTML kopieren** — ⌘⇧C kopiert Auswahl bzw. Dokument als gerendertes HTML (marked+DOMPurify-Pipeline).
+- **Enter/⇧Enter in Suchfeldern** springt zum nächsten/vorherigen Treffer.
+- **Tab-Wechsel per Tastatur auf macOS** — ⌥⌘←/→ zusätzlich zu Ctrl+Tab (⌘Tab gehört dem OS-App-Switcher).
+
+### 🏗️ Zuverlässigkeit (Reliability-Pass 2026-07-04, Teil 2)
+- **E2E-Test-Suite** (`tests/e2e/`, `npm run test:e2e`): startet die echte App headless mit isoliertem Profil und prüft 9 Szenarien (54 Checks) — Layout-Invarianten bei 4 Fensterbreiten, alle drei Tab-Datenverlust-Regressionen, Save-Roundtrip (atomar, UTF-8), Stale-Search, Tab-Reopen, Theme/System-Theme, Undo-pro-Tab, Fehler-Toast, Render-Skip — plus CLI-PDF-Roundtrip (Einzeldatei + Batch inkl. `.MD`). **Beide CI-Workflows gaten jetzt auf Unit- + E2E-Tests** (release.yml baute bisher komplett ungetestet).
+- **Renderer modularisiert**: `renderer.js` (4700 Zeilen) → 12 geordnete Module unter `src/renderer/` (01-core … 12-features). Classic Scripts, geteilter globaler State in `02-state.js`, Ladereihenfolge in index.html verbindlich. Inhaltlich verifiziert identisch (Zeilenvergleich) + komplette E2E-Suite grün.
+- **Fehler sichtbar statt stumm**: `window.onerror`/`unhandledrejection` → dismissbarer Fehler-Toast (Dedupe, Auto-Hide); manuell via `window.showErrorToast()`.
+- **Updater-Fortschritt in der Statusleiste**: verfügbar → Download-% → bereit/Fehler (Events kamen bisher nirgends an).
+- **Undo pro Tab vervollständigt (A6)**: gespeicherte CM6-EditorStates trugen die Compartment-Konfiguration ihres Speicherzeitpunkts — Theme-/Font-/Wrap-Wechsel sprangen beim Tab-Rückwechsel zurück. Der Adapter re-appliziert jetzt die aktuellen Einstellungen nach `setState`.
+- **Preview-Perf**: `renderMarkdown` überspringt identische Re-Renders (gleicher Text/Tab/Theme) — Cursor-Bewegungen kosten keine marked+DOMPurify+morphdom-Läufe mehr.
+- **CSS-Invarianten flächendeckend**: Sidebar/Dateibaum, Statusleiste (Ellipsis statt Overflow), Tab-Titel, alle Dialoge (Viewport-Caps), Info-Panel, Lint-Liste, Command Palette — nichts kann das Fenster mehr sprengen.
+
+### 🐛 Fixed (Layout 2026-07-04)
+- **Preview lief bei langen Wörtern ohne Leerzeichen rechts aus dem Fenster** — zwei Ursachen: `#preview` ohne `overflow-wrap` **und** Flex-Panes ohne `min-width: 0` (Flex-Items schrumpfen nicht unter ihre Min-Content-Breite, das Pane schob sich aus dem Frame). Breite Tabellen scrollen jetzt GitHub-artig in der eigenen Box; `overflow-x: auto` als letztes Netz.
+- **Toolbar-Buttons wurden rechts abgeschnitten** (Toolbar brauchte ~1460px). Jetzt responsiv: engere Abstände < 1500px, kleinere Buttons < 1280px, Undo-/Heading-Gruppen weichen < 1180/1060px (bleiben über Menü/Shortcuts/Palette erreichbar), horizontales Scrollen als Fallback. Verifiziert per Layout-Messung bei 1400/1200/1000/900px: keine abgeschnittenen Buttons, kein Body-/Preview-Overflow.
+
+### 🐛 Fixed (Bug-Audit 2026-07-03 — 2 unabhängige Code-Audits, alle Funde verifiziert)
+- **Datenverlust-Cluster Tabs (kritisch):**
+  - ⌘N / Datei öffnen / Datei-Drop **verwarfen ungespeicherte Änderungen** des aktuellen Tabs (Snapshot nur bei Tab-Wechsel; Speichern überschrieb dann mit veraltetem Stand).
+  - **Hintergrund-Tab schließen setzte den aktiven Tab zurück** auf den letzten Tab-Wechsel-Stand.
+  - **Hintergrund-Tab speichern band den Pfad an den aktiven Tab** — nächstes ⌘S überschrieb die falsche Datei (`file-saved`-Broadcast der Sync-Save-Pfade entfernt).
+  - **Fenster-Schließen prüfte nur den zuletzt berührten Tab** (`documentEdited`-Flag) — dirty Hintergrund-Tabs wurden ohne Nachfrage verworfen und die Crash-Recovery-Session gelöscht. Close-Handler fragt jetzt alle Tabs ab, speichert alle, und **bricht bei Schreibfehlern ab** statt trotzdem zu schließen.
+  - **Crash-Recovery war nach dem ersten Fenster-Schließen dauerhaft tot** (macOS Dock-Reopen; `isCleanShutdown` wurde nie zurückgesetzt).
+  - **Atomare Saves** (temp + rename) — Absturz mitten im Schreiben kann Dateien nicht mehr trunkieren.
+- **Sicherheit:** `setWindowOpenHandler` ergänzt — Mittelklick auf externen Preview-Link öffnete ein Kind-Fenster **mit preload/electronAPI** (beliebiger Dateischreibzugriff für Remote-Seiten). PDF-Fenster laden ohne preload.
+- **Falsche-Modified-Flags:** `handleMenuAction` markierte bei fast jeder Aktion (Neu, Öffnen, Suchen, Export …) den Tab als geändert — leere neue Tabs fragten beim Schließen „Speichern?".
+- **Shift+Tab in Tabellen bewegte sich nie** (Off-by-one; jetzt inkl. Zeilen-Wrap rückwärts), Tab auf `|`-Zeichen übersprang eine Zelle.
+- **Escape im Link-/Bild-Dialog leakte das Promise** — nächstes ⌘K fügte den Link doppelt ein.
+- **Doppelte/dreifache Shortcut-Ausführung** (Win/Linux): CM6-`searchKeymap` (englische Such-UI) entfernt, `Mod-Shift-K`/`Alt-Pfeil` aus CM6-Keymap gefiltert, globaler Handler respektiert `defaultPrevented` und ignoriert Eingabefelder (⌘B im Suchfeld schrieb in den Editor).
+- **⌘R doppelt belegt** (Ersetzen vs. Neu laden) — Ersetzen jetzt ⌥⌘F (macOS) / Ctrl+H (Win/Linux).
+- **PDF-Export:**
+  - Relative Bilder lösten gegen die **falsche Basis** auf (letzte geöffnete Datei statt Datei des Tabs) und wurden vom Traversal-Guard geblockt — Batch/Multi-Tab-Exporte verloren Bilder.
+  - Optionen (Ränder/Seitengröße/Schriftgröße) griffen **nur beim Standard-Template** (Literal-Regex-Patch) — jetzt Override-CSS-Block.
+  - Dialog-Templatewahl wurde von Frontmatter **überstimmt** — Priorität jetzt Dialog > Frontmatter > Settings.
+  - **Fenster-Leak** bei fehlgeschlagenen Exporten (unsichtbare BrowserWindows) — try/finally.
+  - **data:-URL-Trunkierung** bei großen Dokumenten (GUI-Pfade) — Temp-Datei wie im CLI-Pfad.
+  - Batch: verspätete Renderer-Antwort konnte als **HTML des nächsten Tabs** verbucht werden (Korrelation per filePath).
+- **Eigener Save triggerte „Datei wurde extern geändert"** (Watcher ohne Unterdrückungsfenster) — inkl. Cursor-Reset beim Tippen.
+- **HTML-Export:** `file://`-Bilder auf Windows (Laufwerksbuchstaben via `fileURLToPath`), Export mit leerem Inhalt brach mit drei Dialogen ab.
+- **Suche:** gespeicherte Treffer-Offsets veralteten bei Edits/Tab-Wechsel (falsche Markierungen); Treffer/Outline/Lint scrollen jetzt korrekt (`scrollToPos` statt Verhältnis-Mathematik).
+- **Checkbox-Listener akkumulierten** über morphdom-Renders (N-fach-Feuern), Drop-Overlay blieb nach Bild-Drop hängen, Overlay erschien bei Tab-Drag.
+- **Kleinigkeiten:** „Neues Fenster" entfernt (brach das erste Fenster über den `mainWindow`-Global), UTF-8-BOM brach Frontmatter, CLI-Batch ignorierte `.MD`, Sitzungsstatistik zählte Tab-Wechsel als „geschriebene Wörter", Statusleiste deutsch + Singular („1 Wort", „Z 1, Sp 1", „Automatisch gespeichert"), Zeilenumbruch/Zeilennummern persistieren, Editor-Fokus nach Dialog-Schließen, Fensterposition-Writes debounced, tote IPC-Kanäle entfernt.
 
 ## [0.3.1] - 2026-05-03
 

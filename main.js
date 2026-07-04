@@ -1,8 +1,24 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const fsWatchers = new Map();
+// M8: Own saves trigger the fs.watch callback ~200 ms later and used to surface a
+// spurious "Datei wurde extern geändert"-prompt. Saves stamp the path here; watcher
+// events inside the window are ignored.
+const watcherSuppressUntil = new Map();
+function suppressWatcher(filePath) {
+    watcherSuppressUntil.set(filePath, Date.now() + 1500);
+}
+function isWatcherSuppressed(filePath) {
+    const until = watcherSuppressUntil.get(filePath);
+    if (!until) return false;
+    if (Date.now() > until) {
+        watcherSuppressUntil.delete(filePath);
+        return false;
+    }
+    return true;
+}
 const packageJson = require('./package.json');
 
 // highlight.js is only needed during PDF export but pulls ~9 MB of language
@@ -158,6 +174,9 @@ function parseFrontmatterYaml(raw) {
 }
 
 function extractFrontmatter(markdown) {
+    // L3: strip UTF-8 BOM — a BOM'd file otherwise never matches ^--- and silently
+    // loses its template/title-page frontmatter
+    if (markdown && markdown.charCodeAt(0) === 0xFEFF) markdown = markdown.slice(1);
     const m = (markdown || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
     if (!m) return { frontmatter: {}, body: markdown || '' };
     return {
@@ -366,7 +385,7 @@ function getHighlightCss() {
 
 // Server-side KaTeX for CLI mode. The renderer's browser-side KaTeX can't run in
 // headless-CLI context, so we pre-process $...$ / $$...$$ into KaTeX HTML here.
-// Matches the delimiter set used by renderMathInPreview() in renderer.js.
+// Matches the delimiter set used by renderMathInPreview() in src/renderer/05-editor.js.
 let _katex = null;
 function renderMathForCLI(markdown) {
     if (!_katex) {
@@ -426,7 +445,12 @@ function buildPdfHtml(bodyContentOrOpts) {
 }
 
 // Helper function to convert images to base64 for PDF export
-async function convertImagesToBase64(htmlContent) {
+// H2: baseDir = directory of the markdown file whose images we're embedding.
+// Falls back to the legacy currentFilePath global when omitted. Threading it
+// explicitly matters for batch export and multi-tab GUI export, where the global
+// points at whatever file was touched last — images then resolved against the
+// wrong directory AND were blocked by the path-traversal guard.
+async function convertImagesToBase64(htmlContent, baseDir = null) {
     const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/g;
     let match;
     const imagePromises = [];
@@ -434,14 +458,14 @@ async function convertImagesToBase64(htmlContent) {
     while ((match = imgRegex.exec(htmlContent)) !== null) {
         const fullImgTag = match[0];
         const imgSrc = match[1];
-        
+
         // Skip if already base64
         if (imgSrc.startsWith('data:')) {
             continue;
         }
 
         imagePromises.push(
-            convertImageToBase64(imgSrc).then(base64 => ({
+            convertImageToBase64(imgSrc, baseDir).then(base64 => ({
                 originalTag: fullImgTag,
                 originalSrc: imgSrc,
                 base64: base64
@@ -466,7 +490,7 @@ async function convertImagesToBase64(htmlContent) {
     return htmlContent;
 }
 
-async function convertImageToBase64(imagePath) {
+async function convertImageToBase64(imagePath, baseDirOverride = null) {
     try {
         // Handle different types of paths
         let fullPath;
@@ -492,10 +516,13 @@ async function convertImageToBase64(imagePath) {
                                 reject(new Error(`Too many redirects (>${MAX_REDIRECTS})`));
                                 return;
                             }
-                            let redirectUrl = response.headers.location;
-                            if (redirectUrl.startsWith('/')) {
-                                const parsed = new URL(url);
-                                redirectUrl = `${parsed.protocol}//${parsed.host}${redirectUrl}`;
+                            // L4: resolve relative/protocol-relative Location headers safely
+                            let redirectUrl;
+                            try {
+                                redirectUrl = new URL(response.headers.location, url).href;
+                            } catch (e) {
+                                resolve(null); // unparseable redirect — skip image
+                                return;
                             }
                             response.resume(); // consume response
                             fetchUrl(redirectUrl);
@@ -541,19 +568,19 @@ async function convertImageToBase64(imagePath) {
             // Absolute path
             fullPath = path.resolve(imagePath);
         } else {
-            // Relative path - resolve relative to current file or working directory
-            if (currentFilePath) {
-                fullPath = path.resolve(path.dirname(currentFilePath), imagePath);
-            } else {
-                fullPath = path.resolve(imagePath);
-            }
+            // Relative path - resolve relative to the owning file's directory (H2),
+            // legacy global, or working directory
+            const relBase = baseDirOverride || (currentFilePath ? path.dirname(currentFilePath) : null);
+            fullPath = relBase ? path.resolve(relBase, imagePath) : path.resolve(imagePath);
         }
 
         // Path traversal guard: fullPath must stay within the Markdown file's directory subtree.
         // Blocks malicious markdown like ![](../../../../etc/passwd) or ![](/Users/victim/.ssh/id_rsa)
-        // from leaking arbitrary files into the exported PDF. If no currentFilePath is known
+        // from leaking arbitrary files into the exported PDF. If no base directory is known
         // (CLI without source context), falls back to process.cwd() as the root.
-        const baseDir = currentFilePath ? path.resolve(path.dirname(currentFilePath)) : process.cwd();
+        const baseDir = baseDirOverride
+            ? path.resolve(baseDirOverride)
+            : (currentFilePath ? path.resolve(path.dirname(currentFilePath)) : process.cwd());
         const rel = path.relative(baseDir, fullPath);
         if (rel.startsWith('..') || path.isAbsolute(rel)) {
             console.log(`Blocked out-of-tree image path: ${imagePath} (resolved to ${fullPath}, base ${baseDir})`);
@@ -677,11 +704,8 @@ function getMenuTemplate() {
             accelerator: 'CmdOrCtrl+N',
             click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'new-file' }); }
         },
-        {
-            label: 'Neues Fenster',
-            accelerator: 'CmdOrCtrl+Shift+N',
-            click: () => { createWindow(); }
-        },
+        // M9: "Neues Fenster" removed — the app's state (mainWindow global, watchers,
+        // currentFilePath) is single-window; a second window silently broke the first.
         { type: 'separator' },
         {
             label: 'Öffnen...',
@@ -755,7 +779,9 @@ function getMenuTemplate() {
             },
             {
                 label: 'Ersetzen',
-                accelerator: 'CmdOrCtrl+R',
+                // M1: was CmdOrCtrl+R, which collided with the reload role's default
+                // accelerator. Convention: ⌥⌘F on macOS, Ctrl+H on Windows/Linux.
+                accelerator: process.platform === 'darwin' ? 'Cmd+Alt+F' : 'Ctrl+H',
                 click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'replace' }); }
             },
             { type: 'separator' },
@@ -894,8 +920,15 @@ function loadWindowState() {
     return null;
 }
 
+let saveWindowStateTimer = null;
 function saveWindowState() {
-    if (!mainWindow) return;
+    // L10: resize/move fire continuously during a drag — debounce the sync disk write
+    if (saveWindowStateTimer) clearTimeout(saveWindowStateTimer);
+    saveWindowStateTimer = setTimeout(saveWindowStateNow, 300);
+}
+
+function saveWindowStateNow() {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
     try {
         const bounds = mainWindow.getBounds();
         const state = {
@@ -937,6 +970,15 @@ function createWindow() {
     }
 
     mainWindow = new BrowserWindow(windowOptions);
+
+    // H3: Re-arm crash-recovery for reopened windows (macOS Dock reopen). Without this,
+    // every save-session after the first window close was silently discarded.
+    isCleanShutdown = false;
+
+    // H4: Never let web content open child windows. Middle-click on an external link in
+    // the preview would otherwise spawn a window that inherits preload.js — handing
+    // window.electronAPI (arbitrary file write!) to a remote page.
+    mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
     // E1: Restore maximized state
     if (savedState && savedState.isMaximized) {
@@ -1013,66 +1055,90 @@ function createWindow() {
         menu.popup();
     });
 
-    // A1: Race-condition-free close handler — saves synchronously before closing
-    mainWindow.on('close', async (event) => {
-        if (documentEdited) {
-            event.preventDefault();
-            const response = await dialog.showMessageBox(mainWindow, {
-                type: 'question',
-                buttons: ['Speichern & Beenden', 'Nicht speichern', 'Abbrechen'],
-                defaultId: 0,
-                cancelId: 2,
-                message: 'Es gibt ungespeicherte Änderungen.',
-                detail: 'Möchten Sie vor dem Beenden speichern?'
-            });
-            if (response.response === 0) {
-                // Save then close — get content directly from renderer, no race condition
-                try {
-                    const tabData = await mainWindow.webContents.executeJavaScript(`
-                        (function() {
-                            const activeTab = tabs.find(tab => tab.id === activeTabId);
-                            return {
-                                content: editor.value,
-                                filePath: activeTab ? activeTab.filePath : null
-                            };
-                        })()
-                    `);
-                    if (tabData.filePath) {
-                        await fs.writeFile(tabData.filePath, tabData.content, 'utf-8');
-                    } else {
-                        // Unsaved file — show Save As dialog
-                        const result = await dialog.showSaveDialog(mainWindow, {
-                            filters: [
-                                { name: 'Markdown', extensions: ['md'] },
-                                { name: 'Text', extensions: ['txt'] }
-                            ]
-                        });
-                        if (!result.canceled) {
-                            await fs.writeFile(result.filePath, tabData.content, 'utf-8');
-                        } else {
-                            return; // User cancelled Save As, don't close
-                        }
-                    }
-                } catch (err) {
-                    console.error('Error saving on close:', err);
-                }
-                isCleanShutdown = true;
-                clearSessionFile();
-                documentEdited = false;
-                mainWindow.close();
-            } else if (response.response === 1) {
-                // Don't save, just close — clear session on clean exit
-                isCleanShutdown = true;
-                clearSessionFile();
-                documentEdited = false;
-                mainWindow.close();
-            }
-            // response === 2: Cancel, do nothing
-        } else {
-            // No unsaved changes — clear session on clean exit
-            isCleanShutdown = true;
-            clearSessionFile();
+    // A1: Race-condition-free close handler — saves synchronously before closing.
+    // C2/H1 rework: the single documentEdited flag only mirrored the LAST-touched tab,
+    // so a dirty background tab used to be discarded without any prompt (and the session
+    // backup cleared with it). We now always ask the renderer for ALL dirty tabs, save
+    // each of them, and refuse to close if any write fails.
+    let closeConfirmed = false;
+    const confirmClose = () => {
+        closeConfirmed = true;
+        isCleanShutdown = true;
+        clearSessionFile();
+        documentEdited = false;
+        mainWindow.close();
+    };
+    const handleCloseRequest = async () => {
+        let dirtyTabs = [];
+        try {
+            dirtyTabs = await mainWindow.webContents.executeJavaScript(`
+                (function() {
+                    if (typeof saveCurrentTabState === 'function') saveCurrentTabState();
+                    return tabs.filter(t => t.isModified).map(t => ({
+                        content: t.id === activeTabId ? editor.value : (t.content || ''),
+                        filePath: t.filePath || null,
+                        title: t.title || 'Unbenannt'
+                    }));
+                })()
+            `);
+        } catch (err) {
+            // Renderer unreachable (crashed/hung) — nothing we can save; let the
+            // session file survive as crash recovery instead of clearing it.
+            console.error('Close: could not query dirty tabs:', err);
+            isCleanShutdown = false;
+            closeConfirmed = true;
+            mainWindow.close();
+            return;
         }
+        if (dirtyTabs.length === 0) {
+            confirmClose();
+            return;
+        }
+        const fileList = dirtyTabs.map(t => `• ${t.title}`).join('\n');
+        const response = await dialog.showMessageBox(mainWindow, {
+            type: 'question',
+            buttons: ['Speichern & Beenden', 'Nicht speichern', 'Abbrechen'],
+            defaultId: 0,
+            cancelId: 2,
+            message: dirtyTabs.length === 1
+                ? 'Es gibt ungespeicherte Änderungen.'
+                : `Es gibt ungespeicherte Änderungen in ${dirtyTabs.length} Tabs.`,
+            detail: `${fileList}\n\nMöchten Sie vor dem Beenden speichern?`
+        });
+        if (response.response === 2) return; // Abbrechen
+        if (response.response === 1) { confirmClose(); return; } // Nicht speichern
+        // Speichern & Beenden — save every dirty tab; abort close on any failure
+        for (const tab of dirtyTabs) {
+            try {
+                let targetPath = tab.filePath;
+                if (!targetPath) {
+                    const result = await dialog.showSaveDialog(mainWindow, {
+                        filters: [
+                            { name: 'Markdown', extensions: ['md'] },
+                            { name: 'Text', extensions: ['txt'] }
+                        ],
+                        defaultPath: /\.(md|txt)$/i.test(tab.title) ? tab.title : `${tab.title}.md`
+                    });
+                    if (result.canceled) return; // user aborted — keep window open
+                    targetPath = result.filePath;
+                }
+                await writeFileAtomic(targetPath, tab.content);
+                suppressWatcher(targetPath);
+                addToRecentFiles(targetPath);
+            } catch (err) {
+                dialog.showErrorBox(
+                    'Fehler beim Speichern',
+                    `„${tab.filePath || tab.title}" konnte nicht gespeichert werden: ${err.message}\n\nDas Fenster bleibt geöffnet, damit keine Daten verloren gehen.`
+                );
+                return; // H1: never close after a failed save
+            }
+        }
+        confirmClose();
+    };
+    mainWindow.on('close', (event) => {
+        if (closeConfirmed) return; // second pass after confirmation — let it through
+        event.preventDefault();
+        handleCloseRequest();
     });
 
     mainWindow.on('closed', () => {
@@ -1089,27 +1155,8 @@ function createWindow() {
 }
 
 // IPC Handlers
-ipcMain.on('new-file', async (event) => {
-    if (documentEdited) {
-        const response = await dialog.showMessageBox(mainWindow, {
-            type: 'question',
-            buttons: ['Speichern', 'Nicht speichern', 'Abbrechen'],
-            defaultId: 0,
-            message: 'Möchten Sie die Änderungen speichern?'
-        });
-
-        if (response.response === 0) {
-            // Save then create new
-            event.reply('menu-action', { action: 'save-file' });
-        } else if (response.response === 2) {
-            return; // Cancel
-        }
-    }
-    
-    currentFilePath = null;
-    documentEdited = false;
-    event.reply('new-file-created', { filePath: null });
-});
+// L1: dead 'new-file' IPC handler removed — the renderer's menu action calls
+// createNewTab() directly and never sent on this channel (its save branch also raced).
 
 ipcMain.on('open-file', async (event) => {
     const result = await dialog.showOpenDialog(mainWindow, {
@@ -1138,19 +1185,39 @@ ipcMain.on('open-file', async (event) => {
     }
 });
 
+// M10: Atomic write — write to a temp file in the same directory, then rename over
+// the target. A crash mid-write can no longer truncate the user's file.
+async function writeFileAtomic(targetPath, content) {
+    const tmpPath = targetPath + '.mrxdown-tmp';
+    await fs.writeFile(tmpPath, content, 'utf-8');
+    try {
+        await fs.rename(tmpPath, targetPath);
+    } catch (err) {
+        await fs.unlink(tmpPath).catch(() => {});
+        throw err;
+    }
+}
+
 // Shared save-file implementation — returns { success, filePath?, error?, cancelled? } and
 // optionally emits the 'file-saved' event for callers that rely on the event bus.
 // Pragmatic: attempt writeFile directly and catch EACCES, rather than access() + write (TOCTOU race).
-async function doSaveFile({ content, filePath, event }) {
+// updateGlobals=false is for the -sync invoke paths used to save BACKGROUND tabs on close:
+// they must not rebind currentFilePath/documentEdited to the background tab, and must not
+// broadcast 'file-saved' (the renderer would apply it to the ACTIVE tab and then overwrite
+// the wrong file on the next Cmd+S).
+async function doSaveFile({ content, filePath, event, updateGlobals = true }) {
     const targetPath = filePath || currentFilePath;
     if (!targetPath) {
-        return doSaveFileAs({ content, filePath: null, tabTitle: null, event });
+        return doSaveFileAs({ content, filePath: null, tabTitle: null, event, updateGlobals });
     }
     try {
-        await fs.writeFile(targetPath, content, 'utf-8');
-        currentFilePath = targetPath;
-        documentEdited = false;
-        if (mainWindow) mainWindow.webContents.send('file-saved', { filePath: targetPath });
+        await writeFileAtomic(targetPath, content);
+        suppressWatcher(targetPath);
+        if (updateGlobals) {
+            currentFilePath = targetPath;
+            documentEdited = false;
+            if (mainWindow) mainWindow.webContents.send('file-saved', { filePath: targetPath });
+        }
         addToRecentFiles(targetPath);
         return { success: true, filePath: targetPath };
     } catch (error) {
@@ -1163,7 +1230,7 @@ async function doSaveFile({ content, filePath, event }) {
                 detail: 'Möchten Sie die Datei unter einem anderen Namen speichern?'
             });
             if (response.response === 0) {
-                return doSaveFileAs({ content, filePath: null, tabTitle: null, event });
+                return doSaveFileAs({ content, filePath: null, tabTitle: null, event, updateGlobals });
             }
             return { success: false, cancelled: true };
         }
@@ -1172,7 +1239,7 @@ async function doSaveFile({ content, filePath, event }) {
     }
 }
 
-async function doSaveFileAs({ content, filePath, tabTitle, event }) {
+async function doSaveFileAs({ content, filePath, tabTitle, event, updateGlobals = true }) {
     const baseFilePath = filePath || currentFilePath;
     let defaultFileName;
 
@@ -1203,11 +1270,14 @@ async function doSaveFileAs({ content, filePath, tabTitle, event }) {
         return { success: false, cancelled: true };
     }
     try {
-        await fs.writeFile(result.filePath, content, 'utf-8');
-        currentFilePath = result.filePath;
+        await writeFileAtomic(result.filePath, content);
+        suppressWatcher(result.filePath);
         lastSaveDirectory = path.dirname(result.filePath);
-        documentEdited = false;
-        if (mainWindow) mainWindow.webContents.send('file-saved', { filePath: result.filePath });
+        if (updateGlobals) {
+            currentFilePath = result.filePath;
+            documentEdited = false;
+            if (mainWindow) mainWindow.webContents.send('file-saved', { filePath: result.filePath });
+        }
         addToRecentFiles(result.filePath);
         return { success: true, filePath: result.filePath };
     } catch (error) {
@@ -1220,12 +1290,14 @@ ipcMain.on('save-file', (event, { content, filePath }) => {
     doSaveFile({ content, filePath, event });
 });
 
+// The -sync variants save background tabs during close flows — they must not touch
+// the active-tab globals or broadcast 'file-saved' (see doSaveFile comment).
 ipcMain.handle('save-file-sync', (event, { content, filePath }) => {
-    return doSaveFile({ content, filePath, event });
+    return doSaveFile({ content, filePath, event, updateGlobals: false });
 });
 
 ipcMain.handle('save-file-as-sync', (event, { content, filePath, tabTitle }) => {
-    return doSaveFileAs({ content, filePath, tabTitle, event });
+    return doSaveFileAs({ content, filePath, tabTitle, event, updateGlobals: false });
 });
 
 ipcMain.on('save-file-as', (event, { content, filePath, tabTitle }) => {
@@ -1254,7 +1326,14 @@ ipcMain.on('export-html', async (event, { content, filePath }) => {
             let match;
             
             while ((match = imgRegex.exec(content)) !== null) {
-                const imagePath = decodeURIComponent(match[1]);
+                // M7: fileURLToPath handles Windows drive letters — the old
+                // decodeURIComponent left '/C:/...' which fs can't open
+                let imagePath;
+                try {
+                    imagePath = require('url').fileURLToPath('file://' + match[1]);
+                } catch (e) {
+                    imagePath = decodeURIComponent(match[1]);
+                }
                 try {
                     const imageData = await fs.readFile(imagePath);
                     const extension = path.extname(imagePath).toLowerCase().slice(1);
@@ -1274,6 +1353,57 @@ ipcMain.on('export-html', async (event, { content, filePath }) => {
     }
 });
 
+// Shared hidden-window PDF renderer for all GUI export paths.
+// - Loads via temp file, not data: URL — Chromium truncates multi-MB data URLs (M6),
+//   which blanked exports of documents with several embedded images.
+// - try/finally destroys the window on EVERY path; failed exports used to leak one
+//   invisible BrowserWindow each (M4).
+// - No preload: the rendered markdown HTML must never see window.electronAPI.
+const PDF_SMART_WAIT_JS = `
+    new Promise(resolve => {
+        const images = document.querySelectorAll('img');
+        const imagePromises = Array.from(images).map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise(r => { img.onload = r; img.onerror = r; });
+        });
+        Promise.all(imagePromises).then(() => {
+            if (typeof requestIdleCallback !== 'undefined') {
+                requestIdleCallback(() => resolve(), { timeout: 2000 });
+            } else {
+                setTimeout(resolve, 500);
+            }
+        });
+    })
+`;
+
+async function renderHtmlToPdf(fullHtml, printOptions = {}) {
+    const pdfWindow = new BrowserWindow({
+        width: 800,
+        height: 1000,
+        show: false,
+        webPreferences: { nodeIntegration: false, contextIsolation: true }
+    });
+    const tempHtmlPath = path.join(app.getPath('temp'), `mrxdown-pdf-${process.pid}-${Date.now()}.html`);
+    try {
+        await fs.writeFile(tempHtmlPath, fullHtml, 'utf-8');
+        await pdfWindow.loadFile(tempHtmlPath);
+        await pdfWindow.webContents.executeJavaScript(PDF_SMART_WAIT_JS);
+        return await pdfWindow.webContents.printToPDF({
+            marginsType: 0,
+            pageSize: 'A4',
+            printBackground: true,
+            landscape: false,
+            preferCSSPageSize: true,
+            generateTaggedPDF: true,
+            generateDocumentOutline: true,
+            ...printOptions
+        });
+    } finally {
+        if (!pdfWindow.isDestroyed()) pdfWindow.destroy();
+        fs.unlink(tempHtmlPath).catch(() => {});
+    }
+}
+
 // D4: PDF export with user-specified options (page size, margins, orientation, TOC)
 ipcMain.on('print-to-pdf-options', async (event, { filePath, pdfOptions } = {}) => {
     try {
@@ -1285,11 +1415,6 @@ ipcMain.on('print-to-pdf-options', async (event, { filePath, pdfOptions } = {}) 
         const showToc = opts.toc || false;
         const showPageNumbers = opts.pageNumbers !== false;
 
-        const pdfWindow = new BrowserWindow({
-            width: 800, height: 1000, show: false,
-            webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, 'preload.js') }
-        });
-
         const pageData = await mainWindow.webContents.executeJavaScript(
             '(function() { var p = document.querySelector("#preview"); var html = p ? p.innerHTML : ""; var raw = (typeof editor !== "undefined" && editor && editor.value) ? editor.value : ""; return { previewHtml: html, rawMarkdown: raw }; })()'
         );
@@ -1299,27 +1424,32 @@ ipcMain.on('print-to-pdf-options', async (event, { filePath, pdfOptions } = {}) 
 
         if (!content || content.trim().length === 0) {
             dialog.showErrorBox('PDF-Export Fehler', 'Der Dokumentinhalt ist leer.');
-            pdfWindow.close();
             return;
         }
 
         // Strip the preview's frontmatter info-box from the exported body
         content = content.replace(/<div class="frontmatter-box">[\s\S]*?<\/div>\s*(?=<)/, '');
 
-        content = await convertImagesToBase64(content);
+        // H2: resolve relative images against the exported file's own directory
+        content = await convertImagesToBase64(content, filePath ? path.dirname(filePath) : null);
 
-        // Template selection: dialog > frontmatter > settings > 'default'
-        const templateName = resolvePdfTemplateName(frontmatter, opts.template || (settings && settings.pdfTemplate));
+        // M2: Template selection — the user's explicit dialog choice must beat frontmatter.
+        // resolvePdfTemplateName checks frontmatter first, so it only gets the fallbacks.
+        const manifest = getPdfTemplatesManifest();
+        const templateName = (opts.template && manifest[opts.template])
+            ? opts.template
+            : resolvePdfTemplateName(frontmatter, settings && settings.pdfTemplate);
 
-        // Build custom stylesheet on top of the selected template
+        // M3: The old literal regex patches (margin: 20mm 15mm etc.) only matched the
+        // default template's CSS — options were silently dropped for academic/minimal.
+        // Append an override block instead; the cascade makes the later rule win.
         let customStyle = loadPdfTemplateCss(templateName);
-        customStyle = customStyle.replace(/margin:\s*20mm\s*15mm/, 'margin: ' + margin + 'mm');
-        customStyle = customStyle.replace(/size:\s*A4\s*portrait/, 'size: ' + pageSize + ' ' + (landscape ? 'landscape' : 'portrait'));
-        customStyle = customStyle.replace(/font-size:\s*11pt/, 'font-size: ' + fontSize + 'pt');
-
         if (!showPageNumbers) {
             customStyle = customStyle.replace(/@bottom-center\s*\{[^}]+\}/, '');
         }
+        customStyle += `\n/* User options from the PDF export dialog */\n` +
+            `@page { size: ${pageSize} ${landscape ? 'landscape' : 'portrait'}; margin: ${margin}mm; }\n` +
+            `body { font-size: ${fontSize}pt; }\n`;
 
         // Title page from frontmatter (only if template + frontmatter support it)
         const titlePage = renderTitlePage(frontmatter, templateName);
@@ -1349,24 +1479,7 @@ ipcMain.on('print-to-pdf-options', async (event, { filePath, pdfOptions } = {}) 
         const tocStyle = '.pdf-toc { margin-bottom: 2em; } .pdf-toc h2 { border-bottom: 2px solid #333; padding-bottom: 0.5rem; } .pdf-toc ul { list-style: none; padding: 0; } .pdf-toc li { padding: 4px 0; color: #1a1a1a; }';
         const fullHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' + customStyle + tocStyle + getHighlightCss() + getKatexCss() + '</style></head><body>' + titlePage + tocHtml + content + '</body></html>';
 
-        await pdfWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(fullHtml));
-
-        // Smart wait for images
-        await pdfWindow.webContents.executeJavaScript(
-            'new Promise(function(resolve) { var imgs = document.querySelectorAll("img"); var ps = Array.from(imgs).map(function(img) { if (img.complete) return Promise.resolve(); return new Promise(function(r) { img.onload = r; img.onerror = r; }); }); Promise.all(ps).then(function() { if (typeof requestIdleCallback !== "undefined") { requestIdleCallback(function() { resolve(); }, { timeout: 2000 }); } else { setTimeout(resolve, 500); } }); })'
-        );
-
-        const pdfData = await pdfWindow.webContents.printToPDF({
-            marginsType: 0,
-            pageSize: pageSize,
-            printBackground: true,
-            landscape: landscape,
-            preferCSSPageSize: true,
-            generateTaggedPDF: true,
-            generateDocumentOutline: true
-        });
-
-        pdfWindow.close();
+        const pdfData = await renderHtmlToPdf(fullHtml, { pageSize, landscape });
 
         const baseFilePath = filePath || currentFilePath;
         const defaultFileName = baseFilePath ?
@@ -1388,18 +1501,6 @@ ipcMain.on('print-to-pdf-options', async (event, { filePath, pdfOptions } = {}) 
 
 ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
     try {
-        // Create a new window for PDF generation with proper styling
-        const pdfWindow = new BrowserWindow({
-            width: 800,
-            height: 1000,
-            show: false,
-            webPreferences: {
-                nodeIntegration: false,
-                contextIsolation: true,
-                preload: path.join(__dirname, 'preload.js')
-            }
-        });
-
         // Pull preview HTML and raw editor markdown so we can extract frontmatter
         // for template selection + title-page rendering.
         const pageData = await mainWindow.webContents.executeJavaScript(`
@@ -1418,51 +1519,16 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
         if (!content || content.trim().length === 0) {
             console.error('PDF Export: Preview content is empty');
             dialog.showErrorBox('PDF-Export Fehler', 'Der Dokumentinhalt ist leer. Bitte schreiben Sie etwas in den Editor, bevor Sie ein PDF exportieren.');
-            pdfWindow.close();
             return;
         }
 
         // Strip the frontmatter info-box the preview adds (not part of the exported doc).
         content = content.replace(/<div class="frontmatter-box">[\s\S]*?<\/div>\s*(?=<)/, '');
 
-        // Convert images to base64 for embedding
-        content = await convertImagesToBase64(content);
+        // Convert images to base64 for embedding (H2: base dir = the exported file's dir)
+        content = await convertImagesToBase64(content, filePath ? path.dirname(filePath) : null);
 
-        // Keep <br> tags - styled via CSS
-
-        // Load HTML with optimized print styles — template picked from frontmatter/settings
-        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildPdfHtml({ bodyContent: content, frontmatter }))}`);
-
-        // A5: Smart wait — wait for images to load + DOM idle instead of fixed 2s
-        await pdfWindow.webContents.executeJavaScript(`
-            new Promise(resolve => {
-                const images = document.querySelectorAll('img');
-                const imagePromises = Array.from(images).map(img => {
-                    if (img.complete) return Promise.resolve();
-                    return new Promise(r => { img.onload = r; img.onerror = r; });
-                });
-                Promise.all(imagePromises).then(() => {
-                    if (typeof requestIdleCallback !== 'undefined') {
-                        requestIdleCallback(() => resolve(), { timeout: 2000 });
-                    } else {
-                        setTimeout(resolve, 500);
-                    }
-                });
-            })
-        `);
-
-        const pdfData = await pdfWindow.webContents.printToPDF({
-            marginsType: 0, // Use custom margins from @page
-            pageSize: 'A4',
-            printBackground: true,
-            landscape: false,
-            preferCSSPageSize: true,
-            printSelectionOnly: false,
-            generateTaggedPDF: true, // Enable tagged PDF for better accessibility and structure
-            generateDocumentOutline: true // Try to generate document outline from headings
-        });
-
-        pdfWindow.close();
+        const pdfData = await renderHtmlToPdf(buildPdfHtml({ bodyContent: content, frontmatter }));
 
         // Use the provided filePath from the active tab or fall back to currentFilePath
         const baseFilePath = filePath || currentFilePath;
@@ -1510,9 +1576,13 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                 // Wait for the tab to be prepared and rendered.
                 // Named listener so we can remove it on timeout — without this, a dangling
                 // `ipcMain.once` would fire on the NEXT tab's ready event and corrupt its Promise.
+                // M5: replies are correlated by filePath — a late reply from a timed-out
+                // previous tab must not be consumed as this tab's HTML.
                 let htmlContent = await new Promise((resolve, reject) => {
                     const onReady = (event, data) => {
+                        if (!data || (data.filePath && data.filePath !== tab.filePath)) return; // stale reply
                         clearTimeout(timeout);
+                        ipcMain.removeListener('batch-export-tab-ready', onReady);
                         if (data.error) reject(new Error(data.error));
                         else resolve(data.htmlContent);
                     };
@@ -1520,63 +1590,17 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                         ipcMain.removeListener('batch-export-tab-ready', onReady);
                         reject(new Error('Timeout waiting for tab preparation'));
                     }, 10000);
-                    ipcMain.once('batch-export-tab-ready', onReady);
+                    ipcMain.on('batch-export-tab-ready', onReady);
                 });
-                
-                // Convert images to base64 for embedding
-                htmlContent = await convertImagesToBase64(htmlContent);
+
+                // Convert images to base64 — H2: relative to THIS tab's directory
+                htmlContent = await convertImagesToBase64(htmlContent, path.dirname(tab.filePath));
 
                 // Extract frontmatter from tab's source markdown for template selection
                 const { frontmatter: tabFrontmatter } = extractFrontmatter(tab.content || '');
 
-                // Keep <br> tags - styled via CSS
+                const pdfData = await renderHtmlToPdf(buildPdfHtml({ bodyContent: htmlContent, frontmatter: tabFrontmatter }));
 
-                // Create a new window for PDF generation
-                const pdfWindow = new BrowserWindow({
-                    width: 800,
-                    height: 1000,
-                    show: false,
-                    webPreferences: {
-                        nodeIntegration: false,
-                        contextIsolation: true,
-                        preload: path.join(__dirname, 'preload.js')
-                    }
-                });
-                
-                // Load HTML with shared print styles — template per tab from frontmatter
-                await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildPdfHtml({ bodyContent: htmlContent, frontmatter: tabFrontmatter }))}`);
-
-                // A5: Smart wait — wait for images + DOM idle
-                await pdfWindow.webContents.executeJavaScript(`
-                    new Promise(resolve => {
-                        const images = document.querySelectorAll('img');
-                        const imagePromises = Array.from(images).map(img => {
-                            if (img.complete) return Promise.resolve();
-                            return new Promise(r => { img.onload = r; img.onerror = r; });
-                        });
-                        Promise.all(imagePromises).then(() => {
-                            if (typeof requestIdleCallback !== 'undefined') {
-                                requestIdleCallback(() => resolve(), { timeout: 2000 });
-                            } else {
-                                setTimeout(resolve, 500);
-                            }
-                        });
-                    })
-                `);
-
-                const pdfData = await pdfWindow.webContents.printToPDF({
-                    marginsType: 0, // Use custom margins from @page
-                    pageSize: 'A4',
-                    printBackground: true,
-                    landscape: false,
-                    preferCSSPageSize: true,
-                    printSelectionOnly: false,
-                    generateTaggedPDF: true, // Enable tagged PDF for better accessibility and structure
-                    generateDocumentOutline: true // Try to generate document outline from headings
-                });
-
-                pdfWindow.close();
-                
                 // Generate PDF path in same directory as MD file
                 const pdfPath = tab.filePath.replace(/\.(md|markdown)$/i, '.pdf');
                 console.log(`Saving PDF to: ${pdfPath}`);
@@ -1743,6 +1767,8 @@ ipcMain.handle('save-clipboard-image', async (event, { dirPath, buffer, filename
     try {
         const imagesDir = path.join(dirPath, 'images');
         try { await fs.mkdir(imagesDir, { recursive: true }); } catch (e) { /* exists */ }
+        // L7: defense in depth — never let a crafted filename escape images/
+        filename = path.basename(filename);
         const filePath = path.join(imagesDir, filename);
         await fs.writeFile(filePath, Buffer.from(buffer));
         return `images/${filename}`;
@@ -1844,13 +1870,22 @@ ipcMain.on('open-external', async (event, url) => {
 });
 
 // Window controls
+// Theme "System": renderer fragt den OS-Zustand ab und bekommt Änderungen gepusht
+ipcMain.handle('get-system-theme', () => (nativeTheme.shouldUseDarkColors ? 'dark' : 'light'));
+nativeTheme.on('updated', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('system-theme-changed',
+            nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
+    }
+});
+
 ipcMain.on('update-window-title', (event, title) => {
-    mainWindow.setTitle(title);
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setTitle(title);
 });
 
 ipcMain.on('set-document-edited', (event, edited) => {
     documentEdited = edited;
-    mainWindow.setDocumentEdited(edited);
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setDocumentEdited(edited);
 });
 
 // F2: File watching handlers — fs.watch (event-based, no polling)
@@ -1882,6 +1917,7 @@ ipcMain.on('watch-file', (event, filePath) => {
                     return;
                 }
                 if (eventType === 'change') {
+                    if (isWatcherSuppressed(filePath)) return; // own save, not external
                     fs.readFile(filePath, 'utf-8').then(content => {
                         if (mainWindow && !mainWindow.isDestroyed()) {
                             mainWindow.webContents.send('file-changed-externally', { filePath, content });
@@ -2072,7 +2108,7 @@ async function runCLIBatch(inputDir) {
 
         // Find all markdown files
         const files = await fs.readdir(absolutePath);
-        const mdFiles = files.filter(f => f.endsWith('.md') || f.endsWith('.markdown'));
+        const mdFiles = files.filter(f => /\.(md|markdown)$/i.test(f));
 
         if (mdFiles.length === 0) {
             console.log(`Keine Markdown-Dateien in ${absolutePath} gefunden.`);
@@ -2247,8 +2283,14 @@ async function initAutoUpdater() {
         console.log('[updater] update available:', info && info.version);
         if (mainWindow) mainWindow.webContents.send('updater-status', { state: 'available', version: info && info.version });
     });
-    _autoUpdater.on('update-not-available', () => console.log('[updater] up to date'));
-    _autoUpdater.on('error', (err) => console.warn('[updater] error:', err && err.message));
+    _autoUpdater.on('update-not-available', () => {
+        console.log('[updater] up to date');
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('updater-status', { state: 'none' });
+    });
+    _autoUpdater.on('error', (err) => {
+        console.warn('[updater] error:', err && err.message);
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('updater-status', { state: 'error', message: err && err.message });
+    });
     _autoUpdater.on('download-progress', (p) => {
         if (mainWindow) mainWindow.webContents.send('updater-status', {
             state: 'downloading',

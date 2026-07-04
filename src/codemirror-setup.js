@@ -69,7 +69,7 @@ const codeLanguages = [
 ];
 import { tags } from '@lezer/highlight';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
-import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+import { highlightSelectionMatches } from '@codemirror/search';
 import { ViewPlugin, Decoration } from '@codemirror/view';
 
 // Theme compartment for dynamic switching
@@ -378,15 +378,24 @@ function createEditor(parentElement, options = {}) {
             }),
 
             // Keybindings - filter out Tab/Enter so the app can handle them
-            // (smart list continuation, table navigation, indent)
+            // (smart list continuation, table navigation, indent).
+            // H4: also drop bindings the app implements itself (Mod-Shift-k delete
+            // line, Alt-Arrow move line, Mod-d) — on Win/Linux the menu accelerator,
+            // the document handler AND the CM binding all fired, deleting/moving up
+            // to three lines per press. searchKeymap is dropped entirely: it opened
+            // CM's built-in English search UI (Mod-g/F3) next to the app's German one.
             keymap.of([
                 ...closeBracketsKeymap,
                 ...defaultKeymap.filter(b => {
+                    const APP_HANDLED = [
+                        'Tab', 'Shift-Tab', 'Enter',
+                        'Mod-Shift-k',            // app: Zeile löschen
+                        'Alt-ArrowUp', 'Alt-ArrowDown', // app: Zeile verschieben
+                    ];
                     const key = b.key || '';
-                    return key !== 'Tab' && key !== 'Shift-Tab' && key !== 'Enter';
+                    return !APP_HANDLED.includes(key);
                 }),
                 ...historyKeymap,
-                ...searchKeymap,
             ]),
 
             // Update listener

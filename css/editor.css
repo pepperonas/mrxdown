@@ -4,8 +4,11 @@
     display: flex;
     flex-direction: column;
     background-color: var(--background-dark);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: 1px solid var(--md-outline-variant);
     position: relative;
+    /* Same guard as .preview-pane: never let content widen the pane past the
+       window (CM6 has its own horizontal scroller when word wrap is off). */
+    min-width: 0;
 }
 
 .editor-header {
@@ -13,7 +16,7 @@
     padding: var(--spacing-3) var(--spacing-4);
     font-size: 14px;
     color: var(--text-secondary);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--md-outline-variant);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -32,7 +35,7 @@
 }
 
 .editor-tool:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: color-mix(in srgb, var(--md-on-surface) 8%, transparent);
 }
 
 .editor-with-gutter {
@@ -66,6 +69,4 @@
     outline: none;
 }
 
-body.light-theme .editor-header {
-    border-color: #dee2e6;
-}
+/* Light-Theme-Override entfernt — Tokens sind theme-bewusst */

@@ -49,14 +49,15 @@
 |-----------|---------|
 | **Editor** | Live-Vorschau mit Paragraph-Level Scroll-Sync, Syntax-Highlighting, Zeilennummern, Autocomplete |
 | **Formatierung** | Toolbar mit Fett, Kursiv, Durchgestrichen, Code, Links, Bilder, Tabellen, H1-H6, Undo/Redo |
-| **Themes** | Dark & Light Theme mit Toggle-Button |
-| **Tabs** | Multi-Tab-Editor mit Drag-to-Reorder, Undo-History pro Tab, Tab-Übersicht (`Cmd+Shift+T`) |
+| **Design** | Material 3 Expressive: tonale Farbpalette (Dark/Light/System), physikbasierte Feder-Animationen, Ripple, Circular-Reveal-Theme-Wechsel |
+| **Themes** | Dark, Light & System (folgt dem OS live) mit Toggle-Button |
+| **Tabs** | Multi-Tab-Editor mit Drag-to-Reorder, Undo-History pro Tab, Tab wiederherstellen (`Cmd+Shift+T`), Tab-Übersicht (`Alt+Cmd+T`) |
 | **Sidebar** | Rekursiver Datei-Explorer mit Lazy Loading, aktive Datei-Hervorhebung, Gliederung |
 | **Suche** | Nicht-modale Suche & Ersetzen mit Regex, Groß/Klein, Ganze Wörter |
 | **Command Palette** | `Cmd+Shift+P` — Fuzzy-Suche über alle Befehle und Shortcuts |
 | **Export** | HTML, PDF, Batch-PDF aller Tabs, PDF-Optionen (Seitenformat, TOC, Seitenzahlen) |
 | **PDF** | Syntax-Highlighting in Code-Blöcken, Inhaltsverzeichnis, konfigurierbare Ränder/Schriftgröße |
-| **Schreiben** | Smart Enter (Listen), Auto-Save, Session Recovery, Schreibziel-Tracker, Fokus-Modus |
+| **Schreiben** | Smart Enter (Listen), URL-über-Auswahl → Link, Als-HTML-kopieren (`Cmd+Shift+C`), Auto-Save, Session Recovery, Schreibziel-Tracker, Fokus-Modus |
 | **Dashboard** | Dokument-Info-Panel, Live-Statistiken (Zeichen/Wörter/Absätze/Lesezeit), Markdown-Lint |
 | **Bilder** | Drag & Drop, Clipboard-Paste — automatisch in `images/`-Unterordner gespeichert |
 | **Dateien** | Drag & Drop (Dateien + Ordner), File Watching, Recent Files, Einstellungen |
@@ -66,6 +67,7 @@
 | **CLI** | Headless Markdown-zu-PDF Konvertierung vom Terminal |
 | **Quick Action** | macOS Rechtsklick-Kontextmenü für Markdown → PDF Konvertierung |
 | **Windows Kontextmenü** | Windows Rechtsklick → "Mit MrxDown zu PDF konvertieren" (automatisch per Installer) |
+| **Qualität** | 65 Unit-Tests + 57 E2E-Checks (echte App headless) + CLI-PDF-Roundtrip als Release-Gate in CI |
 
 ## Download & Installation
 
@@ -92,6 +94,18 @@ Da die App nicht mit einem Apple-Developer-Zertifikat signiert ist, zeigt macOS 
 3. Im Dialog **"Öffnen"** bestätigen
 
 > **Tipp**: Nach dem ersten Öffnen funktioniert die App dauerhaft normal.
+
+### macOS: Aus dem Quellcode installieren (empfohlen für Entwickler)
+
+```bash
+git clone https://github.com/pepperonas/mrxdown.git && cd mrxdown
+npm install
+npm run install-mac   # baut, signiert (stabiles Self-Signed-Cert) und installiert nach /Applications
+```
+
+Das Skript erstellt einmalig ein lokales Signatur-Zertifikat: macOS behandelt
+jede neue Version dann als dieselbe vertrauenswürdige App — kein erneuter
+Gatekeeper-Dialog bei Updates, laufende Instanzen werden sanft beendet.
 
 ### CLI einrichten (optional)
 
@@ -250,13 +264,15 @@ reg delete "HKCU\Software\Classes\.markdown\shell\MrxDownPDF" /f
 | Shortcut | Aktion |
 |----------|--------|
 | `Cmd/Ctrl + F` | Suchen |
-| `Cmd/Ctrl + R` | Ersetzen |
+| `Alt + Cmd + F` (macOS) / `Ctrl + H` (Win/Linux) | Ersetzen |
 | `Cmd/Ctrl + Shift + P` | Command Palette |
-| `Cmd/Ctrl + Shift + T` | Tab-Übersicht |
+| `Cmd/Ctrl + Shift + T` | Geschlossenen Tab wiederherstellen |
+| `Alt + Cmd/Ctrl + T` | Tab-Übersicht |
+| `Cmd/Ctrl + Shift + C` | Als HTML kopieren |
 | `Cmd/Ctrl + Shift + F` | Fokus-Modus |
 | `Cmd/Ctrl + \` | Sidebar umschalten |
-| `Cmd/Ctrl + Tab` | Nächster Tab |
-| `Cmd/Ctrl + Shift + Tab` | Vorheriger Tab |
+| `Ctrl + Tab` / `Ctrl + Shift + Tab` | Nächster / vorheriger Tab |
+| `Alt + Cmd/Ctrl + ←/→` | Tab wechseln (macOS-freundlich) |
 
 ## Entwicklung
 

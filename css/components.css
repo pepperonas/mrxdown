@@ -2,11 +2,13 @@
 .context-menu {
     position: fixed;
     background-color: var(--card-background);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--md-outline-variant);
     border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
     z-index: 2000;
     min-width: 200px;
+    /* Never wider than the window, even on tiny windows. */
+    max-width: calc(100vw - 16px);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
@@ -21,12 +23,12 @@
     padding: var(--spacing-3) var(--spacing-4);
     color: var(--text-primary);
     cursor: pointer;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--md-outline-variant);
     transition: background-color 0.3s ease;
 }
 
 .context-menu-item:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: color-mix(in srgb, var(--md-on-surface) 8%, transparent);
 }
 
 .context-menu-item:last-child {
@@ -35,7 +37,7 @@
 
 .context-menu-separator {
     height: 1px;
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: color-mix(in srgb, var(--md-on-surface) 8%, transparent);
     margin: var(--spacing-1) 0;
 }
 
@@ -69,13 +71,10 @@
     width: 90%;
     max-height: 80vh;
     overflow-y: auto;
+    /* Long unbroken values/labels wrap instead of widening the dialog
+       (width: 90% caps it at the viewport; this keeps content inside). */
+    overflow-wrap: break-word;
     padding: var(--spacing-6);
-    transform: scale(0.9);
-    transition: transform 0.3s ease;
-}
-
-.modal-overlay.visible .modal {
-    transform: scale(1);
 }
 
 .modal-header {
@@ -127,18 +126,31 @@
 }
 
 .modal-button {
-    background-color: var(--accent-blue);
-    color: white;
+    /* M3 Filled Button: Pille, Label Large (14/500), On-Color statt Weiß */
+    background-color: var(--md-primary);
+    color: var(--md-on-primary);
     border: none;
     padding: var(--spacing-3) var(--spacing-6);
-    border-radius: var(--radius);
+    border-radius: var(--md-shape-full);
     cursor: pointer;
     font-size: 14px;
-    transition: background-color 0.3s ease;
+    font-weight: 500;
+    letter-spacing: 0.01em;
 }
 
 .modal-button:hover {
-    background-color: #5a7a9f;
+    background-color: color-mix(in srgb, var(--md-on-primary) 8%, var(--md-primary));
+}
+
+/* M3 Outlined Button — sekundäre Aktionen (Abbrechen etc.) */
+.modal-button.outlined {
+    background-color: transparent;
+    color: var(--md-primary);
+    border: 1px solid var(--md-outline);
+}
+
+.modal-button.outlined:hover {
+    background-color: color-mix(in srgb, var(--md-primary) 8%, transparent);
 }
 
 /* Floating Search/Replace Panel */
@@ -147,12 +159,13 @@
     top: calc(var(--toolbar-height) + 40px);
     right: 20px;
     background-color: var(--card-background);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid var(--md-outline-variant);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
     z-index: 2000;
     min-width: 320px;
-    max-width: 400px;
+    /* Fit small windows: never wider than viewport minus the 20px right offset. */
+    max-width: min(400px, calc(100vw - 40px));
     opacity: 0;
     pointer-events: none;
     transform: translateY(-10px);
@@ -170,7 +183,7 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--spacing-2) var(--spacing-3);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--md-outline-variant);
     font-size: 12px;
     color: var(--text-secondary);
     font-weight: 600;
@@ -187,7 +200,7 @@
 }
 
 .search-panel-close:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: color-mix(in srgb, var(--md-on-surface) 8%, transparent);
     color: var(--text-primary);
 }
 
@@ -216,7 +229,7 @@
     appearance: none;
     width: 14px;
     height: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid var(--md-outline);
     border-radius: 3px;
     background-color: var(--background-dark);
     position: relative;
@@ -258,7 +271,7 @@
 
 .search-input {
     background-color: var(--background-dark);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--md-outline-variant);
     border-radius: var(--radius-sm);
     padding: var(--spacing-3);
     color: var(--text-primary);
@@ -290,7 +303,7 @@
     appearance: none;
     width: 16px;
     height: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid var(--md-outline);
     border-radius: var(--radius-sm);
     background-color: var(--background-dark);
     position: relative;
@@ -331,12 +344,14 @@
     top: 100%;
     left: 0;
     background-color: var(--card-background);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--md-outline-variant);
     border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
     z-index: 1000;
     padding: var(--spacing-4);
     min-width: 300px;
+    /* Never wider than the window on tiny windows. */
+    max-width: calc(100vw - 20px);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
@@ -357,11 +372,13 @@
     display: flex;
     gap: var(--spacing-2);
     margin-bottom: var(--spacing-3);
+    /* Controls wrap instead of clipping when the editor hits its max-width. */
+    flex-wrap: wrap;
 }
 
 .table-editor-input {
     background-color: var(--background-dark);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--md-outline-variant);
     border-radius: var(--radius-sm);
     padding: var(--spacing-2);
     color: var(--text-primary);
@@ -394,11 +411,13 @@
 .autocomplete-popup {
     position: fixed;
     background-color: var(--card-background);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid var(--md-outline);
     border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
     z-index: 5000;
     min-width: 200px;
+    /* Never wider than the window; long suggestions ellipsize below. */
+    max-width: calc(100vw - 16px);
     max-height: 150px;
     overflow-y: auto;
 }
@@ -409,6 +428,10 @@
     cursor: pointer;
     font-size: 13px;
     font-family: var(--font-mono);
+    /* Long suggestions truncate instead of widening the popup past max-width. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .autocomplete-item:hover,
@@ -431,40 +454,9 @@
 }
 
 /* Light Theme Overrides */
-body.light-theme {
-    --background-dark: #f5f5f5;
-    --background-darker: #e8e8e8;
-    --card-background: #ffffff;
-    --accent-blue: #4a7ab5;
-    --accent-green: #5a9e4f;
-    --accent-red: #d44040;
-    --accent-yellow: #d97706;
-    --text-primary: #1a1a1a;
-    --text-secondary: #555555;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.08);
-}
+/* Light-Theme-Basisfarben leben jetzt als --md-*-Overrides in variables.css */
 
-body.light-theme .toolbar {
-    border-bottom-color: rgba(0, 0, 0, 0.1);
-}
-
-body.light-theme .tab-bar {
-    border-bottom-color: rgba(0, 0, 0, 0.1);
-}
-
-body.light-theme .tab {
-    border-right-color: rgba(0, 0, 0, 0.1);
-}
-
-body.light-theme .toolbar-separator {
-    background-color: rgba(0, 0, 0, 0.1);
-}
-
-body.light-theme .toolbar-button:hover {
-    background-color: rgba(0, 0, 0, 0.08);
-}
+/* Light-Theme-Overrides entfernt — Tokens sind theme-bewusst (variables.css) */
 
 
 
@@ -486,27 +478,7 @@ body.light-theme #preview blockquote {
     color: #555;
 }
 
-body.light-theme .search-panel,
-body.light-theme .context-menu,
-body.light-theme .table-editor {
-    background-color: #ffffff;
-    border-color: rgba(0, 0, 0, 0.15);
-}
-
-body.light-theme .search-input,
-body.light-theme .table-editor-input {
-    background-color: #f0f0f0;
-    color: #1a1a1a;
-    border-color: rgba(0, 0, 0, 0.15);
-}
-
-body.light-theme .modal {
-    background-color: #ffffff;
-}
-
-body.light-theme .divider {
-    background-color: rgba(0, 0, 0, 0.1);
-}
+/* Light-Theme-Overrides entfernt — Tokens sind theme-bewusst (variables.css) */
 
 /* B3: Info Panel */
 .info-panel {
@@ -514,9 +486,11 @@ body.light-theme .divider {
     bottom: var(--statusbar-height, 28px);
     right: 0;
     width: 340px;
+    /* Fit windows narrower than 340px instead of extending past the left edge. */
+    max-width: 100vw;
     max-height: 60vh;
     background-color: var(--card-background);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid var(--md-outline-variant);
     border-bottom: none;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     box-shadow: var(--shadow-lg);
@@ -530,7 +504,7 @@ body.light-theme .divider {
     align-items: center;
     justify-content: space-between;
     padding: var(--spacing-2) var(--spacing-3);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--md-outline-variant);
     font-size: 12px;
     color: var(--text-secondary);
     font-weight: 600;
@@ -577,6 +551,9 @@ body.light-theme .divider {
     color: var(--text-primary);
     font-weight: 500;
     font-variant-numeric: tabular-nums;
+    /* Long values (file paths, dates) wrap inside the panel, never widen it. */
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .lint-count {
@@ -604,7 +581,7 @@ body.light-theme .divider {
 }
 
 .lint-item:hover {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: color-mix(in srgb, var(--md-on-surface) 5%, transparent);
 }
 
 .lint-item .lint-line {
@@ -617,15 +594,27 @@ body.light-theme .divider {
     flex-shrink: 0;
 }
 
+.lint-item .lint-line {
+    flex-shrink: 0;
+}
+
+/* Message span (last child): long messages wrap inside the panel width. */
+.lint-item span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 .lint-item.lint-error .lint-icon { color: var(--accent-red); }
 .lint-item.lint-warning .lint-icon { color: var(--accent-yellow); }
 .lint-item.lint-info .lint-icon { color: var(--accent-blue); }
 
 /* B2: Writing Goal Progress Bar */
 .writing-goal-bar {
+    /* Keep the bar at 60px even when the status bar shrinks its flex items. */
+    flex-shrink: 0;
     width: 60px;
     height: 6px;
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: color-mix(in srgb, var(--md-on-surface) 8%, transparent);
     border-radius: 3px;
     overflow: hidden;
     display: inline-block;
@@ -661,7 +650,7 @@ body.light-theme .divider {
 .tab-overview-table th {
     text-align: left;
     padding: var(--spacing-2) var(--spacing-3);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    border-bottom: 1px solid var(--md-outline-variant);
     color: var(--text-secondary);
     font-weight: 600;
     font-size: 11px;
@@ -684,7 +673,7 @@ body.light-theme .divider {
 
 .tab-overview-table td {
     padding: var(--spacing-2) var(--spacing-3);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid color-mix(in srgb, var(--md-outline-variant) 55%, transparent);
     color: var(--text-primary);
     max-width: 200px;
     overflow: hidden;
@@ -697,7 +686,7 @@ body.light-theme .divider {
 }
 
 .tab-overview-table tr:hover td {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: color-mix(in srgb, var(--md-on-surface) 5%, transparent);
 }
 
 .tab-overview-table tr.active-tab td {
@@ -738,7 +727,7 @@ body.light-theme .divider {
 
 .command-palette {
     background-color: var(--card-background);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid var(--md-outline-variant);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
     width: 500px;
@@ -751,7 +740,7 @@ body.light-theme .divider {
     padding: var(--spacing-3) var(--spacing-4);
     background-color: transparent;
     border: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--md-outline-variant);
     color: var(--text-primary);
     font-size: 15px;
     outline: none;
@@ -774,16 +763,21 @@ body.light-theme .divider {
 }
 
 .command-palette-item.selected {
-    background-color: var(--accent-blue);
-    color: white;
+    background-color: var(--md-secondary-container);
+    color: var(--md-on-secondary-container);
 }
 
 .command-palette-item:hover:not(.selected) {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: color-mix(in srgb, var(--md-on-surface) 5%, transparent);
 }
 
 .command-label {
     flex: 1;
+    /* Long command labels ellipsize instead of widening the palette. */
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .command-shortcut {
@@ -791,57 +785,69 @@ body.light-theme .divider {
     font-size: 11px;
     font-family: var(--font-mono);
     margin-left: var(--spacing-3);
+    /* The shortcut hint must never be squeezed away by a long label. */
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .command-palette-item.selected .command-shortcut {
-    color: rgba(255, 255, 255, 0.7);
+    color: color-mix(in srgb, var(--md-on-secondary-container) 70%, transparent);
 }
 
-body.light-theme .command-palette {
-    background-color: #ffffff;
-    border-color: rgba(0, 0, 0, 0.15);
+/* Light-Theme-Overrides entfernt — Tokens sind theme-bewusst (variables.css) */
+
+/* --- Fehler-Toasts (Renderer-Fehler sichtbar machen) --- */
+#errorToasts {
+    position: fixed;
+    right: 16px;
+    bottom: 40px; /* über der Statusleiste */
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: min(420px, calc(100vw - 32px));
+    pointer-events: none;
 }
 
-body.light-theme .command-palette-input {
-    border-bottom-color: rgba(0, 0, 0, 0.1);
+.error-toast {
+    pointer-events: auto;
+    position: relative;
+    background-color: var(--card-background);
+    border: 1px solid var(--accent-red, #e05561);
+    border-left-width: 4px;
+    border-radius: var(--radius);
+    padding: 10px 34px 10px 12px;
+    box-shadow: var(--shadow);
+    overflow-wrap: anywhere; /* Fehlermeldungen mit langen Pfaden umbrechen */
 }
 
-body.light-theme .command-palette-item:hover:not(.selected) {
-    background-color: rgba(0, 0, 0, 0.03);
+.error-toast-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent-red, #e05561);
+    margin-bottom: 2px;
 }
 
-body.light-theme .writing-goal-bar {
-    background-color: rgba(0, 0, 0, 0.1);
+.error-toast-text {
+    font-size: 12px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
 }
 
-body.light-theme .tab-overview-table th {
-    border-bottom-color: rgba(0, 0, 0, 0.15);
+.error-toast-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
 }
 
-body.light-theme .tab-overview-table td {
-    border-bottom-color: rgba(0, 0, 0, 0.05);
-}
-
-body.light-theme .tab-overview-table tr:hover td {
-    background-color: rgba(0, 0, 0, 0.03);
-}
-
-body.light-theme .info-panel {
-    background-color: #ffffff;
-    border-color: rgba(0, 0, 0, 0.15);
-}
-
-body.light-theme .info-panel-header {
-    background-color: #ffffff;
-}
-
-body.light-theme .lint-warnings {
-    background: #f8f9fa;
-    border-color: #dee2e6;
-}
-body.light-theme .lint-item {
-    border-bottom-color: #dee2e6;
-}
-body.light-theme .lint-item:hover {
-    background: #e9ecef;
+.error-toast-close:hover {
+    color: var(--text-primary);
 }

@@ -4,16 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MrxDown is an Electron-based desktop Markdown editor with live preview, dark/light themes, multi-tab editing, and PDF/HTML export. The UI is entirely in German.
+MrxDown is an Electron-based desktop Markdown editor with live preview, dark/light themes, multi-tab editing, PDF/HTML export, and a headless CLI mode for Markdown→PDF conversion. The UI is entirely in German.
 
 ## Commands
 
 ```bash
 npm install              # Install dependencies
 npm start                # Run the app (GUI mode)
-npm test                 # Run all 65 tests (Jest)
+npm test                 # Run all 65 unit tests (Jest)
+npm run test:e2e         # E2E: launches the real app headless (tests/e2e/), ~10 scenarios + CLI-PDF roundtrip
+npm run test:all         # Unit + E2E
 npx jest tests/heading-id.test.js  # Run a single test file
+node tests/e2e/run.js layout       # Run a single E2E scenario (filename filter)
 npm run build:editor     # Rebuild CodeMirror bundle after changing src/codemirror-setup.js
+npm run build:hljs       # Rebuild highlight.js bundle after changing src/hljs-entry.js
+npm run build:vendor     # Both of the above
 npm run build-mac-local  # Build macOS .app + strip quarantine for local testing
 npm run build-mac        # Build macOS (ZIP only, no DMG)
 npm run build-win        # Build Windows (NSIS installer)
@@ -23,10 +28,13 @@ npm run build-linux      # Build Linux (AppImage + deb)
 ### Local Install (macOS)
 
 ```bash
-npm run build-mac-local
-rm -rf /Applications/MrxDown.app
-cp -R dist/mac-arm64/MrxDown.app /Applications/
+npm run install-mac   # build + stable self-signed sign + install to /Applications + launch
 ```
+
+`scripts/install-macos.sh` signs with a persistent self-signed cert (keychain
+`mrxdown-signing.keychain-db`) so Gatekeeper treats every rebuild as the same
+trusted app; it gracefully quits a running instance (never kills — aborts if a
+save dialog blocks quit). Fallback: `npm run build-mac-local` + manual copy.
 
 ### Release
 
@@ -44,30 +52,54 @@ Artifact naming: `mrxdown-macos-{arch}.zip`, `mrxdown-windows-x64.exe`, `mrxdown
 Electron app with strict process separation:
 
 ```
-main.js              -> Main process: window, menus, IPC handlers, file I/O, PDF generation
-renderer.js          -> Renderer process: all UI logic, editor, tabs, formatting, search
-index.html           -> UI structure (CSS in separate files, no inline styles)
+main.js              -> Main process: window, menus, IPC handlers, file I/O, PDF generation,
+                        CLI/headless mode, auto-updater
+src/renderer/        -> Renderer process, 12 ordered classic-script modules (01-core … 12-features).
+                        NOT ESM: top-level declarations are shared globals; the script-tag order
+                        in index.html is load-bearing (02-state declares all shared state).
+index.html           -> UI structure (CSS in separate files, no inline styles); loads the renderer modules in order
 preload.js           -> IPC bridge: ~30 methods via contextBridge.exposeInMainWorld('electronAPI', {...})
 editor-utils.js      -> Pure functions shared between renderer (browser) and tests (Node.js)
 icons.js             -> Lucide SVG icon helper: getIcon(name, size) returns SVG strings
 cm-adapter.js        -> EditorAdapter class: textarea-compatible wrapper around CodeMirror 6
 src/codemirror-setup.js -> CM6 ESM entry point, bundled via esbuild into vendor/codemirror-bundle.js
-css/                 -> 7 CSS files: variables, layout, toolbar, tabs, editor, preview, components
-vendor/              -> marked.min.js, purify.min.js, codemirror-bundle.js (generated)
+src/hljs-entry.js    -> highlight.js entry point, bundled into vendor/highlight.min.js
+css/                 -> 8 CSS files: variables (M3-Expressive design tokens — see below), motion
+                        (spring keyframes/reduced-motion), layout, toolbar, tabs, editor, preview, components
+pdf-templates/       -> PDF export templates: templates.json manifest + <name>.css (default, academic, minimal)
+vendor/              -> Generated/vendored bundles: marked, purify, codemirror-bundle, highlight,
+                        mermaid, katex, morphdom + hljs/katex CSS
+mrxdown-cli.sh       -> macOS CLI wrapper (installed to /usr/local/bin/mrxdown)
+build/mrxdown.cmd    -> Windows CLI wrapper (shipped next to the .exe)
 ```
 
 ### IPC Communication
 
 All renderer-main communication goes through `preload.js`. The renderer calls `window.electronAPI.methodName()`, which maps to `ipcRenderer.send/invoke`. Main process handles via `ipcMain.on/handle`. Context isolation is enforced.
 
+### CLI / Headless Mode
+
+`main.js` parses `process.argv.slice(app.isPackaged ? 1 : 2)` (packaged builds have no script path at `[1]`). `isHeadlessMode()` is true when a `--pdf` flag is passed or the file argument is a directory:
+
+- File + `--pdf` → `runCLI()` converts one Markdown file to PDF
+- Directory → `runCLIBatch()` converts all Markdown files in it
+- Otherwise → GUI mode; the file argument opens in the editor
+
+Key constraints:
+- **GUI mode uses a single-instance lock** (second launch forwards the file to the running window via `second-instance`); headless mode deliberately skips the lock.
+- **The global `window-all-closed` auto-quit must bail out when `isHeadlessMode()`** — batch mode opens/closes a hidden pdfWindow per file, and the auto-quit previously killed the loop after file 1. CLI paths exit explicitly via `app.exit()`.
+- **KaTeX math is rendered server-side in CLI mode** (`renderMathForCLI()` in main.js) because the renderer's browser-side KaTeX isn't available headlessly. Mermaid blocks are skipped in CLI output.
+- Wrappers: `mrxdown-cli.sh` (macOS, keeps the sandbox ON — do not add `--no-sandbox`), `build/mrxdown.cmd` (Windows), and an xvfb-run recipe for headless Linux servers (README "Headless-Installation").
+
 ### Key Patterns
 
 - **Tab state**: `tabs` array in renderer.js holds all open tab state (content, filePath, cursorPosition, isModified). `activeTabId` tracks current tab. `saveCurrentTabState()` must be called before switching tabs.
-- **Markdown rendering**: `renderMarkdown()` uses marked.js with a custom heading renderer + DOMPurify sanitization + post-processing to fix heading IDs. Debounced (150ms normal, 500ms for large files).
-- **CSS**: 7 files under `css/`. Theme switching uses CSS variables on `:root` overridden by `body.light-theme`.
+- **Preview pipeline** (`renderMarkdown()` in renderer.js): marked.js with a custom heading renderer → DOMPurify sanitization → post-processing on a detached container (fix heading IDs, hljs code highlighting, extract Mermaid blocks) → **morphdom** diffs the new DOM into the live preview (preserves scroll position) → Mermaid diagrams render async afterwards (mermaid lazy-loads on first diagram). Debounced (150ms normal, 500ms for large files).
+- **CSS / design tokens**: Material 3 Expressive token system in `css/variables.css` — `--md-*` color roles (dark on `:root`, light overridden by `body.light-theme`), shape scale, state-layer opacities, and physically-sampled spring easings (`--motion-spatial-*` with overshoot, `--motion-effects-*` monotonic) as CSS `linear()` curves. Legacy vars (`--background-dark`, `--accent-blue`, …) are aliases declared on `body` — NOT `:root`, because var() references inside custom properties resolve at the declaring element; on `:root` the dark values would be baked in before the light-theme override. Style components via tokens only; no raw rgba-white overlays. `css/motion.css` holds all keyframes/transitions plus the global `prefers-reduced-motion` guard; `src/renderer/13-motion.js` drives the ripple and the circular-reveal theme switch (View Transitions API — theme class changes are ASYNC inside the transition callback; E2E tests must await ~350ms after `toggleTheme()`).
 - **CodeMirror 6**: `src/codemirror-setup.js` bundles to `vendor/codemirror-bundle.js` (IIFE, global `CMSetup`). `cm-adapter.js` wraps CM6 in a textarea-compatible `EditorAdapter` class. Tab/Enter keys are filtered from CM6 defaults so the app handles smart list continuation and table navigation.
 - **Icons**: `icons.js` provides `getIcon(name, size)` returning inline Lucide SVG strings with `stroke="currentColor"` for automatic theme adaptation.
-- **PDF generation**: `main.js` has `getPdfStylesheet()` and `buildPdfHtml()` shared by all PDF export paths (single, batch, CLI). Uses Chromium's `printToPDF`.
+- **PDF generation**: `main.js` has `getPdfStylesheet()` and `buildPdfHtml()` shared by all PDF export paths (single, batch, CLI). Uses Chromium's `printToPDF`. The stylesheet comes from `pdf-templates/<name>.css`; `templates.json` declares each template's name/description and `titlePageFields`. YAML frontmatter in the document feeds `renderTitlePage()` (title, author, abstract, ...). Renderer fetches the template list via the `get-pdf-templates` IPC handle.
+- **Auto-updater**: electron-updater, lazy-required in `initAutoUpdater()` (main.js) so dev mode doesn't load it. Only runs in packaged GUI builds, deferred 3s after window creation; `autoDownload` + `autoInstallOnAppQuit` are on, plus a manual "check for updates" menu item.
 - **Settings**: `main.js` reads/writes `settings.json` and `recent-files.json` in `app.getPath('userData')`.
 - **Global function exposure**: Functions used in HTML `onclick` handlers must be assigned to `window.*` in the `DOMContentLoaded` listener at the top of renderer.js.
 
@@ -89,6 +121,8 @@ Tests in `tests/` cover pure functions from `editor-utils.js`:
 
 `editor-utils.js` uses conditional `module.exports` to work in both browser and Node.js. To add testable logic, extract pure functions there.
 
+E2E tests live in `tests/e2e/`: `run.js` spawns one Electron process per `scenarios/*.e2e.js` file via a root-level entry shim (`.e2e-entry.js`, auto-generated — the app resolves `index.html` against the entry script's directory). Each scenario gets a driver (`exec`, `setContent`, `resize`, `assert*`) and runs against the real app with an isolated userData profile. `cli-pdf.js` covers the headless single-file and batch PDF paths. Both CI workflows gate on unit + E2E tests.
+
 ## CI/CD
 
 GitHub Actions workflows in `.github/workflows/`:
@@ -102,3 +136,4 @@ macOS CI builds ZIP only (no DMG) because `hdiutil` fails on GitHub runners. Ubu
 - **`MrxDown PDF.workflow/`** — macOS Automator Quick Action for Finder → PDF conversion. Includes `Info.plist` (required for service registration) and `document.wflow`.
 - **`install-quick-action.command`** — Double-clickable installer: copies workflow to `~/Library/Services/`, clears quarantine, registers in pbs with `ContextMenu=1`, restarts Finder. Without this, macOS won't show the service in the Finder context menu.
 - **`installer.nsh`** — NSIS custom macros for Windows. `customInstall` registers `.md`/`.markdown` context menu entries in `HKCU\Software\Classes\`, `customUnInstall` removes them. Auto-detected by electron-builder (no package.json config needed).
+- **`mrxdown.cmd`** — Windows CLI wrapper, copied next to the installed .exe via `extraFiles`.

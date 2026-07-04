@@ -27,8 +27,29 @@ jobs:
     - name: Run tests
       run: npm test
 
+  e2e:
+    # UI-level tests: launch the real Electron app headless and assert layout
+    # invariants, tab data-loss regressions, save roundtrip, search, themes.
+    runs-on: macos-latest
+
+    steps:
+    - name: Check out Git repository
+      uses: actions/checkout@v4
+
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run E2E tests
+      run: npm run test:e2e
+
   build:
-    needs: test
+    needs: [test, e2e]
     runs-on: ${{ matrix.os }}
     
     strategy:

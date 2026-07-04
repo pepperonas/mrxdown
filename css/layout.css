@@ -19,7 +19,7 @@ body {
 .sidebar {
     width: var(--sidebar-width);
     background-color: var(--background-darker);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: 1px solid var(--md-outline-variant);
     display: flex;
     flex-direction: column;
     transition: transform 0.3s ease;
@@ -52,7 +52,7 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: var(--spacing-4);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--md-outline-variant);
     font-weight: 600;
     color: var(--text-primary);
 }
@@ -64,13 +64,17 @@ body {
 .sidebar-content {
     flex: 1;
     overflow-y: auto;
+    /* Long file/folder names must never create a horizontal scrollbar or widen
+       the fixed-width sidebar — names ellipsize (see .file-name), so nothing
+       legitimate needs horizontal scroll here. */
+    overflow-x: hidden;
     padding: var(--spacing-2);
 }
 
 .sidebar-actions {
     margin-bottom: var(--spacing-2);
     padding-bottom: var(--spacing-2);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid color-mix(in srgb, var(--md-outline-variant) 55%, transparent);
 }
 
 .file-explorer {
@@ -128,11 +132,11 @@ body {
 }
 
 .file-item:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: color-mix(in srgb, var(--md-on-surface) 8%, transparent);
 }
 
 .file-item.active {
-    background: rgba(255, 255, 255, 0.1);
+    background: color-mix(in srgb, var(--md-on-surface) 8%, transparent);
     border-left: 2px solid var(--accent-blue);
 }
 
@@ -146,6 +150,10 @@ body {
     font-size: 14px;
     overflow: hidden;
     text-overflow: ellipsis;
+    /* Ellipsis only works on a single line; min-width: 0 lets the flex item
+       shrink instead of widening .file-item past the sidebar. */
+    white-space: nowrap;
+    min-width: 0;
 }
 
 /* Resizable Divider */
@@ -154,8 +162,8 @@ body {
     background-color: var(--card-background);
     cursor: col-resize;
     position: relative;
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 1px solid var(--md-outline-variant);
+    border-right: 1px solid var(--md-outline-variant);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -202,6 +210,10 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
+    /* Same guard as .editor-pane/.preview-pane: a flex item's automatic
+       min-width is min-content — without this, wide editor/preview content
+       could push the container past the window. */
+    min-width: 0;
 }
 
 .editor-layout {
@@ -217,22 +229,37 @@ body {
     padding: 0 var(--spacing-4);
     font-size: 12px;
     color: var(--text-secondary);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--md-outline-variant);
     display: flex;
     align-items: center;
     justify-content: space-between;
+    /* Last-resort guard: many/long status items must never widen the window. */
+    overflow: hidden;
 }
 
 .status-group {
     display: flex;
     align-items: center;
     gap: var(--spacing-4);
+    /* Allow the group to shrink below its content width so long file names
+       truncate instead of pushing the other group out of the bar. */
+    min-width: 0;
 }
 
 .status-item {
     display: flex;
     align-items: center;
     gap: var(--spacing-1);
+    /* Long texts (file name/path) truncate with ellipsis, never overflow. */
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.status-item > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .status-text-small {
@@ -247,7 +274,7 @@ body {
 }
 
 .status-item.clickable:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: color-mix(in srgb, var(--md-on-surface) 8%, transparent);
 }
 
 /* Drag and Drop */
@@ -372,17 +399,4 @@ body {
 }
 
 /* Light Theme Overrides */
-body.light-theme .file-item.active {
-    background: rgba(0, 0, 0, 0.08);
-}
-
-body.light-theme .sidebar-header {
-    border-bottom-color: #dee2e6;
-}
-body.light-theme .sidebar-resize-handle {
-    background: #dee2e6;
-}
-body.light-theme .sidebar-resize-handle:hover,
-body.light-theme .sidebar-resize-handle.active {
-    background: var(--accent-blue);
-}
+/* Light-Theme-Overrides entfernt — Tokens sind theme-bewusst (variables.css) */

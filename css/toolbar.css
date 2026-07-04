@@ -25,16 +25,26 @@
 /* Header Toolbar */
 .toolbar {
     height: var(--toolbar-height);
-    background-color: var(--card-background);
+    /* M3E Docked Toolbar: flache tonale Fläche, keine Elevation */
+    background-color: var(--md-surface-container-high);
     display: flex;
     align-items: center;
     padding: 0 var(--spacing-4);
     gap: var(--spacing-3);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: var(--shadow);
+    border-bottom: 1px solid var(--md-outline-variant);
     z-index: 100;
     -webkit-app-region: drag;
+    /* Controls must never be clipped: at narrow widths the media queries below
+       compress spacing/buttons first; if it STILL doesn't fit, the toolbar
+       scrolls horizontally instead of hiding buttons past the window edge. */
+    overflow-x: auto;
+    scrollbar-width: none;
 }
+
+.toolbar::-webkit-scrollbar {
+    display: none;
+}
+
 
 /* Space for macOS traffic lights — class added dynamically on macOS */
 body.platform-darwin .toolbar {
@@ -54,7 +64,7 @@ body.platform-darwin .toolbar {
 .toolbar-separator {
     width: 1px;
     height: 24px;
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--md-outline-variant);
     margin: 0 var(--spacing-2);
 }
 
@@ -66,54 +76,59 @@ body.platform-darwin .toolbar {
     height: 36px;
     background-color: transparent;
     border: none;
-    border-radius: var(--radius);
-    color: var(--text-secondary);
+    /* M3E: Icon-Buttons ruhen als volle Pille; Press morpht eckiger (motion.css) */
+    border-radius: var(--md-shape-full);
+    color: var(--md-on-surface-variant);
     cursor: pointer;
-    transition: all 0.3s ease;
     font-size: 16px;
     position: relative;
 }
 
+/* State-Layer nach M3-Spez: hover 8 %, pressed 10 % — im Inhaltston */
 .toolbar-button:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: var(--text-primary);
-    transform: translateY(-1px);
+    background-color: color-mix(in srgb, var(--md-on-surface) 8%, transparent);
+    color: var(--md-on-surface);
 }
 
 .toolbar-button:active {
-    transform: translateY(0);
+    background-color: color-mix(in srgb, var(--md-on-surface) 10%, transparent);
 }
 
+/* Ausgewählt/aktiv: tonaler Primary-Container (kein Rohblau + Weiß mehr) */
 .toolbar-button.active {
-    background-color: var(--accent-blue);
-    color: white;
+    background-color: var(--md-primary-container);
+    color: var(--md-on-primary-container);
+}
+
+.toolbar-button.active:hover {
+    background-color: color-mix(in srgb, var(--md-on-primary-container) 8%, var(--md-primary-container));
 }
 
 .toolbar-button.primary {
-    background-color: var(--accent-blue);
-    color: white;
+    background-color: var(--md-primary);
+    color: var(--md-on-primary);
 }
 
 .toolbar-button.primary:hover {
-    background-color: #5a7a9f;
+    background-color: color-mix(in srgb, var(--md-on-primary) 8%, var(--md-primary));
 }
 
 .toolbar-button.secondary {
-    background-color: var(--accent-green);
-    color: white;
+    background-color: var(--md-tertiary-container);
+    color: var(--md-on-tertiary-container);
 }
 
 .toolbar-button.secondary:hover {
-    background-color: #8aa17f;
+    background-color: color-mix(in srgb, var(--md-on-tertiary-container) 8%, var(--md-tertiary-container));
 }
 
 .toolbar-button.danger {
-    background-color: var(--accent-red);
-    color: white;
+    background-color: var(--md-error-container);
+    color: var(--md-on-error-container);
 }
 
 .toolbar-button.danger:hover {
-    background-color: #d45557;
+    background-color: color-mix(in srgb, var(--md-on-error-container) 8%, var(--md-error-container));
 }
 
 .toolbar-button-compact {
@@ -137,21 +152,50 @@ body.platform-darwin .toolbar {
     top: 100%;
     left: 50%;
     transform: translateX(-50%);
-    background-color: var(--card-background);
-    color: var(--text-primary);
-    padding: var(--spacing-2) var(--spacing-3);
-    border-radius: var(--radius);
-    font-size: 12px;
+    /* M3 Plain Tooltip: inverse-surface, Label Small */
+    background-color: var(--md-inverse-surface);
+    color: var(--md-inverse-on-surface);
+    padding: var(--spacing-1) var(--spacing-2);
+    border-radius: var(--md-shape-xs);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
     white-space: nowrap;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.3s ease 0.5s;
+    transition: opacity var(--motion-effects-fast-dur) var(--motion-effects-fast) 0.5s;
     z-index: 1000;
-    box-shadow: var(--shadow);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: var(--shadow-sm);
     margin-top: 5px;
 }
 
 .tooltip:hover::before {
     opacity: 1;
+}
+
+/* --- Responsive toolbar (order matters: these must be LAST to win the cascade) ---
+   Controls are never clipped: spacing compresses first, then buttons shrink, then
+   low-priority groups hide (all still reachable via menu/shortcuts/palette), and
+   the toolbar's overflow-x:auto is the final safety net. */
+@media (max-width: 1500px) {
+    .toolbar { gap: var(--spacing-1); padding-right: var(--spacing-2); }
+    .toolbar-group { gap: 2px; }
+    .toolbar-separator { margin: 0 2px; }
+}
+
+@media (max-width: 1280px) {
+    .toolbar-button { width: 32px; height: 32px; }
+    .toolbar-button svg { width: 16px; height: 16px; }
+}
+
+@media (max-width: 1180px) {
+    /* Undo/Redo: always available via ⌘Z/⌘⇧Z and the Bearbeiten menu */
+    .toolbar-group.group-undo,
+    .toolbar-separator.sep-undo { display: none; }
+}
+
+@media (max-width: 1060px) {
+    /* Headings: available via ⌘1–⌘6, menu, and command palette */
+    .toolbar-group.group-headings,
+    .toolbar-separator.sep-headings { display: none; }
 }

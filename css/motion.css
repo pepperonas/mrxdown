@@ -1,0 +1,187 @@
+/* ============================================================================
+   MrxDown Motion — Material 3 Expressive
+   ----------------------------------------------------------------------------
+   Physik statt Timing-Gefühl: alle Bewegungen laufen über die in variables.css
+   gesampelten Feder-Easings (--motion-spatial-* mit Overshoot für Position/
+   Größe/Form, --motion-effects-* monoton für Farbe/Opacity).
+   Kompletter prefers-reduced-motion-Guard am Dateiende.
+   ============================================================================ */
+
+/* --- Entrance-Choreografie beim App-Start ---------------------------------
+   Toolbar-Gruppen und Panes federn gestaffelt ein (einmalig, backwards-Fill,
+   damit Interaktionen danach uneingeschränkt funktionieren). */
+@keyframes md-enter-up {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes md-enter-down {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.toolbar .toolbar-group {
+    animation: md-enter-down var(--motion-spatial-default-dur) var(--motion-spatial-default) backwards;
+}
+.toolbar .toolbar-group:nth-child(1) { animation-delay: 30ms; }
+.toolbar .toolbar-group:nth-child(3) { animation-delay: 60ms; }
+.toolbar .toolbar-group:nth-child(5) { animation-delay: 90ms; }
+.toolbar .toolbar-group:nth-child(7) { animation-delay: 120ms; }
+.toolbar .toolbar-group:nth-child(9) { animation-delay: 150ms; }
+.toolbar .toolbar-group:nth-child(11) { animation-delay: 180ms; }
+.toolbar .toolbar-group:nth-child(13) { animation-delay: 210ms; }
+
+.editor-pane, .preview-pane {
+    animation: md-enter-up var(--motion-spatial-slow-dur) var(--motion-spatial-slow) backwards;
+}
+.preview-pane { animation-delay: 80ms; }
+
+/* --- Interaktions-Physik ---------------------------------------------------
+   Shape-Morphing (M3E): Buttons runden sich beim Drücken sichtbar um und
+   stauchen minimal — Loslassen federt über die spatial-fast-Feder zurück. */
+.toolbar-button,
+.modal-button,
+.editor-tool {
+    transition:
+        border-radius var(--motion-spatial-fast-dur) var(--motion-spatial-fast),
+        transform var(--motion-spatial-fast-dur) var(--motion-spatial-fast),
+        background-color var(--motion-effects-default-dur) var(--motion-effects-default),
+        color var(--motion-effects-default-dur) var(--motion-effects-default),
+        box-shadow var(--motion-effects-default-dur) var(--motion-effects-default);
+}
+
+/* M3E-Spez (ButtonTokens): Ruheform = volle Pille, beim Drücken morpht die
+   Form ZUR ECKIGEREN Variante (corner-small/medium) — Loslassen federt zurück. */
+.toolbar-button:active,
+.editor-tool:active {
+    border-radius: var(--md-shape-sm);
+    transform: scale(0.92);
+}
+
+.modal-button:active {
+    border-radius: var(--md-shape-md);
+    transform: scale(0.96);
+}
+
+/* Tabs: aktiver Tab hebt sich federnd, Schließen-Kreuz morpht */
+.tab {
+    transition:
+        background-color var(--motion-effects-default-dur) var(--motion-effects-default),
+        color var(--motion-effects-default-dur) var(--motion-effects-default),
+        transform var(--motion-spatial-fast-dur) var(--motion-spatial-fast);
+}
+
+.tab:active { transform: scale(0.97); }
+
+/* --- Material Ripple (JS-getrieben, src/renderer/13-motion.js) ------------ */
+.md-ripple-host {
+    position: relative;
+    overflow: hidden;
+}
+
+.md-ripple {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    background: currentColor;
+    opacity: 0.12;
+    transform: scale(0);
+    animation: md-ripple-grow var(--motion-spatial-default-dur) var(--motion-spatial-default) forwards;
+}
+
+@keyframes md-ripple-grow {
+    to { transform: scale(1); opacity: 0; }
+}
+
+/* --- Dialoge / Command Palette / Panels federn herein ---------------------- */
+@keyframes md-dialog-spring {
+    from { opacity: 0; transform: translateY(14px) scale(0.94); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-overlay.visible .modal,
+#inputDialog.visible .modal {
+    animation: md-dialog-spring var(--motion-spatial-default-dur) var(--motion-spatial-default);
+}
+
+.command-palette-overlay .command-palette {
+    animation: md-dialog-spring var(--motion-spatial-fast-dur) var(--motion-spatial-fast);
+}
+
+.search-panel.visible,
+.modal-overlay.visible .search-panel {
+    animation: md-dialog-spring var(--motion-spatial-fast-dur) var(--motion-spatial-fast);
+}
+
+.info-panel.visible {
+    animation: md-dialog-spring var(--motion-spatial-default-dur) var(--motion-spatial-default);
+}
+
+/* Fehler-Toasts federn von rechts ein */
+@keyframes md-toast-spring {
+    from { opacity: 0; transform: translateX(24px) scale(0.96); }
+    to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+.error-toast {
+    animation: md-toast-spring var(--motion-spatial-default-dur) var(--motion-spatial-default);
+}
+
+/* --- Circular-Reveal-Theme-Wechsel (View Transitions API) ------------------
+   13-motion.js setzt --reveal-x/--reveal-y/--reveal-r auf :root und startet
+   die Transition; das neue Theme wächst als Kreis aus dem Toggle-Button. */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+    animation: md-theme-reveal 900ms var(--motion-effects-slow);
+    clip-path: circle(var(--reveal-r, 150vmax) at var(--reveal-x, 50%) var(--reveal-y, 50%));
+}
+
+@keyframes md-theme-reveal {
+    from { clip-path: circle(0 at var(--reveal-x, 50%) var(--reveal-y, 50%)); }
+    to   { clip-path: circle(var(--reveal-r, 150vmax) at var(--reveal-x, 50%) var(--reveal-y, 50%)); }
+}
+
+/* --- Statuswert-Pop (Wortzahl etc. bei Änderung) --------------------------- */
+@keyframes md-value-pop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.12); }
+    100% { transform: scale(1); }
+}
+
+.md-value-pop {
+    animation: md-value-pop var(--motion-spatial-fast-dur) var(--motion-spatial-fast);
+    display: inline-block;
+}
+
+/* --- Reduced Motion: alles aus, sofortige Zustände -------------------------
+   (M3-Guidance: Bewegung ist Verstärkung, nie Voraussetzung.) */
+@media (prefers-reduced-motion: reduce) {
+    .toolbar .toolbar-group,
+    .editor-pane, .preview-pane,
+    .modal-overlay.visible .modal,
+    #inputDialog.visible .modal,
+    .command-palette-overlay .command-palette,
+    .search-panel.visible,
+    .modal-overlay.visible .search-panel,
+    .info-panel.visible,
+    .error-toast,
+    .md-ripple,
+    .md-value-pop {
+        animation: none !important;
+    }
+
+    .toolbar-button, .modal-button, .editor-tool, .tab {
+        transition: none !important;
+    }
+
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+        animation: none !important;
+        clip-path: none !important;
+    }
+}

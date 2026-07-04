@@ -54,6 +54,19 @@ class EditorAdapter {
         this._view = cmResult.view;
         this._cm = cmResult;
 
+        // A6: last-applied editor settings. A restored EditorState carries the
+        // compartment config from WHEN IT WAS SAVED — after setState we re-apply
+        // these so theme/wrap/font changes made on another tab don't revert.
+        this._applied = {
+            isDark: options.isDark !== false,
+            showLineNumbers: options.showLineNumbers || false,
+            wordWrap: options.wordWrap !== false,
+            tabSize: options.tabSize || 4,
+            fontSize: options.fontSize || 14,
+            focusMode: false,
+            typewriterMode: false
+        };
+
         // Attach scroll listener to CM's scroll DOM
         this._view.scrollDOM.addEventListener('scroll', () => {
             this._emit('scroll', { target: this });
@@ -202,18 +215,21 @@ class EditorAdapter {
                 get whiteSpace() { return this._whiteSpace; },
                 set whiteSpace(val) {
                     this._whiteSpace = val;
+                    self._applied.wordWrap = (val === 'pre-wrap');
                     self._cm.setWordWrap(val === 'pre-wrap');
                 },
 
                 get fontSize() { return this._fontSize; },
                 set fontSize(val) {
                     this._fontSize = val;
+                    self._applied.fontSize = parseInt(val, 10) || 14;
                     self._cm.setFontSize(parseInt(val, 10) || 14);
                 },
 
                 get tabSize() { return this._tabSize; },
                 set tabSize(val) {
                     this._tabSize = val;
+                    self._applied.tabSize = parseInt(val, 10) || 4;
                     self._cm.setTabSize(parseInt(val, 10) || 4);
                 },
 
@@ -261,22 +277,26 @@ class EditorAdapter {
     // --- Theme switching ---
 
     setTheme(isDark) {
+        this._applied.isDark = isDark;
         this._cm.setTheme(isDark);
     }
 
     // --- Line numbers ---
 
     setLineNumbers(show) {
+        this._applied.showLineNumbers = show;
         this._cm.setLineNumbers(show);
     }
 
     // --- C4: Focus Mode ---
     setFocusMode(enabled) {
+        this._applied.focusMode = enabled;
         if (this._cm.setFocusMode) this._cm.setFocusMode(enabled);
     }
 
     // --- C5: Typewriter Mode ---
     setTypewriterMode(enabled) {
+        this._applied.typewriterMode = enabled;
         if (this._cm.setTypewriterMode) this._cm.setTypewriterMode(enabled);
     }
 
@@ -320,6 +340,16 @@ class EditorAdapter {
         this._suppressNextChange = true;
         this._view.setState(state);
         this._cachedDoc = null; // setState replaces the whole doc — cache is stale
+        // Re-apply current settings — the restored state carries stale compartment
+        // config (e.g. the theme from before a toggle on another tab)
+        const a = this._applied;
+        this._cm.setTheme(a.isDark);
+        this._cm.setLineNumbers(a.showLineNumbers);
+        this._cm.setWordWrap(a.wordWrap);
+        this._cm.setTabSize(a.tabSize);
+        this._cm.setFontSize(a.fontSize);
+        if (this._cm.setFocusMode) this._cm.setFocusMode(a.focusMode);
+        if (this._cm.setTypewriterMode) this._cm.setTypewriterMode(a.typewriterMode);
         this._suppressNextChange = false;
     }
 

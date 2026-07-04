@@ -12,7 +12,6 @@ function onOnce(channel, callback) {
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
     // File operations
-    newFile: () => ipcRenderer.send('new-file'),
     openFile: () => ipcRenderer.send('open-file'),
     openFilePath: (filePath) => ipcRenderer.send('open-file-path', filePath),
     saveFile: (content, filePath) => ipcRenderer.send('save-file', { content, filePath }),
@@ -27,23 +26,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // File dialog handlers
     onFileOpened: (callback) => onOnce('file-opened', callback),
     onFileSaved: (callback) => onOnce('file-saved', callback),
-    onNewFile: (callback) => onOnce('new-file-created', callback),
-    
-    // Window operations
-    closeWindow: () => ipcRenderer.send('close-window'),
-    minimizeWindow: () => ipcRenderer.send('minimize-window'),
-    maximizeWindow: () => ipcRenderer.send('maximize-window'),
-    
+
     // Settings
     getSettings: () => ipcRenderer.invoke('get-settings'),
     saveSettings: (settings) => ipcRenderer.send('save-settings', settings),
     
     // Recent files
     getRecentFiles: () => ipcRenderer.invoke('get-recent-files'),
-    addRecentFile: (filePath) => ipcRenderer.send('add-recent-file', filePath),
-    
-    // Drag and drop
-    onFilesDropped: (callback) => onOnce('files-dropped', callback),
 
     // Menu actions
     onMenuAction: (callback) => onOnce('menu-action', callback),
@@ -83,9 +72,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // B3: File stats
     getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
 
-    // A7: External file open
-    onFileOpenedExternal: (callback) => onOnce('file-opened-external', callback),
-
     // C2: Save clipboard image
     saveClipboardImage: (data) => ipcRenderer.invoke('save-clipboard-image', data),
 
@@ -97,6 +83,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Phase C: PDF template catalog for the export dialog
     getPdfTemplates: () => ipcRenderer.invoke('get-pdf-templates'),
+
+    // Theme "System"
+    getSystemTheme: () => ipcRenderer.invoke('get-system-theme'),
+    onSystemThemeChanged: (callback) => onOnce('system-theme-changed', callback),
 
     // Auto-updater bridge
     checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),

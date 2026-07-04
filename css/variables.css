@@ -1,14 +1,94 @@
+/* ============================================================================
+   MrxDown Design-Tokens — Material 3 Expressive
+   ----------------------------------------------------------------------------
+   Eigene MrxDown-Identität: tonale Palette aus dem klassischen App-Seed
+   (#2B2E3B Blau-Grau, Akzent #688DB1). Dark ist das Default-Schema,
+   body.light-theme überschreibt NUR die --md-* Tokens — alle Legacy-Variablen
+   (--background-dark, --accent-blue, …) sind Aliasse auf --md-* und damit
+   automatisch theme-korrekt. Komponenten-CSS bitte ausschließlich über Tokens.
+   ============================================================================ */
+
 :root {
-    /* Dark Theme Colors */
-    --background-dark: #2B2E3B;
-    --background-darker: #252830;
-    --card-background: #343845;
-    --accent-blue: #688db1;
-    --accent-green: #9cb68f;
-    --accent-red: #e16162;
-    --accent-yellow: #f59e0b;
-    --text-primary: #d1d5db;
-    --text-secondary: #9ca3af;
+    /* --- M3E Farbschema (Dark) ------------------------------------------- */
+    --md-primary: #a2c9ec;
+    --md-on-primary: #06304e;
+    --md-primary-container: #274a68;
+    --md-on-primary-container: #d0e4f7;
+
+    --md-secondary: #bac8da;
+    --md-on-secondary: #24323f;
+    --md-secondary-container: #3b4857;
+    --md-on-secondary-container: #d6e4f0;
+
+    --md-tertiary: #b1cba0;
+    --md-on-tertiary: #1f351a;
+    --md-tertiary-container: #384b2f;
+    --md-on-tertiary-container: #cde8bb;
+
+    --md-error: #ffb4ab;
+    --md-on-error: #690005;
+    --md-error-container: #93000a;
+    --md-on-error-container: #ffdad6;
+
+    /* Tonale Surfaces — bewusst um die klassischen MrxDown-Grautöne gebaut:
+       surface #252830 (alt: background-darker), container #2B2E3B (alt:
+       background-dark), container-high #343845 (alt: card-background). */
+    --md-surface-dim: #1d1f27;
+    --md-surface: #252830;
+    --md-surface-bright: #3d414f;
+    --md-surface-container-lowest: #191b22;
+    --md-surface-container-low: #22242d;
+    --md-surface-container: #2b2e3b;
+    --md-surface-container-high: #343845;
+    --md-surface-container-highest: #3d414f;
+
+    --md-on-surface: #e3e5ec;
+    --md-on-surface-variant: #a8adbd;
+    --md-outline: #7b8194;
+    --md-outline-variant: #414653;
+
+    --md-inverse-surface: #e3e5ec;
+    --md-inverse-on-surface: #2b2e3b;
+    --md-inverse-primary: #38658c;
+    --md-scrim: rgba(0, 0, 0, 0.5);
+
+    /* Warnfarbe (kein M3-Standardrole — MrxDown-eigenes Token) */
+    --md-warning: #f0b453;
+
+    /* --- State-Layer (M3-Spez: hover 8 %, focus 10 %, pressed 10 %) ------- */
+    --md-state-hover: 0.08;
+    --md-state-focus: 0.10;
+    --md-state-pressed: 0.10;
+    --md-state-dragged: 0.16;
+
+    /* --- Shape-Scale (M3E) ------------------------------------------------ */
+    --md-shape-xs: 4px;
+    --md-shape-sm: 8px;
+    --md-shape-md: 12px;
+    --md-shape-lg: 16px;
+    --md-shape-xl: 28px;
+    --md-shape-full: 999px;
+
+    /* --- Motion: physikalisch gesampelte M3E-Federn ------------------------
+       Spatial (Position/Größe/Form, darf überschwingen):
+         fast   = stiffness 800, damping 0.6  → sichtbarer Bounce (~9 %)
+         default= stiffness 380, damping 0.8  → subtiler Overshoot (~1.5 %)
+         slow   = stiffness 200, damping 0.8
+       Effects (Farbe/Opacity, monoton, ohne Overshoot):
+         fast/default/slow = stiffness 3800/1600/800, damping 1.0
+       Kurven per gedämpfter-Feder-Sampler als CSS linear() erzeugt. */
+    --motion-spatial-fast: linear(0.0, 0.0716 4.2%, 0.2381 8.3%, 0.4404 12.5%, 0.6378 16.7%, 0.806 20.8%, 0.9342 25.0%, 1.0211 29.2%, 1.0713 33.3%, 1.0924 37.5%, 1.0931 41.7%, 1.0812 45.8%, 1.0632 50.0%, 1.0438 54.2%, 1.0263 58.3%, 1.0121 62.5%, 1.0018 66.7%, 0.9953 70.8%, 0.992 75.0%, 0.991 79.2%, 0.9916 83.3%, 0.9931 87.5%, 0.9949 91.7%, 0.9967 95.8%, 0.9982 100.0%);
+    --motion-spatial-fast-dur: 350ms;
+    --motion-spatial-default: linear(0.0, 0.0663 4.2%, 0.2126 8.3%, 0.3832 12.5%, 0.5461 16.7%, 0.6854 20.8%, 0.7958 25.0%, 0.8779 29.2%, 0.9354 33.3%, 0.9731 37.5%, 0.996 41.7%, 1.0085 45.8%, 1.014 50.0%, 1.0152 54.2%, 1.014 58.3%, 1.0117 62.5%, 1.0091 66.7%, 1.0066 70.8%, 1.0046 75.0%, 1.0029 79.2%, 1.0017 83.3%, 1.0009 87.5%, 1.0004 91.7%, 1.0 95.8%, 0.9999 100.0%);
+    --motion-spatial-default-dur: 500ms;
+    --motion-spatial-slow: linear(0.0, 0.0597 4.2%, 0.1939 8.3%, 0.354 12.5%, 0.5107 16.7%, 0.6487 20.8%, 0.7615 25.0%, 0.8484 29.2%, 0.912 33.3%, 0.9559 37.5%, 0.9845 41.7%, 1.0017 45.8%, 1.0108 50.0%, 1.0146 54.2%, 1.0151 58.3%, 1.0137 62.5%, 1.0114 66.7%, 1.009 70.8%, 1.0067 75.0%, 1.0047 79.2%, 1.0031 83.3%, 1.0019 87.5%, 1.0011 91.7%, 1.0005 95.8%, 1.0001 100.0%);
+    --motion-spatial-slow-dur: 650ms;
+    --motion-effects-fast: linear(0.0, 0.0576 4.2%, 0.1807 8.3%, 0.3214 12.5%, 0.4558 16.7%, 0.5737 20.8%, 0.6718 25.0%, 0.7508 29.2%, 0.8128 33.3%, 0.8606 37.5%, 0.897 41.7%, 0.9244 45.8%, 0.9448 50.0%, 0.9599 54.2%, 0.9709 58.3%, 0.979 62.5%, 0.9849 66.7%, 0.9892 70.8%, 0.9923 75.0%, 0.9945 79.2%, 0.9961 83.3%, 0.9972 87.5%, 0.998 91.7%, 0.9986 95.8%, 0.999 100.0%);
+    --motion-effects-fast-dur: 150ms;
+    --motion-effects-default: linear(0.0, 0.0446 4.2%, 0.1443 8.3%, 0.2642 12.5%, 0.3849 16.7%, 0.4963 20.8%, 0.594 25.0%, 0.6768 29.2%, 0.7452 33.3%, 0.8009 37.5%, 0.8454 41.7%, 0.8807 45.8%, 0.9084 50.0%, 0.93 54.2%, 0.9467 58.3%, 0.9596 62.5%, 0.9694 66.7%, 0.9769 70.8%, 0.9826 75.0%, 0.987 79.2%, 0.9902 83.3%, 0.9927 87.5%, 0.9946 91.7%, 0.9959 95.8%, 0.997 100.0%);
+    --motion-effects-default-dur: 200ms;
+    --motion-effects-slow: linear(0.0, 0.0496 4.2%, 0.1583 8.3%, 0.2865 12.5%, 0.4131 16.7%, 0.5275 20.8%, 0.6258 25.0%, 0.7075 29.2%, 0.7737 33.3%, 0.8264 37.5%, 0.8678 41.7%, 0.8999 45.8%, 0.9247 50.0%, 0.9435 54.2%, 0.9578 58.3%, 0.9686 62.5%, 0.9767 66.7%, 0.9828 70.8%, 0.9873 75.0%, 0.9907 79.2%, 0.9931 83.3%, 0.995 87.5%, 0.9963 91.7%, 0.9973 95.8%, 0.998 100.0%);
+    --motion-effects-slow-dur: 300ms;
 
     /* Typography */
     --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -16,10 +96,10 @@
                   sans-serif;
     --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', 'Courier New', monospace;
 
-    /* Shadows */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
-    --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+    /* Shadows (M3-Elevation, dark) */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 8px 3px rgba(0, 0, 0, 0.15);
+    --shadow-lg: 0 4px 4px rgba(0, 0, 0, 0.3), 0 8px 12px 6px rgba(0, 0, 0, 0.15);
 
     /* Spacing */
     --spacing-1: 0.25rem;
@@ -32,11 +112,11 @@
     --spacing-12: 3rem;
     --spacing-16: 4rem;
 
-    /* Radius */
-    --radius-sm: 0.375rem;
-    --radius: 0.5rem;
-    --radius-lg: 0.75rem;
-    --radius-xl: 1rem;
+    /* Radius — auf die M3E-Shape-Scale gemappt */
+    --radius-sm: var(--md-shape-sm);
+    --radius: var(--md-shape-md);
+    --radius-lg: var(--md-shape-lg);
+    --radius-xl: var(--md-shape-xl);
 
     /* Sidebar */
     --sidebar-width: 250px;
@@ -44,23 +124,94 @@
     --statusbar-height: 30px;
 }
 
-/* Scrollbar Styling */
+/* --- Legacy-Aliasse (gesamtes Komponenten-CSS läuft über diese) ------------
+   WICHTIG: auf body deklariert, NICHT auf :root. var()-Referenzen in Custom
+   Properties werden am Deklarations-Element aufgelöst — auf :root wären die
+   Dark-Werte eingebacken, bevor body.light-theme die --md-* Tokens umschaltet
+   (genau so blieb der halbe Chrome im Light-Theme dunkel). Auf body greift
+   die Kaskade zuerst, dann erst die Auflösung. */
+body {
+    --background-dark: var(--md-surface-container);
+    --background-darker: var(--md-surface);
+    --card-background: var(--md-surface-container-high);
+    --accent-blue: var(--md-primary);
+    --accent-green: var(--md-tertiary);
+    --accent-red: var(--md-error);
+    --accent-yellow: var(--md-warning);
+    --text-primary: var(--md-on-surface);
+    --text-secondary: var(--md-on-surface-variant);
+}
+
+/* --- M3E Farbschema (Light) — nur --md-* umschalten, Aliasse folgen ------- */
+body.light-theme {
+    --md-primary: #38658c;
+    --md-on-primary: #ffffff;
+    --md-primary-container: #d0e4f7;
+    --md-on-primary-container: #001d33;
+
+    --md-secondary: #52606f;
+    --md-on-secondary: #ffffff;
+    --md-secondary-container: #d6e4f0;
+    --md-on-secondary-container: #0f1d2a;
+
+    --md-tertiary: #52643f;
+    --md-on-tertiary: #ffffff;
+    --md-tertiary-container: #d5e8c4;
+    --md-on-tertiary-container: #111f04;
+
+    --md-error: #ba1a1a;
+    --md-on-error: #ffffff;
+    --md-error-container: #ffdad6;
+    --md-on-error-container: #410002;
+
+    --md-surface-dim: #d9dae0;
+    --md-surface: #f9f9fc;
+    --md-surface-bright: #f9f9fc;
+    --md-surface-container-lowest: #ffffff;
+    --md-surface-container-low: #f3f4f8;
+    --md-surface-container: #edeef3;
+    --md-surface-container-high: #e7e9ee;
+    --md-surface-container-highest: #e1e3e9;
+
+    --md-on-surface: #1a1c20;
+    --md-on-surface-variant: #43474e;
+    --md-outline: #73777f;
+    --md-outline-variant: #c3c7cf;
+
+    --md-inverse-surface: #2f3036;
+    --md-inverse-on-surface: #f0f0f7;
+    --md-inverse-primary: #a2c9ec;
+    --md-scrim: rgba(0, 0, 0, 0.4);
+
+    --md-warning: #b25e00;
+
+    /* M3-Elevation, light */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.12);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 2px 6px 2px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 1px 3px rgba(0, 0, 0, 0.12), 0 4px 8px 3px rgba(0, 0, 0, 0.10);
+}
+
+/* Scrollbars — dezent tonal, M3-Stil */
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--background-dark);
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--md-on-surface-variant) 35%, transparent);
+    border-radius: var(--md-shape-full);
+    border: 2px solid transparent;
+    background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: color-mix(in srgb, var(--md-on-surface-variant) 55%, transparent);
+    border: 2px solid transparent;
+    background-clip: content-box;
 }
 
 * {

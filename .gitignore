@@ -56,4 +56,5 @@ temp/
 
 # Claude
 .claude/
-.serena/
+.serena/.e2e-entry.js
+tests/e2e/screenshots/
