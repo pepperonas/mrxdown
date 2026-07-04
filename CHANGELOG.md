@@ -14,6 +14,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
 
+## [0.5.0] - 2026-07-04
+
+### 📄 PDF-Export-Offensive (alle 4 Phasen des PDF-Audits)
+- **Electron 28 → 43 (Chromium 120 → 150)** — komplette Test-Suite lief auf Anhieb grün. Schaltet nativ frei:
+  - **Seitenzahlen funktionieren jetzt wirklich**: die `@page @bottom-center { counter(page) }`-Regeln der Templates wurden von Chromium 120 still ignoriert (Margin-Boxes kamen erst in Chrome 131). Empirisch verifiziert (Seitenzahl im gerasterten PDF sichtbar).
+  - **PDF-Bookmarks/Outline** aus H1–H6: `generateDocumentOutline` existierte erst ab Electron 29 — wir übergaben es bisher wirkungslos.
+- **PDF-Metadaten** (pdf-lib-Nachpass in allen 5 Exportpfaden): Title/Author/Subject/Keywords aus dem Frontmatter (Fallback Dateiname), `Lang de-DE`, Creator `MrxDown <version>`. printToPDF selbst schreibt keinerlei Metadaten.
+- **Mermaid im CLI-PDF**: ```mermaid-Fences werden im versteckten Druckfenster mit dem vendor-Mermaid gerendert (vorher: roher Codeblock). KaTeX + Mermaid damit in GUI- UND CLI-PDFs.
+- **CLI-Pfade**: `generateTaggedPDF` + Outline jetzt auch dort (Barrierefreiheit, `/Lang`).
+- **Inhaltsverzeichnis mit echten Seitenzahlen** (Zwei-Pass): Chromium kann `target-counter()` bis heute nicht — Pass 1 liefert via Dokument-Outline die Heading→Seite-Zuordnung (pdfjs-dist), Pass 2 druckt das TOC mit Seitenzahlen + punktierten Führungslinien; Einträge sind klickbare interne Links. Fehlschlag ist nie fatal (dann TOC ohne Zahlen). Das bietet nicht mal Typora.
+- **Korrekte Warte-Bedingung** vor dem Druck: `document.fonts.ready` + `img.decode()` + Mermaid-Fertigmeldung statt `requestIdleCallback`-Blindflug (auch CLI: statt fixer 1000 ms).
+- **Bild-Downscaling beim Einbetten**: Skia bettet Nicht-JPEGs in voller Auflösung ein — Bilder >1600 px werden jetzt herunterskaliert (JPEG bleibt JPEG q82, Rest PNG; SVG/GIF unangetastet). Größter Dateigrößen-Hebel.
+- **Print-Hygiene in allen Templates**: `break-after: avoid` (Überschriften), `break-inside: avoid` (Code/Tabellen/Figuren), `widows/orphans: 3`, `hyphens: auto`, `text-wrap: pretty`, `thead` wiederholt sich je Seite.
+- CI-Checks erweitert: CLI-PDF-Test prüft jetzt Title/Creator-Metadaten, Bookmarks und Tagged-PDF per pdf-lib.
+
 ## [0.4.1] - 2026-07-04
 
 ### 🎨 App-Icon (endlich kein Electron-Default mehr)

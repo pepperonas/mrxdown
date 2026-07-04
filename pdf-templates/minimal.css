@@ -95,3 +95,9 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2.5em 0; }
 .mrx-titlepage .mrx-date { font-size: 0.9rem; color: #888; margin-top: 0.3rem; }
 
 @media print { body { margin: 0; padding: 0; } }
+
+/* --- Print-Hygiene (PDF-Audit 2026-07-04, ab Chrome 108 wirksam) --- */
+h1, h2, h3, h4, h5, h6 { break-after: avoid; }
+pre, table, figure, blockquote, img { break-inside: avoid; }
+p { widows: 3; orphans: 3; hyphens: auto; text-wrap: pretty; }
+thead { display: table-header-group; }

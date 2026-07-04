@@ -441,7 +441,115 @@ function buildPdfHtml(bodyContentOrOpts) {
     const titlePage = renderTitlePage(frontmatter, templateName);
     const stylesheet = loadPdfTemplateCss(templateName);
 
-    return '<!DOCTYPE html>\n<html lang="de">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <style>' + stylesheet + getHighlightCss() + getKatexCss() + '</style>\n</head>\n<body>' + titlePage + highlightedContent + '</body>\n</html>';
+    // D1-CLI: Enthaelt der Body <div class="mermaid">-Bloecke (CLI-Pfad), wird
+    // das vendor-Mermaid ins Druckfenster injiziert und dort gerendert; das
+    // Warte-Skript (PDF_SMART_WAIT_JS) awaited window.__mermaidReady.
+    let mermaidScripts = '';
+    if (highlightedContent.includes('class="mermaid"')) {
+        const mermaidPath = path.join(__dirname, 'vendor', 'mermaid.min.js');
+        mermaidScripts = '\n<script src="file://' + mermaidPath + '"></script>' +
+            '\n<script>window.__mermaidReady = (async () => {' +
+            ' try { if (window.mermaid) {' +
+            ' mermaid.initialize({ startOnLoad: false, theme: "neutral", securityLevel: "strict" });' +
+            ' await mermaid.run({ querySelector: ".mermaid" });' +
+            ' } } catch (e) { console.error("mermaid:", e); } return true; })();</script>';
+    }
+
+    return '<!DOCTYPE html>\n<html lang="de">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <style>' + stylesheet + getHighlightCss() + getKatexCss() + '</style>\n</head>\n<body>' + titlePage + highlightedContent + mermaidScripts + '</body>\n</html>';
+}
+
+// D1-CLI: \u0060\u0060\u0060mermaid-Fences -> <div class="mermaid"> (HTML-escaped,
+// Mermaid liest den Textinhalt). Muss VOR marked.parse laufen.
+function renderMermaidForCLI(markdown) {
+    return markdown.replace(/```mermaid[ \t]*\r?\n([\s\S]*?)```/g, (m, src) => {
+        const esc = src.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return '<div class="mermaid">\n' + esc + '\n</div>';
+    });
+}
+
+// Phase 1 (PDF-Audit 2026-07-04): printToPDF schreibt keinerlei Dokument-
+// Metadaten (nur Producer/CreationDate). Nachpass mit pdf-lib: Title/Author/
+// Subject/Keywords aus dem Frontmatter, Sprache, Creator. Fehler sind nie
+// fatal — dann bleibt das PDF schlicht ohne Metadaten.
+async function finalizePdfMetadata(pdfBuffer, { frontmatter = {}, filePath = null } = {}) {
+    try {
+        const { PDFDocument } = require('@cantoo/pdf-lib');
+        const doc = await PDFDocument.load(pdfBuffer, { updateMetadata: false });
+        const title = frontmatter.title
+            || (filePath ? path.basename(filePath).replace(/\.(md|markdown)$/i, '') : 'Markdown-Dokument');
+        doc.setTitle(String(title), { showInWindowTitleBar: true });
+        if (frontmatter.author) doc.setAuthor(String(frontmatter.author));
+        if (frontmatter.subtitle || frontmatter.description) {
+            doc.setSubject(String(frontmatter.subtitle || frontmatter.description));
+        }
+        if (frontmatter.keywords) {
+            const kw = Array.isArray(frontmatter.keywords)
+                ? frontmatter.keywords
+                : String(frontmatter.keywords).split(/[,;]/).map(x => x.trim()).filter(Boolean);
+            if (kw.length) doc.setKeywords(kw);
+        }
+        doc.setLanguage('de-DE');
+        doc.setCreator('MrxDown ' + app.getVersion());
+        doc.setProducer('MrxDown (Chromium printToPDF + pdf-lib)');
+        doc.setModificationDate(new Date());
+        return Buffer.from(await doc.save());
+    } catch (err) {
+        console.warn('PDF-Metadaten-Pass fehlgeschlagen:', err.message);
+        return pdfBuffer;
+    }
+}
+
+// Phase 4 (Zwei-Pass-TOC): Chromium kann target-counter() bis heute nicht —
+// Pass 1 liefert ueber generateDocumentOutline die echte Heading->Seite-
+// Zuordnung (pdfjs-dist liest die Outline), Pass 2 druckt das TOC mit Zahlen.
+async function mapHeadingsToPages(pdfBuffer) {
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const doc = await pdfjs.getDocument({ data: new Uint8Array(pdfBuffer), useSystemFonts: true }).promise;
+    try {
+        const outline = (await doc.getOutline()) || [];
+        const map = [];
+        const walk = async (items) => {
+            for (const it of items) {
+                let dest = it.dest;
+                if (typeof dest === 'string') dest = await doc.getDestination(dest);
+                if (Array.isArray(dest) && dest[0]) {
+                    try {
+                        map.push({ title: (it.title || '').trim(), page: (await doc.getPageIndex(dest[0])) + 1 });
+                    } catch (e) { /* Ziel nicht aufloesbar — Eintrag ueberspringen */ }
+                }
+                if (it.items && it.items.length) await walk(it.items);
+            }
+        };
+        await walk(outline);
+        return map;
+    } finally {
+        await doc.destroy().catch(() => {});
+    }
+}
+
+// Phase 2 (PDF-Audit 2026-07-04): Skia bettet Nicht-JPEGs in voller Aufloesung
+// als Deflate-Pixel ein — ein 4000-px-Screenshot landet unverkleinert im PDF.
+// Downscale auf max. 1600 px Breite (~2x A4-Satzspiegel); JPEGs bleiben JPEG
+// (q82, DCT-Passthrough haelt sie klein), Rest wird PNG. SVG/GIF unangetastet.
+const PDF_IMAGE_MAX_WIDTH = 1600;
+function downscaleImageForPdf(buffer, mimeType) {
+    try {
+        if (mimeType === 'image/svg+xml' || mimeType === 'image/gif') {
+            return { buffer, mimeType };
+        }
+        const { nativeImage } = require('electron');
+        const img = nativeImage.createFromBuffer(buffer);
+        if (img.isEmpty()) return { buffer, mimeType };
+        const { width } = img.getSize();
+        if (width <= PDF_IMAGE_MAX_WIDTH) return { buffer, mimeType };
+        const resized = img.resize({ width: PDF_IMAGE_MAX_WIDTH, quality: 'best' });
+        if (mimeType === 'image/jpeg') {
+            return { buffer: resized.toJPEG(82), mimeType: 'image/jpeg' };
+        }
+        return { buffer: resized.toPNG(), mimeType: 'image/png' };
+    } catch (e) {
+        return { buffer, mimeType }; // nie fatal — dann eben Originalgroesse
+    }
 }
 
 // Helper function to convert images to base64 for PDF export
@@ -550,9 +658,9 @@ async function convertImageToBase64(imagePath, baseDirOverride = null) {
                         });
                         response.on('end', () => {
                             const buffer = Buffer.concat(chunks);
-                            const mimeType = response.headers['content-type'] || 'image/png';
-                            const base64 = buffer.toString('base64');
-                            resolve(`data:${mimeType};base64,${base64}`);
+                            const mimeType = (response.headers['content-type'] || 'image/png').split(';')[0].trim();
+                            const scaled = downscaleImageForPdf(buffer, mimeType);
+                            resolve(`data:${scaled.mimeType};base64,${scaled.buffer.toString('base64')}`);
                         });
                     });
                     req.on('error', reject);
@@ -590,15 +698,16 @@ async function convertImageToBase64(imagePath, baseDirOverride = null) {
         // Read local file
         const imageBuffer = await fs.readFile(fullPath);
         const ext = path.extname(fullPath).toLowerCase();
-        
+
         let mimeType = 'image/png';
         if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
         else if (ext === '.gif') mimeType = 'image/gif';
         else if (ext === '.svg') mimeType = 'image/svg+xml';
         else if (ext === '.webp') mimeType = 'image/webp';
 
-        const base64 = imageBuffer.toString('base64');
-        return `data:${mimeType};base64,${base64}`;
+        const scaled = downscaleImageForPdf(imageBuffer, mimeType);
+        const base64 = scaled.buffer.toString('base64');
+        return `data:${scaled.mimeType};base64,${base64}`;
     } catch (error) {
         console.log(`Error converting image ${imagePath}:`, error);
         return null;
@@ -1359,24 +1468,24 @@ ipcMain.on('export-html', async (event, { content, filePath }) => {
 // - try/finally destroys the window on EVERY path; failed exports used to leak one
 //   invisible BrowserWindow each (M4).
 // - No preload: the rendered markdown HTML must never see window.electronAPI.
+// Korrekte Warte-Bedingung vor printToPDF (PDF-Audit 2026-07-04):
+// document.fonts.ready (Fonts wirklich geladen) + img.decode() (Pixel dekodiert)
+// + ggf. Mermaid-Rendering (window.__mermaidReady, siehe buildPdfHtml) statt
+// des alten requestIdleCallback-Blindflugs.
 const PDF_SMART_WAIT_JS = `
-    new Promise(resolve => {
-        const images = document.querySelectorAll('img');
-        const imagePromises = Array.from(images).map(img => {
-            if (img.complete) return Promise.resolve();
-            return new Promise(r => { img.onload = r; img.onerror = r; });
+    (async () => {
+        try { await document.fonts.ready; } catch (e) {}
+        await Promise.all(Array.from(document.images).map(img => img.decode().catch(() => {})));
+        if (window.__mermaidReady) { try { await window.__mermaidReady; } catch (e) {} }
+        await new Promise(r => {
+            if (typeof requestIdleCallback !== 'undefined') requestIdleCallback(() => r(), { timeout: 2000 });
+            else setTimeout(r, 300);
         });
-        Promise.all(imagePromises).then(() => {
-            if (typeof requestIdleCallback !== 'undefined') {
-                requestIdleCallback(() => resolve(), { timeout: 2000 });
-            } else {
-                setTimeout(resolve, 500);
-            }
-        });
-    })
+        return true;
+    })()
 `;
 
-async function renderHtmlToPdf(fullHtml, printOptions = {}) {
+async function renderHtmlToPdf(fullHtml, printOptions = {}, meta = null) {
     const pdfWindow = new BrowserWindow({
         width: 800,
         height: 1000,
@@ -1388,16 +1497,17 @@ async function renderHtmlToPdf(fullHtml, printOptions = {}) {
         await fs.writeFile(tempHtmlPath, fullHtml, 'utf-8');
         await pdfWindow.loadFile(tempHtmlPath);
         await pdfWindow.webContents.executeJavaScript(PDF_SMART_WAIT_JS);
-        return await pdfWindow.webContents.printToPDF({
+        const pdfData = await pdfWindow.webContents.printToPDF({
             marginsType: 0,
             pageSize: 'A4',
             printBackground: true,
             landscape: false,
             preferCSSPageSize: true,
             generateTaggedPDF: true,
-            generateDocumentOutline: true,
+            generateDocumentOutline: true, // seit Electron 43 wirksam (E28 ignorierte es still)
             ...printOptions
         });
+        return meta ? await finalizePdfMetadata(pdfData, meta) : pdfData;
     } finally {
         if (!pdfWindow.isDestroyed()) pdfWindow.destroy();
         fs.unlink(tempHtmlPath).catch(() => {});
@@ -1454,32 +1564,69 @@ ipcMain.on('print-to-pdf-options', async (event, { filePath, pdfOptions } = {}) 
         // Title page from frontmatter (only if template + frontmatter support it)
         const titlePage = renderTitlePage(frontmatter, templateName);
 
-        // D5: TOC generation
-        let tocHtml = '';
+        // D5: TOC — klickbare Anker + (Phase 4) echte Seitenzahlen via Zwei-Pass
+        const tocItems = [];
         if (showToc) {
             const headingRegex = /<h([1-3])[^>]*id="([^"]*)"[^>]*>([\s\S]*?)<\/h\1>/gi;
             let match;
-            const tocItems = [];
             while ((match = headingRegex.exec(content)) !== null) {
-                const level = parseInt(match[1]);
-                const text = match[3].replace(/<[^>]+>/g, '');
-                tocItems.push({ level, text });
-            }
-            if (tocItems.length > 0) {
-                const tocLines = ['<div class="pdf-toc"><h2>Inhaltsverzeichnis</h2><ul>'];
-                for (const item of tocItems) {
-                    const indent = (item.level - 1) * 20;
-                    tocLines.push('<li style="margin-left:' + indent + 'px">' + item.text + '</li>');
-                }
-                tocLines.push('</ul></div><div style="page-break-after:always"></div>');
-                tocHtml = tocLines.join('');
+                tocItems.push({
+                    level: parseInt(match[1]),
+                    id: match[2],
+                    text: match[3].replace(/<[^>]+>/g, '')
+                });
             }
         }
 
-        const tocStyle = '.pdf-toc { margin-bottom: 2em; } .pdf-toc h2 { border-bottom: 2px solid #333; padding-bottom: 0.5rem; } .pdf-toc ul { list-style: none; padding: 0; } .pdf-toc li { padding: 4px 0; color: #1a1a1a; }';
-        const fullHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' + customStyle + tocStyle + getHighlightCss() + getKatexCss() + '</style></head><body>' + titlePage + tocHtml + content + '</body></html>';
+        // pageMap: null = Eintraege ohne Zahl (Pass 1); [{title,page}] = Pass 2
+        const buildTocHtml = (pageMap) => {
+            if (tocItems.length === 0) return '';
+            const lines = ['<div class="pdf-toc"><h2>Inhaltsverzeichnis</h2><ul>'];
+            let cursor = 0; // Outline-Eintraege in Dokumentreihenfolge konsumieren
+            for (const item of tocItems) {
+                const indent = (item.level - 1) * 20;
+                let pageHtml = '';
+                if (pageMap) {
+                    const idx = pageMap.findIndex((m, i) => i >= cursor && m.title === item.text.trim());
+                    if (idx !== -1) {
+                        pageHtml = '<span class="toc-dots"></span><span class="toc-page">' + pageMap[idx].page + '</span>';
+                        cursor = idx + 1;
+                    }
+                }
+                lines.push('<li style="margin-left:' + indent + 'px">' +
+                    '<a class="toc-label" href="#' + item.id + '">' + item.text + '</a>' + pageHtml + '</li>');
+            }
+            lines.push('</ul></div><div style="page-break-after:always"></div>');
+            return lines.join('');
+        };
 
-        const pdfData = await renderHtmlToPdf(fullHtml, { pageSize, landscape });
+        const tocStyle = '.pdf-toc { margin-bottom: 2em; } ' +
+            '.pdf-toc h2 { border-bottom: 2px solid #333; padding-bottom: 0.5rem; } ' +
+            '.pdf-toc ul { list-style: none; padding: 0; } ' +
+            '.pdf-toc li { padding: 4px 0; color: #1a1a1a; display: flex; align-items: baseline; gap: 6px; } ' +
+            '.pdf-toc a.toc-label { color: #1a1a1a; text-decoration: none; } ' +
+            '.pdf-toc .toc-dots { flex: 1; border-bottom: 1.5px dotted #999; min-width: 24px; } ' +
+            '.pdf-toc .toc-page { font-variant-numeric: tabular-nums; }';
+        const buildFullHtml = (tocHtml) =>
+            '<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><style>' + customStyle + tocStyle +
+            getHighlightCss() + getKatexCss() + '</style></head><body>' + titlePage + tocHtml + content + '</body></html>';
+
+        let pdfData = await renderHtmlToPdf(buildFullHtml(buildTocHtml(null)), { pageSize, landscape });
+
+        if (showToc && tocItems.length > 0) {
+            // Phase 4: Outline aus Pass 1 lesen -> Heading->Seite -> Pass 2 mit Zahlen.
+            // Jeder Fehlschlag ist unkritisch: dann bleibt das TOC ohne Seitenzahlen.
+            try {
+                const pageMap = await mapHeadingsToPages(pdfData);
+                if (pageMap.length > 0) {
+                    pdfData = await renderHtmlToPdf(buildFullHtml(buildTocHtml(pageMap)), { pageSize, landscape });
+                }
+            } catch (err) {
+                console.warn('TOC-Seitenzahlen (Zwei-Pass) fehlgeschlagen:', err.message);
+            }
+        }
+
+        pdfData = await finalizePdfMetadata(pdfData, { frontmatter, filePath });
 
         const baseFilePath = filePath || currentFilePath;
         const defaultFileName = baseFilePath ?
@@ -1528,7 +1675,7 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
         // Convert images to base64 for embedding (H2: base dir = the exported file's dir)
         content = await convertImagesToBase64(content, filePath ? path.dirname(filePath) : null);
 
-        const pdfData = await renderHtmlToPdf(buildPdfHtml({ bodyContent: content, frontmatter }));
+        const pdfData = await renderHtmlToPdf(buildPdfHtml({ bodyContent: content, frontmatter }), {}, { frontmatter, filePath });
 
         // Use the provided filePath from the active tab or fall back to currentFilePath
         const baseFilePath = filePath || currentFilePath;
@@ -1599,7 +1746,11 @@ ipcMain.on('batch-print-to-pdf', async (event, { tabData } = {}) => {
                 // Extract frontmatter from tab's source markdown for template selection
                 const { frontmatter: tabFrontmatter } = extractFrontmatter(tab.content || '');
 
-                const pdfData = await renderHtmlToPdf(buildPdfHtml({ bodyContent: htmlContent, frontmatter: tabFrontmatter }));
+                const pdfData = await renderHtmlToPdf(
+                    buildPdfHtml({ bodyContent: htmlContent, frontmatter: tabFrontmatter }),
+                    {},
+                    { frontmatter: tabFrontmatter, filePath: tab.filePath }
+                );
 
                 // Generate PDF path in same directory as MD file
                 const pdfPath = tab.filePath.replace(/\.(md|markdown)$/i, '.pdf');
@@ -2023,8 +2174,9 @@ async function runCLI(inputFile) {
         // Extract frontmatter once — drives both KaTeX rendering and PDF template selection
         const { frontmatter, body: markdownBody } = extractFrontmatter(markdownContent);
 
-        // D2: Render KaTeX server-side so CLI PDFs include math. Mermaid is GUI-only.
-        const markdownWithMath = renderMathForCLI(markdownBody);
+        // D2: KaTeX server-seitig; D1-CLI: Mermaid-Fences als <div class="mermaid">
+        // (das Druckfenster rendert sie via buildPdfHtml-Injektion selbst)
+        const markdownWithMath = renderMermaidForCLI(renderMathForCLI(markdownBody));
 
         // Convert to HTML
         const htmlContent = marked.parse(markdownWithMath);
@@ -2051,16 +2203,18 @@ async function runCLI(inputFile) {
         // Load HTML from temp file
         await pdfWindow.loadFile(tempHtmlPath);
 
-        // Wait for content to load
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Fonts/Bilder/Mermaid wirklich fertig (statt blinder 1000-ms-Wartezeit)
+        await pdfWindow.webContents.executeJavaScript(PDF_SMART_WAIT_JS);
 
-        // Generate PDF
+        // Generate PDF — Tagged + Outline jetzt auch im CLI-Pfad
         const pdfData = await pdfWindow.webContents.printToPDF({
             marginsType: 0,
             pageSize: 'A4',
             printBackground: true,
             landscape: false,
-            preferCSSPageSize: true
+            preferCSSPageSize: true,
+            generateTaggedPDF: true,
+            generateDocumentOutline: true
         });
 
         pdfWindow.close();
@@ -2068,9 +2222,9 @@ async function runCLI(inputFile) {
         // Clean up temp file
         await fs.unlink(tempHtmlPath).catch(() => {});
 
-        // Save PDF with same name as input file
+        // Save PDF with same name as input file (mit Metadaten-Nachpass)
         const outputPath = absolutePath.replace(/\.(md|markdown)$/i, '.pdf');
-        await fs.writeFile(outputPath, pdfData);
+        await fs.writeFile(outputPath, await finalizePdfMetadata(pdfData, { frontmatter, filePath: absolutePath }));
 
         console.log(`PDF erstellt: ${outputPath}`);
         app.exit(0);
@@ -2133,7 +2287,7 @@ async function runCLIBatch(inputDir) {
                 const { frontmatter, body: markdownBody } = extractFrontmatter(markdownContent);
 
                 // D2: Server-side KaTeX for CLI batch mode (same as single-file CLI)
-                const markdownWithMath = renderMathForCLI(markdownBody);
+                const markdownWithMath = renderMermaidForCLI(renderMathForCLI(markdownBody));
 
                 // Convert to HTML
                 const htmlContent = marked.parse(markdownWithMath);
@@ -2155,21 +2309,23 @@ async function runCLIBatch(inputDir) {
                 });
 
                 await pdfWindow.loadFile(tempHtmlPath);
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await pdfWindow.webContents.executeJavaScript(PDF_SMART_WAIT_JS);
 
                 const pdfData = await pdfWindow.webContents.printToPDF({
                     marginsType: 0,
                     pageSize: 'A4',
                     printBackground: true,
                     landscape: false,
-                    preferCSSPageSize: true
+                    preferCSSPageSize: true,
+                    generateTaggedPDF: true,
+                    generateDocumentOutline: true
                 });
 
                 pdfWindow.close();
                 await fs.unlink(tempHtmlPath).catch(() => {});
 
                 const outputPath = filePath.replace(/\.(md|markdown)$/i, '.pdf');
-                await fs.writeFile(outputPath, pdfData);
+                await fs.writeFile(outputPath, await finalizePdfMetadata(pdfData, { frontmatter, filePath }));
 
                 console.log(`  ✓ ${mdFile.replace(/\.(md|markdown)$/i, '.pdf')}`);
                 successCount++;

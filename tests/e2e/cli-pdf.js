@@ -33,7 +33,7 @@ function isPdf(p) {
     } catch (e) { return false; }
 }
 
-try {
+async function main() {
     const md = '---\ntitle: E2E\ntemplate: minimal\n---\n\n# Test\n\nText mit **fett**, $x^2$ und Tabelle:\n\n| A | B |\n|---|---|\n| 1 | 2 |\n';
     fs.writeFileSync(path.join(dir, 'eins.md'), md);
     fs.writeFileSync(path.join(dir, 'ZWEI.MD'), md); // Regression: Groß-Endung im Batch
@@ -44,6 +44,17 @@ try {
     check('Einzeldatei-CLI Exit-Code 0', single.status === 0, 'status=' + single.status);
     check('Einzeldatei-PDF erzeugt und valide', isPdf(path.join(dir, 'eins.pdf')));
 
+    // PDF-Qualität (Audit 2026-07-04): Metadaten aus Frontmatter, Bookmarks, Seitenzahlen-Fähigkeit
+    await (async () => {
+        const { PDFDocument, PDFName } = require('@cantoo/pdf-lib');
+        const raw = fs.readFileSync(path.join(dir, 'eins.pdf'));
+        const doc = await PDFDocument.load(raw, { updateMetadata: false });
+        check('PDF-Metadaten: Title aus Frontmatter', doc.getTitle() === 'E2E', 'title=' + doc.getTitle());
+        check('PDF-Metadaten: Creator gesetzt', (doc.getCreator() || '').startsWith('MrxDown'));
+        check('PDF-Outline (Bookmarks) vorhanden', !!doc.catalog.get(PDFName.of('Outlines')));
+        check('Tagged PDF (StructTreeRoot)', !!doc.catalog.get(PDFName.of('StructTreeRoot')));
+    })();
+
     fs.rmSync(path.join(dir, 'eins.pdf'), { force: true });
 
     // Batch (Verzeichnis) — beide Dateien, auch .MD
@@ -52,9 +63,12 @@ try {
     check('Batch-CLI Exit-Code 0', batch.status === 0, 'status=' + batch.status);
     check('Batch: eins.pdf valide', isPdf(path.join(dir, 'eins.pdf')));
     check('Batch: ZWEI.pdf valide (.MD-Endung, L5)', isPdf(path.join(dir, 'ZWEI.pdf')));
-} finally {
-    try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* ignore */ }
 }
 
-console.log(failures === 0 ? 'CLI-PDF: alles grün' : `CLI-PDF: ${failures} Fehler`);
-process.exit(failures === 0 ? 0 : 1);
+main()
+    .catch(err => { failures++; console.log('✗ FATAL: ' + (err && err.stack || err)); })
+    .finally(() => {
+        try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* ignore */ }
+        console.log(failures === 0 ? 'CLI-PDF: alles grün' : `CLI-PDF: ${failures} Fehler`);
+        process.exit(failures === 0 ? 0 : 1);
+    });
