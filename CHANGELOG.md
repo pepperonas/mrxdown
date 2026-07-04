@@ -7,15 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### ✨ Added
-- **Code-Fence-Autocomplete ausgebaut** (2026-07-04): Liste **scrollt jetzt mit der Pfeiltasten-Auswahl** (`scrollIntoView`, blieb vorher stehen). **36 Sprachen statt 10** — deckungsgleich mit dem hljs-„common"-Preview-Bundle plus `mermaid`; eine zentrale Liste statt zweier Duplikate. **Tippen filtert** (```py → python, IDE-Konvention), getipptes Präfix wird hervorgehoben und bei Auswahl ersetzt; unbekanntes Präfix schließt das Popup. **Editor-Highlighting für 21 neue Sprachen** (c/cpp/csharp/objectivec/kotlin/go/rust/ruby/swift/php/yaml/xml/scss/less/lua/perl/r/diff/ini/powershell/dockerfile) über schlanke legacy-Stream-Modes — Bundle 659→877 KB (weiterhin −45 % ggü. dem alten language-data-Bundle). E2E-Szenario `autocomplete-lang` (7 Checks).
-
 ### Planned
 - Wiki-Links + Backlinks (`[[Foo]]`)
 - i18n (DE/EN)
 - Code-Signing + Notarization für macOS
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
+
+## [0.4.1] - 2026-07-04
+
+### 🎨 App-Icon (endlich kein Electron-Default mehr)
+- **Eigenes Icon in der MrxDown-M3E-Identität**: „M↓"-Glyphe (Markdown-Mark, CC0) mit Pillen-Strichen — M im Primary-Blau, Pfeil im Tertiär-Grün (unterscheidet vom generischen M↓ und spiegelt die App-Akzente). Dunkle tonale Kachel mit Primary-Glow.
+- **Zwei Artworks nach Plattform-Spec** (Apple-HIG-recherchiert): macOS `icon.icns` mit Big-Sur-Grid (824 px-Kachel, 185 px-Radius, 100 px-Rand, gebackener Schatten 0/12/28/50 %, volles Iconset 16–1024); Windows/Linux **full-bleed** `icon.png` (1024, electron-builder erzeugt daraus die .ico) — die macOS-Kachel wirkt dort sonst ~20 % zu klein.
+- SVG-Quellen + Electron-Render-Pipeline unter `assets/icon-src/` (reproduzierbar, iterierbar).
+- Lesbarkeit bei 16/32 px verifiziert (A/B-Vergleich auf hellem + dunklem Grund).
+
+### ✨ Added
+- **Code-Fence-Autocomplete ausgebaut** (2026-07-04): Liste **scrollt jetzt mit der Pfeiltasten-Auswahl** (`scrollIntoView`, blieb vorher stehen). **36 Sprachen statt 10** — deckungsgleich mit dem hljs-„common"-Preview-Bundle plus `mermaid`; eine zentrale Liste statt zweier Duplikate. **Tippen filtert** (```py → python, IDE-Konvention), getipptes Präfix wird hervorgehoben und bei Auswahl ersetzt; unbekanntes Präfix schließt das Popup. **Editor-Highlighting für 21 neue Sprachen** (c/cpp/csharp/objectivec/kotlin/go/rust/ruby/swift/php/yaml/xml/scss/less/lua/perl/r/diff/ini/powershell/dockerfile) über schlanke legacy-Stream-Modes — Bundle 659→877 KB (weiterhin −45 % ggü. dem alten language-data-Bundle). E2E-Szenario `autocomplete-lang` (7 Checks).
 
 ## [0.4.0] - 2026-07-04
 

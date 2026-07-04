@@ -131,6 +131,11 @@ GitHub Actions workflows in `.github/workflows/`:
 
 macOS CI builds ZIP only (no DMG) because `hdiutil` fails on GitHub runners. Ubuntu runners require specific apt packages (see workflow) — `libgconf-2-4` was removed for Ubuntu 24.04 (Noble) compatibility.
 
+### App Icon (`assets/`)
+
+- `assets/icon.icns` — macOS (Big-Sur-Grid: 824px-Kachel, 185px-Radius, 100px-Rand, gebackener Schatten). `assets/icon.png` — full-bleed 1024px für Windows (electron-builder erzeugt daraus die .ico) und Linux; auch das Fenster-Icon in main.js.
+- Quellen + Render-Pipeline: `assets/icon-src/` (`icon-macos.svg`, `icon-fullbleed.svg`, `render-icon.js` — SVG→PNG via `electron render-icon.js <svg> <png>`, dann `sips`+`iconutil` für das .icns). macOS-Artwork NIE full-bleed ausliefern und umgekehrt.
+
 ### Build Assets (`build/`)
 
 - **`MrxDown PDF.workflow/`** — macOS Automator Quick Action for Finder → PDF conversion. Includes `Info.plist` (required for service registration) and `document.wflow`.

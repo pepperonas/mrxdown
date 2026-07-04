@@ -1,6 +1,6 @@
 {
   "name": "mrxdown",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Ein moderner Markdown-Editor mit Live-Vorschau",
   "main": "main.js",
   "homepage": "https://github.com/pepperonas/mrxdown",
@@ -124,7 +124,8 @@
             "arm64"
           ]
         }
-      ]
+      ],
+      "icon": "assets/icon.icns"
     },
     "win": {
       "artifactName": "mrxdown-windows-${arch}.${ext}",
@@ -141,7 +142,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "icon": "assets/icon.png"
     },
     "linux": {
       "category": "Office",
@@ -159,7 +161,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "icon": "assets/icon.png"
     },
     "dmg": {
       "title": "MrxDown ${version}",
