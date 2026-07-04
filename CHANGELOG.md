@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ✨ Added
+- **Code-Fence-Autocomplete ausgebaut** (2026-07-04): Liste **scrollt jetzt mit der Pfeiltasten-Auswahl** (`scrollIntoView`, blieb vorher stehen). **36 Sprachen statt 10** — deckungsgleich mit dem hljs-„common"-Preview-Bundle plus `mermaid`; eine zentrale Liste statt zweier Duplikate. **Tippen filtert** (```py → python, IDE-Konvention), getipptes Präfix wird hervorgehoben und bei Auswahl ersetzt; unbekanntes Präfix schließt das Popup. **Editor-Highlighting für 21 neue Sprachen** (c/cpp/csharp/objectivec/kotlin/go/rust/ruby/swift/php/yaml/xml/scss/less/lua/perl/r/diff/ini/powershell/dockerfile) über schlanke legacy-Stream-Modes — Bundle 659→877 KB (weiterhin −45 % ggü. dem alten language-data-Bundle). E2E-Szenario `autocomplete-lang` (7 Checks).
+
 ### Planned
 - Wiki-Links + Backlinks (`[[Foo]]`)
 - i18n (DE/EN)

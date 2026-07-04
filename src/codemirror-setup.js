@@ -66,6 +66,128 @@ const codeLanguages = [
             return StreamLanguage.define(m.shell);
         }
     }),
+    // --- Erweiterung 2026-07-04: billige Stream-Parser (legacy-modes) für die
+    // restlichen hljs-common-Sprachen — wenige KB pro Sprache statt voller
+    // Lezer-Grammatiken. Fences matchen über name/alias. ---
+    LanguageDescription.of({
+        name: 'c',
+        extensions: ['c', 'h'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/clike'); return StreamLanguage.define(m.c); }
+    }),
+    LanguageDescription.of({
+        name: 'cpp',
+        alias: ['c++', 'cc', 'cxx'],
+        extensions: ['cpp', 'hpp', 'cc'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/clike'); return StreamLanguage.define(m.cpp); }
+    }),
+    LanguageDescription.of({
+        name: 'csharp',
+        alias: ['cs', 'c#'],
+        extensions: ['cs'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/clike'); return StreamLanguage.define(m.csharp); }
+    }),
+    LanguageDescription.of({
+        name: 'objectivec',
+        alias: ['objc', 'objective-c'],
+        extensions: ['m'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/clike'); return StreamLanguage.define(m.objectiveC); }
+    }),
+    LanguageDescription.of({
+        name: 'kotlin',
+        alias: ['kt'],
+        extensions: ['kt', 'kts'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/clike'); return StreamLanguage.define(m.kotlin); }
+    }),
+    LanguageDescription.of({
+        name: 'go',
+        alias: ['golang'],
+        extensions: ['go'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/go'); return StreamLanguage.define(m.go); }
+    }),
+    LanguageDescription.of({
+        name: 'rust',
+        alias: ['rs'],
+        extensions: ['rs'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/rust'); return StreamLanguage.define(m.rust); }
+    }),
+    LanguageDescription.of({
+        name: 'ruby',
+        alias: ['rb'],
+        extensions: ['rb'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/ruby'); return StreamLanguage.define(m.ruby); }
+    }),
+    LanguageDescription.of({
+        name: 'swift',
+        extensions: ['swift'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/swift'); return StreamLanguage.define(m.swift); }
+    }),
+    LanguageDescription.of({
+        name: 'php',
+        extensions: ['php'],
+        async load() { const m = await import('@codemirror/lang-php'); return m.php(); }
+    }),
+    LanguageDescription.of({
+        name: 'yaml',
+        alias: ['yml'],
+        extensions: ['yaml', 'yml'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/yaml'); return StreamLanguage.define(m.yaml); }
+    }),
+    LanguageDescription.of({
+        name: 'xml',
+        alias: ['svg', 'xsl'],
+        extensions: ['xml', 'svg'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/xml'); return StreamLanguage.define(m.xml); }
+    }),
+    LanguageDescription.of({
+        name: 'scss',
+        extensions: ['scss'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/css'); return StreamLanguage.define(m.sCSS); }
+    }),
+    LanguageDescription.of({
+        name: 'less',
+        extensions: ['less'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/css'); return StreamLanguage.define(m.less); }
+    }),
+    LanguageDescription.of({
+        name: 'lua',
+        extensions: ['lua'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/lua'); return StreamLanguage.define(m.lua); }
+    }),
+    LanguageDescription.of({
+        name: 'perl',
+        alias: ['pl'],
+        extensions: ['pl', 'pm'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/perl'); return StreamLanguage.define(m.perl); }
+    }),
+    LanguageDescription.of({
+        name: 'r',
+        extensions: ['r'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/r'); return StreamLanguage.define(m.r); }
+    }),
+    LanguageDescription.of({
+        name: 'diff',
+        alias: ['patch'],
+        extensions: ['diff', 'patch'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/diff'); return StreamLanguage.define(m.diff); }
+    }),
+    LanguageDescription.of({
+        name: 'ini',
+        alias: ['toml', 'properties'],
+        extensions: ['ini', 'toml', 'properties'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/properties'); return StreamLanguage.define(m.properties); }
+    }),
+    LanguageDescription.of({
+        name: 'powershell',
+        alias: ['ps1'],
+        extensions: ['ps1'],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/powershell'); return StreamLanguage.define(m.powerShell); }
+    }),
+    LanguageDescription.of({
+        name: 'dockerfile',
+        alias: ['docker'],
+        extensions: [],
+        async load() { const m = await import('@codemirror/legacy-modes/mode/dockerfile'); return StreamLanguage.define(m.dockerFile); }
+    }),
 ];
 import { tags } from '@lezer/highlight';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';

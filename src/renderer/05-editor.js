@@ -571,8 +571,21 @@ let autocompleteSelectedIndex = 0;
 const autocompleteRules = [
     { trigger: '[', completion: ']()', cursorOffset: -1, label: '[Link](url)', hint: 'Link' },
     { trigger: '![', completion: ']()', cursorOffset: -1, label: '![alt](url)', hint: 'Bild' },
-    { trigger: '```', completion: '\n\n```', cursorOffset: -4, label: '```sprache```', hint: 'Code-Block',
-      languages: ['javascript', 'python', 'bash', 'html', 'css', 'json', 'typescript', 'java', 'c', 'sql', 'markdown'] },
+    { trigger: '```', completion: '\n\n```', cursorOffset: -4, label: '```sprache```', hint: 'Code-Block' },
+];
+
+// Zentrale Fence-Sprachliste — deckungsgleich mit dem hljs-"common"-Bundle der
+// Preview (vendor/highlight.min.js) plus mermaid (eigener Renderer): alles,
+// was hier angeboten wird, wird auch wirklich gehighlightet (Preview + PDF)
+// und seit 2026-07-04 auch im Editor (CM6 legacy-Stream-Modes).
+// Sortierung: Verbreitung zuerst.
+const CODE_FENCE_LANGUAGES = [
+    'javascript', 'typescript', 'python', 'java', 'c', 'cpp', 'csharp',
+    'go', 'rust', 'php', 'ruby', 'swift', 'kotlin',
+    'bash', 'shell', 'sql', 'html', 'css', 'scss', 'less',
+    'json', 'yaml', 'xml', 'markdown', 'mermaid',
+    'ini', 'diff', 'graphql', 'lua', 'perl', 'r', 'objectivec',
+    'makefile', 'powershell', 'dockerfile', 'plaintext'
 ];
 
 function checkAutocomplete() {
@@ -585,8 +598,10 @@ function checkAutocomplete() {
     const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
     const lineText = text.substring(lineStart, pos);
 
-    if (lineText === '```') {
-        showAutocompleteLanguages(pos);
+    // Sprach-Popup: bei ``` und beim Weitertippen (```py → gefiltert)
+    const fenceMatch = lineText.match(/^```([a-z0-9+#-]*)$/i);
+    if (fenceMatch) {
+        showAutocompleteLanguages(lineStart + 3, fenceMatch[1]);
         return;
     }
 
@@ -602,20 +617,35 @@ function checkAutocomplete() {
     hideAutocomplete();
 }
 
-function showAutocompleteLanguages(pos) {
+// insertFrom = Position direkt hinter ``` ; prefix = bereits getippte Zeichen.
+// IDE-Konvention: Tippen filtert die Liste, die Auswahl ersetzt das Präfix.
+function showAutocompleteLanguages(insertFrom, prefix = '') {
     const popup = document.getElementById('autocompletePopup');
     if (!popup) return;
 
-    const languages = ['javascript', 'python', 'bash', 'html', 'css', 'json', 'typescript', 'java', 'sql', 'markdown'];
+    const needle = prefix.toLowerCase();
+    const languages = CODE_FENCE_LANGUAGES.filter(l => l.startsWith(needle));
+    if (languages.length === 0) {
+        hideAutocomplete();
+        return;
+    }
 
     popup.textContent = '';
     languages.forEach((lang, index) => {
         const item = document.createElement('div');
         item.className = 'autocomplete-item' + (index === 0 ? ' selected' : '');
-        item.textContent = lang;
+        if (prefix) {
+            // getipptes Präfix hervorheben
+            const strong = document.createElement('strong');
+            strong.textContent = lang.slice(0, prefix.length);
+            item.appendChild(strong);
+            item.appendChild(document.createTextNode(lang.slice(prefix.length)));
+        } else {
+            item.textContent = lang;
+        }
         item.addEventListener('click', () => {
-            replaceRange(pos, pos, lang + '\n\n```');
-            editor.selectionStart = editor.selectionEnd = pos + lang.length + 1;
+            replaceRange(insertFrom, insertFrom + prefix.length, lang + '\n\n```');
+            editor.selectionStart = editor.selectionEnd = insertFrom + lang.length + 1;
             hideAutocomplete();
             handleEditorInput();
         });
@@ -623,8 +653,9 @@ function showAutocompleteLanguages(pos) {
     });
 
     autocompleteSelectedIndex = 0;
-    positionAutocomplete(pos);
+    positionAutocomplete(insertFrom);
     popup.style.display = 'block';
+    popup.scrollTop = 0;
     autocompleteVisible = true;
 }
 
@@ -693,6 +724,8 @@ function handleAutocompleteKeydown(e) {
         items[autocompleteSelectedIndex].classList.remove('selected');
         autocompleteSelectedIndex = (autocompleteSelectedIndex + 1) % items.length;
         items[autocompleteSelectedIndex].classList.add('selected');
+        // Fix: Liste scrollt mit der Auswahl (blieb vorher stehen)
+        items[autocompleteSelectedIndex].scrollIntoView({ block: 'nearest' });
         return true;
     }
     if (e.key === 'ArrowUp') {
@@ -700,6 +733,7 @@ function handleAutocompleteKeydown(e) {
         items[autocompleteSelectedIndex].classList.remove('selected');
         autocompleteSelectedIndex = (autocompleteSelectedIndex - 1 + items.length) % items.length;
         items[autocompleteSelectedIndex].classList.add('selected');
+        items[autocompleteSelectedIndex].scrollIntoView({ block: 'nearest' });
         return true;
     }
     if (e.key === 'Enter' || e.key === 'Tab') {
