@@ -498,14 +498,22 @@
         </div>
     </div>
 
-    <!-- D4: PDF Options Dialog -->
-    <div class="modal-overlay" id="pdfOptionsModal">
+    <!-- K1: Gemeinsamer Export-Dialog (Format-Auswahl + format-spezifische Optionen) -->
+    <div class="modal-overlay" id="exportModal">
         <div class="modal" style="max-width: 420px;">
             <div class="modal-header">
-                <h2 class="modal-title">PDF-Optionen</h2>
+                <h2 class="modal-title">Exportieren</h2>
             </div>
             <div class="modal-content">
                 <div class="search-controls">
+                    <div class="settings-row">
+                        <label for="exportFormat" style="color: var(--text-secondary); font-size: 14px;">Format</label>
+                        <select class="search-input" id="exportFormat" style="width: 180px;">
+                            <!-- Populated at runtime from the export registry (get-export-formats) -->
+                        </select>
+                    </div>
+                    <div id="exportFormatDescription" style="color: var(--text-muted, #888); font-size: 12px; margin: 4px 0 8px 0;"></div>
+                    <div id="exportPdfOptions">
                     <div class="settings-row">
                         <label for="pdfTemplate" style="color: var(--text-secondary); font-size: 14px;">Vorlage</label>
                         <select class="search-input" id="pdfTemplate" style="width: 180px;">
@@ -542,9 +550,10 @@
                         <label><input type="checkbox" id="pdfToc"> Inhaltsverzeichnis einfügen</label>
                         <label><input type="checkbox" id="pdfPageNumbers" checked> Seitenzahlen</label>
                     </div>
+                    </div><!-- /exportPdfOptions -->
                     <div class="search-buttons">
-                        <button class="modal-button" onclick="exportPDFWithOptions()">Exportieren</button>
-                        <button class="modal-button outlined" onclick="closePdfOptionsDialog()">Abbrechen</button>
+                        <button class="modal-button" onclick="runExportFromDialog()">Exportieren</button>
+                        <button class="modal-button outlined" onclick="closeExportDialog()">Abbrechen</button>
                     </div>
                 </div>
             </div>

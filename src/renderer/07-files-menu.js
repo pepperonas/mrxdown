@@ -26,6 +26,9 @@ function handleMenuAction(action, data = {}) {
         case 'export-pdf':
             exportPDF();
             break;
+        case 'export-dialog':
+            showExportDialog();
+            break;
         case 'batch-export-pdf':
             batchExportPDF();
             break;

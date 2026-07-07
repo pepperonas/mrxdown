@@ -52,9 +52,13 @@ Artifact naming: `mrxdown-macos-{arch}.zip`, `mrxdown-windows-x64.exe`, `mrxdown
 Electron app with strict process separation:
 
 ```
-main.js              -> Main process: window, menus, IPC handlers, file I/O, PDF generation,
+main.js              -> Main process: window, menus, IPC handlers, file I/O,
                         CLI/headless mode, auto-updater
-src/renderer/        -> Renderer process, 12 ordered classic-script modules (01-core … 12-features).
+src/main/export/     -> Export core: registry.js (format catalog) + formats/{html,pdf}.js,
+                        frontmatter.js (pure, jest-tested), pdf-templates.js, pdf-html.js,
+                        pdf-render.js, images.js, context.js (DI for settings/currentFilePath;
+                        APP_ROOT resolves pdf-templates/ + vendor/ paths in dev AND asar)
+src/renderer/        -> Renderer process, 13 ordered classic-script modules (01-core … 13-motion).
                         NOT ESM: top-level declarations are shared globals; the script-tag order
                         in index.html is load-bearing (02-state declares all shared state).
 index.html           -> UI structure (CSS in separate files, no inline styles); loads the renderer modules in order
@@ -98,7 +102,8 @@ Key constraints:
 - **CSS / design tokens**: Material 3 Expressive token system in `css/variables.css` — `--md-*` color roles (dark on `:root`, light overridden by `body.light-theme`), shape scale, state-layer opacities, and physically-sampled spring easings (`--motion-spatial-*` with overshoot, `--motion-effects-*` monotonic) as CSS `linear()` curves. Legacy vars (`--background-dark`, `--accent-blue`, …) are aliases declared on `body` — NOT `:root`, because var() references inside custom properties resolve at the declaring element; on `:root` the dark values would be baked in before the light-theme override. Style components via tokens only; no raw rgba-white overlays. `css/motion.css` holds all keyframes/transitions plus the global `prefers-reduced-motion` guard; `src/renderer/13-motion.js` drives the ripple and the circular-reveal theme switch (View Transitions API — theme class changes are ASYNC inside the transition callback; E2E tests must await ~350ms after `toggleTheme()`).
 - **CodeMirror 6**: `src/codemirror-setup.js` bundles to `vendor/codemirror-bundle.js` (IIFE, global `CMSetup`). `cm-adapter.js` wraps CM6 in a textarea-compatible `EditorAdapter` class. Tab/Enter keys are filtered from CM6 defaults so the app handles smart list continuation and table navigation.
 - **Icons**: `icons.js` provides `getIcon(name, size)` returning inline Lucide SVG strings with `stroke="currentColor"` for automatic theme adaptation.
-- **PDF generation**: `main.js` has `getPdfStylesheet()` and `buildPdfHtml()` shared by all PDF export paths (single, batch, CLI). Uses Chromium's `printToPDF` (Electron 43 / Chromium 150: `@page` margin boxes with `counter(page)` work natively — they were silently ignored before Chromium 131 — and `generateDocumentOutline` produces bookmarks). Every export path runs a pdf-lib metadata post-pass (`finalizePdfMetadata`: frontmatter → Title/Author/Keywords). TOC page numbers are two-pass: print → read outline via pdfjs-dist (`mapHeadingsToPages`) → reprint with numbers. CLI renders mermaid fences in the hidden print window (`renderMermaidForCLI` + vendor mermaid injection in `buildPdfHtml`); wait condition before printing is `document.fonts.ready` + `img.decode()` + `window.__mermaidReady` (`PDF_SMART_WAIT_JS`). The stylesheet comes from `pdf-templates/<name>.css`; `templates.json` declares each template's name/description and `titlePageFields`. YAML frontmatter in the document feeds `renderTitlePage()` (title, author, abstract, ...). Renderer fetches the template list via the `get-pdf-templates` IPC handle.
+- **Export registry (K1)**: `src/main/export/registry.js` — every target format is a module `{ id, label, ext, mime, filters, needs, optionsPanel, toBuffer(doc) }`; `needs` tells the renderer which doc fields to send (`fullHtml` | `previewHtml` | `rawMarkdown`). IPC: `get-export-formats` (catalog) + `export-document` (invoke; validates formatId/fields/options main-side). The shared export dialog (`Cmd+Shift+E`, `#exportModal` in index.html, logic in 12-features.js) picks the format and shows its options section. Legacy channels `export-html`/`print-to-pdf`/`print-to-pdf-options` stay wired to the same format modules. New formats (DOCX, EPUB, slides) register in registry.js.
+- **PDF generation**: `src/main/export/` has `buildPdfHtml()` (pdf-html.js) and `generatePdfSimple`/`generatePdfWithOptions` (formats/pdf.js) shared by all PDF export paths (single, batch, CLI). Uses Chromium's `printToPDF` (Electron 43 / Chromium 150: `@page` margin boxes with `counter(page)` work natively — they were silently ignored before Chromium 131 — and `generateDocumentOutline` produces bookmarks). Every export path runs a pdf-lib metadata post-pass (`finalizePdfMetadata`: frontmatter → Title/Author/Keywords). TOC page numbers are two-pass: print → read outline via pdfjs-dist (`mapHeadingsToPages`) → reprint with numbers. CLI renders mermaid fences in the hidden print window (`renderMermaidForCLI` + vendor mermaid injection in `buildPdfHtml`); wait condition before printing is `document.fonts.ready` + `img.decode()` + `window.__mermaidReady` (`PDF_SMART_WAIT_JS`). The stylesheet comes from `pdf-templates/<name>.css`; `templates.json` declares each template's name/description and `titlePageFields`. YAML frontmatter in the document feeds `renderTitlePage()` (title, author, abstract, ...). Renderer fetches the template list via the `get-pdf-templates` IPC handle.
 - **Auto-updater**: electron-updater, lazy-required in `initAutoUpdater()` (main.js) so dev mode doesn't load it. Only runs in packaged GUI builds, deferred 3s after window creation; `autoDownload` + `autoInstallOnAppQuit` are on, plus a manual "check for updates" menu item.
 - **Settings**: `main.js` reads/writes `settings.json` and `recent-files.json` in `app.getPath('userData')`.
 - **Global function exposure**: Functions used in HTML `onclick` handlers must be assigned to `window.*` in the `DOMContentLoaded` listener at the top of renderer.js.
@@ -111,9 +116,10 @@ Duplicated in three places (renderer.js custom renderer, renderer.js post-proces
 
 ### Tests
 
-Tests in `tests/` cover pure functions from `editor-utils.js`:
+Tests in `tests/` cover pure functions from `editor-utils.js` and `src/main/export/`:
 
 - `heading-id.test.js` — GitHub-compatible ID generation
+- `frontmatter.test.js` — YAML-lite frontmatter parsing (`src/main/export/frontmatter.js`)
 - `smart-enter.test.js` — List continuation logic
 - `indent.test.js` — Block indent/unindent
 - `toggle-comment.test.js` — HTML comment toggling

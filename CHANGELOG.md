@@ -14,6 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
 
+## [0.6.0] - 2026-07-07
+
+### 🧩 Export-Registry + gemeinsamer Export-Dialog (Konverter-Grundstein, K1)
+- **Zentrale Format-Registry** (`src/main/export/registry.js`): jedes Zielformat ist ein Modul mit `{ id, label, ext, mime, filters, needs, optionsPanel, toBuffer(doc) }`. HTML und PDF sind überführt; neue Formate (DOCX, EPUB, Slides) registrieren sich künftig hier.
+- **Gemeinsamer Export-Dialog** (`Cmd+Shift+E`, Menü „Datei → Exportieren…", Command Palette): Format-Auswahl aus der Registry + format-spezifische Optionen (PDF: Vorlage, Seitengröße, Ränder, TOC, Seitenzahlen — die HTML-Variante braucht keine). Direkt-Exporte `Cmd+E` (HTML) und `Cmd+P` (PDF) bleiben unverändert.
+- **Neue IPC** `get-export-formats` + `export-document` (invoke, mit Input-Validierung: Format-Whitelist, Typ-Checks, Größen-Limit; PDF-Optionen werden main-seitig saniert — Seitengrößen-Whitelist, geklemmte Ränder/Schriftgrößen).
+
+### 🔧 main.js entflochten (Q1, Teil 1)
+- Export-/PDF-Kern (Frontmatter-Parsing, Template-System, hljs/KaTeX/Mermaid-Aufbereitung, printToPDF-Rendering samt Metadaten/Outline, Bild-Einbettung) aus `main.js` in fünf Module unter `src/main/export/` extrahiert — verhaltensidentisch, `main.js` von 2582 auf ~1850 Zeilen. Veränderlicher Zustand (settings, currentFilePath) fließt über einen DI-Kontext.
+- Neue Jest-Suite für das jetzt eigenständige Frontmatter-Modul (14 Tests) + E2E-Szenario für Registry & Export-Dialog (12 Checks).
+
 ## [0.5.0] - 2026-07-05
 
 ### 📦 Ein-Befehl-Installation für macOS

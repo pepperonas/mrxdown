@@ -84,6 +84,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Phase C: PDF template catalog for the export dialog
     getPdfTemplates: () => ipcRenderer.invoke('get-pdf-templates'),
 
+    // K1: Export-Registry — Format-Katalog + generischer Export
+    getExportFormats: () => ipcRenderer.invoke('get-export-formats'),
+    exportDocument: (payload) => ipcRenderer.invoke('export-document', payload),
+
     // Theme "System"
     getSystemTheme: () => ipcRenderer.invoke('get-system-theme'),
     onSystemThemeChanged: (callback) => onOnce('system-theme-changed', callback),
