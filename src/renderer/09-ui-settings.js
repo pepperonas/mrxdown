@@ -226,10 +226,10 @@ function handleGlobalShortcuts(e) {
             closeTabOverview();
             return;
         }
-        const pdfOptionsModal = document.getElementById('pdfOptionsModal');
-        if (pdfOptionsModal && pdfOptionsModal.classList.contains('visible')) {
+        const exportModal = document.getElementById('exportModal');
+        if (exportModal && exportModal.classList.contains('visible')) {
             e.preventDefault();
-            closePdfOptionsDialog();
+            closeExportDialog();
             return;
         }
     }

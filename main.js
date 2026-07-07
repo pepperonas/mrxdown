@@ -26,10 +26,15 @@ const packageJson = require('./package.json');
 // registriert darauf nur noch IPC-Handler und die CLI-Pfade.
 const exportContext = require('./src/main/export/context');
 const { extractFrontmatter } = require('./src/main/export/frontmatter');
-const { getPdfTemplatesManifest, loadPdfTemplateCss, renderTitlePage, resolvePdfTemplateName } = require('./src/main/export/pdf-templates');
-const { buildPdfHtml, getHighlightCss, getKatexCss, renderMathForCLI, renderMermaidForCLI } = require('./src/main/export/pdf-html');
-const { PDF_SMART_WAIT_JS, renderHtmlToPdf, finalizePdfMetadata, mapHeadingsToPages } = require('./src/main/export/pdf-render');
+const { getPdfTemplatesManifest } = require('./src/main/export/pdf-templates');
+const { buildPdfHtml, renderMathForCLI, renderMermaidForCLI } = require('./src/main/export/pdf-html');
+const { PDF_SMART_WAIT_JS, renderHtmlToPdf, finalizePdfMetadata } = require('./src/main/export/pdf-render');
 const { convertImagesToBase64 } = require('./src/main/export/images');
+// K1: Export-Registry — Katalog aller Zielformate + die Format-Implementierungen,
+// die auch die Legacy-IPC-Pfade (export-html, print-to-pdf*) antreiben.
+const exportRegistry = require('./src/main/export/registry');
+const htmlFormat = require('./src/main/export/formats/html');
+const pdfFormat = require('./src/main/export/formats/pdf');
 
 // --- Settings & Recent Files Persistence ---
 const userDataPath = app.getPath('userData');
@@ -237,6 +242,11 @@ function getMenuTemplate() {
             label: 'Als PDF exportieren',
             accelerator: 'CmdOrCtrl+P',
             click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'export-pdf' }); }
+        },
+        {
+            label: 'Exportieren…',
+            accelerator: 'CmdOrCtrl+Shift+E',
+            click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'export-dialog' }); }
         }
     ];
 
@@ -819,32 +829,8 @@ ipcMain.on('export-html', async (event, { content, filePath }) => {
 
     if (!result.canceled) {
         try {
-            // Convert file:// image URLs to base64 data URLs
-            let processedContent = content;
-            const imgRegex = /<img[^>]+src="file:\/\/([^"]+)"[^>]*>/g;
-            let match;
-            
-            while ((match = imgRegex.exec(content)) !== null) {
-                // M7: fileURLToPath handles Windows drive letters — the old
-                // decodeURIComponent left '/C:/...' which fs can't open
-                let imagePath;
-                try {
-                    imagePath = require('url').fileURLToPath('file://' + match[1]);
-                } catch (e) {
-                    imagePath = decodeURIComponent(match[1]);
-                }
-                try {
-                    const imageData = await fs.readFile(imagePath);
-                    const extension = path.extname(imagePath).toLowerCase().slice(1);
-                    const mimeType = extension === 'jpg' ? 'jpeg' : extension;
-                    const base64 = imageData.toString('base64');
-                    const dataUrl = `data:image/${mimeType};base64,${base64}`;
-                    processedContent = processedContent.replace(match[0], match[0].replace(`file://${match[1]}`, dataUrl));
-                } catch (err) {
-                    console.error(`Failed to convert image ${imagePath}:`, err);
-                }
-            }
-            
+            // K1: Bild-Einbettung (file:// -> base64) lebt im HTML-Format-Modul
+            const processedContent = await htmlFormat.embedFileImagesAsBase64(content);
             await fs.writeFile(result.filePath, processedContent, 'utf-8');
         } catch (error) {
             dialog.showErrorBox('Fehler', `Export fehlgeschlagen: ${error.message}`);
@@ -853,118 +839,23 @@ ipcMain.on('export-html', async (event, { content, filePath }) => {
 });
 
 // D4: PDF export with user-specified options (page size, margins, orientation, TOC)
+// K1: Kern lebt in src/main/export/formats/pdf.js (generatePdfWithOptions)
 ipcMain.on('print-to-pdf-options', async (event, { filePath, pdfOptions } = {}) => {
     try {
-        const opts = pdfOptions || {};
-        const pageSize = opts.pageSize || 'A4';
-        const landscape = opts.orientation === 'landscape';
-        const margin = opts.margin !== undefined ? opts.margin : 20;
-        const fontSize = opts.fontSize || 11;
-        const showToc = opts.toc || false;
-        const showPageNumbers = opts.pageNumbers !== false;
-
         const pageData = await mainWindow.webContents.executeJavaScript(
             '(function() { var p = document.querySelector("#preview"); var html = p ? p.innerHTML : ""; var raw = (typeof editor !== "undefined" && editor && editor.value) ? editor.value : ""; return { previewHtml: html, rawMarkdown: raw }; })()'
         );
-        let content = pageData && pageData.previewHtml ? pageData.previewHtml : '';
+        const previewHtml = pageData && pageData.previewHtml ? pageData.previewHtml : '';
         const rawMarkdown = pageData && pageData.rawMarkdown ? pageData.rawMarkdown : '';
-        const { frontmatter } = extractFrontmatter(rawMarkdown);
 
-        if (!content || content.trim().length === 0) {
+        if (!previewHtml || previewHtml.trim().length === 0) {
             dialog.showErrorBox('PDF-Export Fehler', 'Der Dokumentinhalt ist leer.');
             return;
         }
 
-        // Strip the preview's frontmatter info-box from the exported body
-        content = content.replace(/<div class="frontmatter-box">[\s\S]*?<\/div>\s*(?=<)/, '');
-
-        // H2: resolve relative images against the exported file's own directory
-        content = await convertImagesToBase64(content, filePath ? path.dirname(filePath) : null);
-
-        // M2: Template selection — the user's explicit dialog choice must beat frontmatter.
-        // resolvePdfTemplateName checks frontmatter first, so it only gets the fallbacks.
-        const manifest = getPdfTemplatesManifest();
-        const templateName = (opts.template && manifest[opts.template])
-            ? opts.template
-            : resolvePdfTemplateName(frontmatter, settings && settings.pdfTemplate);
-
-        // M3: The old literal regex patches (margin: 20mm 15mm etc.) only matched the
-        // default template's CSS — options were silently dropped for academic/minimal.
-        // Append an override block instead; the cascade makes the later rule win.
-        let customStyle = loadPdfTemplateCss(templateName);
-        if (!showPageNumbers) {
-            customStyle = customStyle.replace(/@bottom-center\s*\{[^}]+\}/, '');
-        }
-        customStyle += `\n/* User options from the PDF export dialog */\n` +
-            `@page { size: ${pageSize} ${landscape ? 'landscape' : 'portrait'}; margin: ${margin}mm; }\n` +
-            `body { font-size: ${fontSize}pt; }\n`;
-
-        // Title page from frontmatter (only if template + frontmatter support it)
-        const titlePage = renderTitlePage(frontmatter, templateName);
-
-        // D5: TOC — klickbare Anker + (Phase 4) echte Seitenzahlen via Zwei-Pass
-        const tocItems = [];
-        if (showToc) {
-            const headingRegex = /<h([1-3])[^>]*id="([^"]*)"[^>]*>([\s\S]*?)<\/h\1>/gi;
-            let match;
-            while ((match = headingRegex.exec(content)) !== null) {
-                tocItems.push({
-                    level: parseInt(match[1]),
-                    id: match[2],
-                    text: match[3].replace(/<[^>]+>/g, '')
-                });
-            }
-        }
-
-        // pageMap: null = Eintraege ohne Zahl (Pass 1); [{title,page}] = Pass 2
-        const buildTocHtml = (pageMap) => {
-            if (tocItems.length === 0) return '';
-            const lines = ['<div class="pdf-toc"><h2>Inhaltsverzeichnis</h2><ul>'];
-            let cursor = 0; // Outline-Eintraege in Dokumentreihenfolge konsumieren
-            for (const item of tocItems) {
-                const indent = (item.level - 1) * 20;
-                let pageHtml = '';
-                if (pageMap) {
-                    const idx = pageMap.findIndex((m, i) => i >= cursor && m.title === item.text.trim());
-                    if (idx !== -1) {
-                        pageHtml = '<span class="toc-dots"></span><span class="toc-page">' + pageMap[idx].page + '</span>';
-                        cursor = idx + 1;
-                    }
-                }
-                lines.push('<li style="margin-left:' + indent + 'px">' +
-                    '<a class="toc-label" href="#' + item.id + '">' + item.text + '</a>' + pageHtml + '</li>');
-            }
-            lines.push('</ul></div><div style="page-break-after:always"></div>');
-            return lines.join('');
-        };
-
-        const tocStyle = '.pdf-toc { margin-bottom: 2em; } ' +
-            '.pdf-toc h2 { border-bottom: 2px solid #333; padding-bottom: 0.5rem; } ' +
-            '.pdf-toc ul { list-style: none; padding: 0; } ' +
-            '.pdf-toc li { padding: 4px 0; color: #1a1a1a; display: flex; align-items: baseline; gap: 6px; } ' +
-            '.pdf-toc a.toc-label { color: #1a1a1a; text-decoration: none; } ' +
-            '.pdf-toc .toc-dots { flex: 1; border-bottom: 1.5px dotted #999; min-width: 24px; } ' +
-            '.pdf-toc .toc-page { font-variant-numeric: tabular-nums; }';
-        const buildFullHtml = (tocHtml) =>
-            '<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><style>' + customStyle + tocStyle +
-            getHighlightCss() + getKatexCss() + '</style></head><body>' + titlePage + tocHtml + content + '</body></html>';
-
-        let pdfData = await renderHtmlToPdf(buildFullHtml(buildTocHtml(null)), { pageSize, landscape });
-
-        if (showToc && tocItems.length > 0) {
-            // Phase 4: Outline aus Pass 1 lesen -> Heading->Seite -> Pass 2 mit Zahlen.
-            // Jeder Fehlschlag ist unkritisch: dann bleibt das TOC ohne Seitenzahlen.
-            try {
-                const pageMap = await mapHeadingsToPages(pdfData);
-                if (pageMap.length > 0) {
-                    pdfData = await renderHtmlToPdf(buildFullHtml(buildTocHtml(pageMap)), { pageSize, landscape });
-                }
-            } catch (err) {
-                console.warn('TOC-Seitenzahlen (Zwei-Pass) fehlgeschlagen:', err.message);
-            }
-        }
-
-        pdfData = await finalizePdfMetadata(pdfData, { frontmatter, filePath });
+        const pdfData = await pdfFormat.generatePdfWithOptions({
+            previewHtml, rawMarkdown, filePath, options: pdfOptions
+        });
 
         const baseFilePath = filePath || currentFilePath;
         const defaultFileName = baseFilePath ?
@@ -984,6 +875,7 @@ ipcMain.on('print-to-pdf-options', async (event, { filePath, pdfOptions } = {}) 
     }
 });
 
+// K1: einfacher PDF-Pfad (Cmd+P) — Kern in formats/pdf.js (generatePdfSimple)
 ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
     try {
         // Pull preview HTML and raw editor markdown so we can extract frontmatter
@@ -996,38 +888,30 @@ ipcMain.on('print-to-pdf', async (event, { filePath } = {}) => {
                 return { previewHtml, rawMarkdown };
             })()
         `);
-        let content = pageData && pageData.previewHtml ? pageData.previewHtml : '';
+        const previewHtml = pageData && pageData.previewHtml ? pageData.previewHtml : '';
         const rawMarkdown = pageData && pageData.rawMarkdown ? pageData.rawMarkdown : '';
-        const { frontmatter } = extractFrontmatter(rawMarkdown);
 
-        // Check if content is empty
-        if (!content || content.trim().length === 0) {
+        if (!previewHtml || previewHtml.trim().length === 0) {
             console.error('PDF Export: Preview content is empty');
             dialog.showErrorBox('PDF-Export Fehler', 'Der Dokumentinhalt ist leer. Bitte schreiben Sie etwas in den Editor, bevor Sie ein PDF exportieren.');
             return;
         }
 
-        // Strip the frontmatter info-box the preview adds (not part of the exported doc).
-        content = content.replace(/<div class="frontmatter-box">[\s\S]*?<\/div>\s*(?=<)/, '');
-
-        // Convert images to base64 for embedding (H2: base dir = the exported file's dir)
-        content = await convertImagesToBase64(content, filePath ? path.dirname(filePath) : null);
-
-        const pdfData = await renderHtmlToPdf(buildPdfHtml({ bodyContent: content, frontmatter }), {}, { frontmatter, filePath });
+        const pdfData = await pdfFormat.generatePdfSimple({ previewHtml, rawMarkdown, filePath });
 
         // Use the provided filePath from the active tab or fall back to currentFilePath
         const baseFilePath = filePath || currentFilePath;
-        const defaultFileName = baseFilePath ? 
-            path.basename(baseFilePath, path.extname(baseFilePath)) + '.pdf' : 
+        const defaultFileName = baseFilePath ?
+            path.basename(baseFilePath, path.extname(baseFilePath)) + '.pdf' :
             'Untitled.pdf';
-        
+
         const result = await dialog.showSaveDialog(mainWindow, {
             filters: [
                 { name: 'PDF', extensions: ['pdf'] }
             ],
             defaultPath: defaultFileName
         });
-        
+
         if (!result.canceled) {
             await fs.writeFile(result.filePath, pdfData);
         }
@@ -1146,6 +1030,58 @@ ipcMain.handle('get-pdf-templates', () => {
         supportsTitlePage: meta.supportsTitlePage !== false,
         titlePageFields: meta.titlePageFields || []
     }));
+});
+
+// K1: Export-Registry — Format-Katalog für den gemeinsamen Export-Dialog
+ipcMain.handle('get-export-formats', () => exportRegistry.listFormats());
+
+// K1: Generischer Export über die Registry. Der Renderer schickt die vom
+// jeweiligen Format benötigten Dokument-Felder (siehe format.needs) mit;
+// Save-Dialog + Schreiben passieren hier. Inputs werden validiert — der
+// Handler vertraut dem Renderer-Payload nicht blind.
+const EXPORT_DOC_FIELD_MAX = 64 * 1024 * 1024; // 64 MB pro Feld — großzügig, aber endlich
+ipcMain.handle('export-document', async (event, payload) => {
+    try {
+        if (!payload || typeof payload !== 'object') {
+            return { success: false, error: 'Ungültige Export-Anfrage.' };
+        }
+        const format = exportRegistry.getFormat(typeof payload.formatId === 'string' ? payload.formatId : '');
+        if (!format) {
+            return { success: false, error: `Unbekanntes Exportformat: ${payload.formatId}` };
+        }
+        const filePath = typeof payload.filePath === 'string' ? payload.filePath : null;
+
+        const doc = { filePath, options: (payload.options && typeof payload.options === 'object') ? payload.options : null };
+        for (const field of (format.needs || [])) {
+            const value = payload[field];
+            if (typeof value !== 'string' || value.length > EXPORT_DOC_FIELD_MAX) {
+                return { success: false, error: `Ungültiges Dokumentfeld: ${field}` };
+            }
+            doc[field] = value;
+        }
+        const contentSource = doc.fullHtml || doc.previewHtml || '';
+        if (!contentSource.trim()) {
+            return { success: false, error: 'Der Dokumentinhalt ist leer.' };
+        }
+
+        const buffer = await format.toBuffer(doc);
+
+        const baseFilePath = filePath || currentFilePath;
+        const defaultFileName = baseFilePath
+            ? path.basename(baseFilePath, path.extname(baseFilePath)) + '.' + format.ext
+            : 'Untitled.' + format.ext;
+        const result = await dialog.showSaveDialog(mainWindow, {
+            filters: format.filters,
+            defaultPath: defaultFileName
+        });
+        if (result.canceled) return { success: false, cancelled: true };
+
+        await fs.writeFile(result.filePath, buffer);
+        return { success: true, filePath: result.filePath };
+    } catch (error) {
+        console.error('Export fehlgeschlagen:', error);
+        return { success: false, error: error.message };
+    }
 });
 
 // Recent files handlers

@@ -70,21 +70,60 @@ async function populatePdfTemplateDropdown() {
     }
 }
 
-function showPdfOptionsDialog() {
-    const modal = document.getElementById('pdfOptionsModal');
+// --- K1: Gemeinsamer Export-Dialog (Format-Auswahl aus der Export-Registry) ---
+
+// Format-Katalog aus dem Main-Prozess — lazily beim ersten Dialog-Open geholt
+let _exportFormatsCatalog = null;
+
+async function populateExportFormatSelect() {
+    const select = document.getElementById('exportFormat');
+    if (!select) return;
+    if (!_exportFormatsCatalog && window.electronAPI && window.electronAPI.getExportFormats) {
+        try { _exportFormatsCatalog = await window.electronAPI.getExportFormats(); }
+        catch (_) { _exportFormatsCatalog = []; }
+    }
+    if (!_exportFormatsCatalog || _exportFormatsCatalog.length === 0) return;
+
+    // Only rebuild if empty (avoid resetting selection on each open)
+    if (select.options.length === 0) {
+        for (const fmt of _exportFormatsCatalog) {
+            const opt = document.createElement('option');
+            opt.value = fmt.id;
+            opt.textContent = fmt.label;
+            if (fmt.id === 'pdf') opt.selected = true; // PDF ist der häufigste Fall
+            select.appendChild(opt);
+        }
+        select.addEventListener('change', updateExportFormatUI);
+    }
+    updateExportFormatUI();
+}
+
+// Format-spezifische Options-Sektion + Beschreibung dem gewählten Format nachführen
+function updateExportFormatUI() {
+    const select = document.getElementById('exportFormat');
+    if (!select) return;
+    const fmt = (_exportFormatsCatalog || []).find(f => f.id === select.value);
+    const desc = document.getElementById('exportFormatDescription');
+    if (desc) desc.textContent = fmt ? fmt.description : '';
+    const pdfSection = document.getElementById('exportPdfOptions');
+    if (pdfSection) pdfSection.hidden = !(fmt && fmt.optionsPanel === 'pdf');
+}
+
+async function showExportDialog() {
+    const modal = document.getElementById('exportModal');
     if (modal) modal.classList.add('visible');
+    await populateExportFormatSelect();
     populatePdfTemplateDropdown();
 }
 
-function closePdfOptionsDialog() {
-    const modal = document.getElementById('pdfOptionsModal');
+function closeExportDialog() {
+    const modal = document.getElementById('exportModal');
     if (modal) modal.classList.remove('visible');
 }
 
-function exportPDFWithOptions() {
-    const activeTab = tabs.find(tab => tab.id === activeTabId);
+function collectPdfOptionsFromDialog() {
     const templateSelect = document.getElementById('pdfTemplate');
-    const pdfOptions = {
+    return {
         template: templateSelect ? templateSelect.value : 'default',
         pageSize: document.getElementById('pdfPageSize').value,
         orientation: document.getElementById('pdfOrientation').value,
@@ -93,20 +132,51 @@ function exportPDFWithOptions() {
         toc: document.getElementById('pdfToc').checked,
         pageNumbers: document.getElementById('pdfPageNumbers').checked
     };
+}
 
-    // Persist template choice for next invocation
-    if (pdfOptions.template && settings) {
-        settings.pdfTemplate = pdfOptions.template;
-        saveSettings();
+async function runExportFromDialog() {
+    const activeTab = tabs.find(tab => tab.id === activeTabId);
+    const select = document.getElementById('exportFormat');
+    const formatId = select && select.value ? select.value : 'pdf';
+    const fmt = (_exportFormatsCatalog || []).find(f => f.id === formatId);
+
+    const payload = {
+        formatId,
+        filePath: activeTab ? activeTab.filePath : null
+    };
+
+    // Dokument-Felder liefern, die das Format laut Registry braucht
+    const needs = (fmt && fmt.needs) || [];
+    if (needs.includes('fullHtml')) {
+        const fullHtml = generateHTMLExport();
+        if (!fullHtml) return; // Alert kam bereits aus generateHTMLExport()
+        payload.fullHtml = fullHtml;
+    }
+    if (needs.includes('previewHtml')) {
+        const previewElement = document.getElementById('preview');
+        payload.previewHtml = previewElement ? previewElement.innerHTML : '';
+    }
+    if (needs.includes('rawMarkdown')) {
+        payload.rawMarkdown = (editor && editor.value) ? editor.value : '';
     }
 
-    if (window.electronAPI && window.electronAPI.printToPDFOptions) {
-        window.electronAPI.printToPDFOptions({
-            filePath: activeTab ? activeTab.filePath : null,
-            pdfOptions
-        });
+    if (fmt && fmt.optionsPanel === 'pdf') {
+        payload.options = collectPdfOptionsFromDialog();
+        // Persist template choice for next invocation
+        if (payload.options.template && settings) {
+            settings.pdfTemplate = payload.options.template;
+            saveSettings();
+        }
     }
-    closePdfOptionsDialog();
+
+    closeExportDialog();
+
+    if (window.electronAPI && window.electronAPI.exportDocument) {
+        const result = await window.electronAPI.exportDocument(payload);
+        if (result && result.success === false && result.error) {
+            showAlert('Export fehlgeschlagen', result.error);
+        }
+    }
 }
 
 // --- C4: Focus Mode ---
@@ -345,7 +415,7 @@ function registerCommands() {
         { id: 'info-panel', label: 'Dokument-Info', action: () => toggleInfoPanel() },
         { id: 'focus-mode', label: 'Focus-Modus', shortcut: '\u2318\u21e7F', action: () => toggleFocusMode() },
         { id: 'typewriter-mode', label: 'Typewriter-Modus', action: () => toggleTypewriterMode() },
-        { id: 'pdf-options', label: 'PDF mit Optionen exportieren', action: () => showPdfOptionsDialog() },
+        { id: 'export-dialog', label: 'Exportieren\u2026 (Format w\u00e4hlen)', shortcut: '\u2318\u21e7E', action: () => showExportDialog() },
     ];
 }
 
@@ -789,9 +859,9 @@ window.showTabOverview = showTabOverview;
 window.closeTabOverview = closeTabOverview;
 window.showCommandPalette = showCommandPalette;
 window.closeCommandPalette = closeCommandPalette;
-window.showPdfOptionsDialog = showPdfOptionsDialog;
-window.closePdfOptionsDialog = closePdfOptionsDialog;
-window.exportPDFWithOptions = exportPDFWithOptions;
+window.showExportDialog = showExportDialog;
+window.closeExportDialog = closeExportDialog;
+window.runExportFromDialog = runExportFromDialog;
 window.refreshFileTree = refreshFileTree;
 
 // Initialize session stats on load
