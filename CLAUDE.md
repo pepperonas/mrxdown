@@ -85,11 +85,11 @@ All renderer-main communication goes through `preload.js`. The renderer calls `w
 
 ### CLI / Headless Mode
 
-`main.js` parses `process.argv.slice(app.isPackaged ? 1 : 2)` (packaged builds have no script path at `[1]`). `isHeadlessMode()` is true when a `--pdf` flag is passed or the file argument is a directory:
+`main.js` parses `process.argv.slice(app.isPackaged ? 1 : 2)` (packaged builds have no script path at `[1]`). `isHeadlessMode()` is true when `--to <format>` or `--pdf` is passed with paths, or the file argument is a directory (legacy → PDF batch):
 
-- File + `--pdf` → `runCLI()` converts one Markdown file to PDF
-- Directory → `runCLIBatch()` converts all Markdown files in it
+- `--to pdf|html|docx` + files/dirs → `src/main/cli.js` `runCli()` converts everything in one loop (multiple args = shell globs; dirs expand to their .md files). `--pdf` is an alias for `--to pdf`.
 - Otherwise → GUI mode; the file argument opens in the editor
+- CLI marked instance gets the callout extension AND the preview's heading-ID renderer (editor-utils.js) — anchors work in CLI HTML/PDF. Beware the `--to`-value filter when touching arg parsing: with no `--to`, `toFlagIdx+1` is 0 and must not exclude the first path (regression caught by cli-pdf.js).
 
 Key constraints:
 - **GUI mode uses a single-instance lock** (second launch forwards the file to the running window via `second-instance`); headless mode deliberately skips the lock.
@@ -133,7 +133,7 @@ Tests in `tests/` cover pure functions from `editor-utils.js` and `src/main/expo
 
 `editor-utils.js` uses conditional `module.exports` to work in both browser and Node.js. To add testable logic, extract pure functions there.
 
-E2E tests live in `tests/e2e/`: `run.js` spawns one Electron process per `scenarios/*.e2e.js` file via a root-level entry shim (`.e2e-entry.js`, auto-generated — the app resolves `index.html` against the entry script's directory). Each scenario gets a driver (`exec`, `setContent`, `resize`, `assert*`) and runs against the real app with an isolated userData profile. `cli-pdf.js` covers the headless single-file and batch PDF paths. Both CI workflows gate on unit + E2E tests.
+E2E tests live in `tests/e2e/`: `run.js` spawns one Electron process per `scenarios/*.e2e.js` file via a root-level entry shim (`.e2e-entry.js`, auto-generated — the app resolves `index.html` against the entry script's directory). Each scenario gets a driver (`exec`, `setContent`, `resize`, `assert*`) and runs against the real app with an isolated userData profile. `cli-pdf.js` covers the headless single-file and batch PDF paths; `cli-convert.js` covers `--to html|docx` roundtrips (mammoth read-back), multi-arg globs, and error exits. Both CI workflows gate on unit + E2E tests.
 
 ## CI/CD
 

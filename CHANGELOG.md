@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
 
+## [0.10.0] - 2026-07-08
+
+### ⌨️ CLI zum echten Konverter (K7)
+- **`mrxdown --to pdf|html|docx <datei|verzeichnis …>`** headless: HTML (portables Standalone-Dokument mit eingebetteten Bildern, Callout-Styles, Heading-IDs), DOCX (mammoth-verifiziert, Frontmatter → docProps) und PDF (wie bisher, inkl. Mermaid/KaTeX/Tagged-PDF). `--pdf` bleibt als Alias erhalten (Kontextmenüs, bestehende Skripte).
+- **Mehrere Datei-/Verzeichnis-Argumente** in einem Aufruf (Shell-Globs: `mrxdown --to html docs/*.md`); Verzeichnisse expandieren zu allen `.md`-Dateien. Exit-Code 0 nur wenn alles gelang; unbekannte Formate/fehlende Dateien → 1.
+- **CLI-Heading-IDs**: der GitHub-kompatible Heading-ID-Renderer der Preview (editor-utils.js) läuft jetzt auch headless — interne Anker-Links funktionieren in CLI-HTML und CLI-PDF.
+- **Q1, Teil 2**: die gesamte CLI ist aus `main.js` nach `src/main/cli.js` gezogen (Einzel- und Batch-Pfad konsolidiert, ~210 Zeilen Duplikat entfernt); `main.js` ist bei ~1690 Zeilen (Start: 2582).
+- Wrapper aktualisiert: `mrxdown-cli.sh` (`--to`-Flag, Mehrfach-Argumente, `--help`) und `build/mrxdown.cmd` (reicht `--to` durch, Default bleibt PDF).
+- Neues Release-Gate `tests/e2e/cli-convert.js` (15 Checks: HTML-Gerüst/Titel/Callouts/IDs, DOCX-mammoth-Roundtrip + docProps, Mehrfach-Argumente, Fehlerfälle) — läuft in `npm run test:e2e` mit.
+
 ## [0.9.0] - 2026-07-08
 
 ### 📄 DOCX-Export (K2) — Word ohne Pandoc

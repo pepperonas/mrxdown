@@ -1,18 +1,46 @@
 #!/bin/bash
-# MrxDown CLI - Markdown to PDF converter
-# Usage: mrxdown /path/to/file.md
+# MrxDown CLI - Markdown-Konverter (K7)
+# Usage: mrxdown [--to pdf|html|docx] <datei-oder-verzeichnis ...>
+#        mrxdown file.md                  → file.pdf (Default)
+#        mrxdown --to docx file.md        → file.docx
+#        mrxdown --to html docs/          → alle .md im Verzeichnis
 
-if [ -z "$1" ]; then
-    echo "Usage: mrxdown <markdown-file>"
-    echo "Example: mrxdown /path/to/file.md"
+FORMAT="pdf"
+ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --to)
+            FORMAT="$2"
+            shift 2
+            ;;
+        --pdf)
+            FORMAT="pdf"
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: mrxdown [--to pdf|html|docx] <datei-oder-verzeichnis ...>"
+            echo "Beispiele:"
+            echo "  mrxdown notes.md              # → notes.pdf"
+            echo "  mrxdown --to docx notes.md    # → notes.docx"
+            echo "  mrxdown --to html docs/       # alle .md im Verzeichnis"
+            exit 0
+            ;;
+        *)
+            # Relative Pfade absolut machen (Electron läuft mit eigenem cwd)
+            if [[ "$1" != /* ]]; then
+                ARGS+=("$(pwd)/$1")
+            else
+                ARGS+=("$1")
+            fi
+            shift
+            ;;
+    esac
+done
+
+if [ ${#ARGS[@]} -eq 0 ]; then
+    echo "Usage: mrxdown [--to pdf|html|docx] <datei-oder-verzeichnis ...>"
     exit 1
-fi
-
-# Convert relative path to absolute
-if [[ "$1" != /* ]]; then
-    FILE="$(pwd)/$1"
-else
-    FILE="$1"
 fi
 
 # Run Electron with flags to suppress Chromium noise in headless mode.
@@ -23,5 +51,5 @@ fi
     --disable-software-rasterizer \
     --disable-features=ServiceWorker \
     --no-first-run \
-    --pdf \
-    "$FILE" 2>&1 | grep -v "\[.*ERROR:service_worker_storage\|Failed to delete the database"
+    --to "$FORMAT" \
+    "${ARGS[@]}" 2>&1 | grep -v "\[.*ERROR:service_worker_storage\|Failed to delete the database"

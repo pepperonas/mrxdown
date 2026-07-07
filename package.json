@@ -1,6 +1,6 @@
 {
   "name": "mrxdown",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Ein moderner Markdown-Editor mit Live-Vorschau",
   "main": "main.js",
   "homepage": "https://github.com/pepperonas/mrxdown",
@@ -29,7 +29,7 @@
     "dist": "electron-builder",
     "postinstall": "electron-builder install-app-deps",
     "test": "jest --verbose",
-    "test:e2e": "node tests/e2e/run.js && node tests/e2e/cli-pdf.js",
+    "test:e2e": "node tests/e2e/run.js && node tests/e2e/cli-pdf.js && node tests/e2e/cli-convert.js",
     "test:all": "npm test && npm run test:e2e",
     "build:editor": "esbuild src/codemirror-setup.js --bundle --outfile=vendor/codemirror-bundle.js --format=iife --global-name=CMSetup --minify",
     "build:hljs": "esbuild src/hljs-entry.js --bundle --outfile=vendor/highlight.min.js --format=iife --minify",

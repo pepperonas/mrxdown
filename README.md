@@ -65,7 +65,7 @@
 | **Editor-Ops** | Zeile duplizieren/löschen/verschieben, Block ein-/ausrücken, Kommentar-Toggle, Checkbox-Toggle |
 | **Rendering** | YAML-Frontmatter-Unterstützung, Callouts (`> [!NOTE]` … in Preview + PDF), Typewriter-Modus, inkrementelles DOM-Diffing (morphdom) |
 | **Rechtschreibung** | Integrierte Rechtschreibprüfung (DE/EN) mit Korrekturvorschlägen |
-| **CLI** | Headless Markdown-zu-PDF Konvertierung vom Terminal |
+| **CLI** | Headless-Konverter: `mrxdown --to pdf\|html\|docx <datei\|ordner …>` (Globs, Batch, Exit-Codes) |
 | **Quick Action** | macOS Rechtsklick-Kontextmenü für Markdown → PDF Konvertierung |
 | **Windows Kontextmenü** | Windows Rechtsklick → "Mit MrxDown zu PDF konvertieren" (automatisch per Installer) |
 | **Qualität** | 109 Unit-Tests + 109 E2E-Checks (echte App headless) + CLI-PDF-Roundtrip als Release-Gate in CI |

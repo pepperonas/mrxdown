@@ -27,8 +27,8 @@ const packageJson = require('./package.json');
 const exportContext = require('./src/main/export/context');
 const { extractFrontmatter } = require('./src/main/export/frontmatter');
 const { getPdfTemplatesManifest } = require('./src/main/export/pdf-templates');
-const { buildPdfHtml, renderMathForCLI, renderMermaidForCLI } = require('./src/main/export/pdf-html');
-const { PDF_SMART_WAIT_JS, renderHtmlToPdf, finalizePdfMetadata } = require('./src/main/export/pdf-render');
+const { buildPdfHtml } = require('./src/main/export/pdf-html');
+const { renderHtmlToPdf } = require('./src/main/export/pdf-render');
 const { convertImagesToBase64 } = require('./src/main/export/images');
 // K1: Export-Registry — Katalog aller Zielformate + die Format-Implementierungen,
 // die auch die Legacy-IPC-Pfade (export-html, print-to-pdf*) antreiben.
@@ -1444,243 +1444,39 @@ Entwickelt mit Electron`,
     });
 }
 
-// CLI Support - convert markdown to PDF from command line
-async function runCLI(inputFile) {
-    const marked = require('marked');
-    // E4: Callouts auch im CLI-PDF — dieselbe Extension wie die Preview (callouts.js)
-    marked.use(require('./callouts').createCalloutExtension());
-    const os = require('os');
-
-    try {
-        // Resolve absolute path
-        const absolutePath = path.isAbsolute(inputFile)
-            ? inputFile
-            : path.resolve(process.cwd(), inputFile);
-
-        // Check if file exists
-        try {
-            await fs.access(absolutePath);
-        } catch {
-            console.error(`Fehler: Datei nicht gefunden: ${absolutePath}`);
-            app.exit(1);
-            return;
-        }
-
-        // Check if it's a markdown file
-        const ext = path.extname(absolutePath).toLowerCase();
-        if (ext !== '.md' && ext !== '.markdown') {
-            console.error(`Fehler: Keine Markdown-Datei: ${absolutePath}`);
-            app.exit(1);
-            return;
-        }
-
-        console.log(`Konvertiere: ${absolutePath}`);
-
-        // Read markdown content
-        const markdownContent = await fs.readFile(absolutePath, 'utf-8');
-
-        // Extract frontmatter once — drives both KaTeX rendering and PDF template selection
-        const { frontmatter, body: markdownBody } = extractFrontmatter(markdownContent);
-
-        // D2: KaTeX server-seitig; D1-CLI: Mermaid-Fences als <div class="mermaid">
-        // (das Druckfenster rendert sie via buildPdfHtml-Injektion selbst)
-        const markdownWithMath = renderMermaidForCLI(renderMathForCLI(markdownBody));
-
-        // Convert to HTML
-        const htmlContent = marked.parse(markdownWithMath);
-
-        // Convert images to base64
-        currentFilePath = absolutePath;
-        const htmlWithImages = await convertImagesToBase64(htmlContent);
-
-        // Create temporary HTML file (data URLs are too long for Electron)
-        const tempHtmlPath = path.join(os.tmpdir(), `mrxdown-cli-${Date.now()}.html`);
-        await fs.writeFile(tempHtmlPath, buildPdfHtml({ bodyContent: htmlWithImages, frontmatter }), 'utf-8');
-
-        // Create hidden window for PDF generation
-        const pdfWindow = new BrowserWindow({
-            width: 800,
-            height: 1000,
-            show: false,
-            webPreferences: {
-                nodeIntegration: false,
-                contextIsolation: true
-            }
-        });
-
-        // Load HTML from temp file
-        await pdfWindow.loadFile(tempHtmlPath);
-
-        // Fonts/Bilder/Mermaid wirklich fertig (statt blinder 1000-ms-Wartezeit)
-        await pdfWindow.webContents.executeJavaScript(PDF_SMART_WAIT_JS);
-
-        // Generate PDF — Tagged + Outline jetzt auch im CLI-Pfad
-        const pdfData = await pdfWindow.webContents.printToPDF({
-            marginsType: 0,
-            pageSize: 'A4',
-            printBackground: true,
-            landscape: false,
-            preferCSSPageSize: true,
-            generateTaggedPDF: true,
-            generateDocumentOutline: true
-        });
-
-        pdfWindow.close();
-
-        // Clean up temp file
-        await fs.unlink(tempHtmlPath).catch(() => {});
-
-        // Save PDF with same name as input file (mit Metadaten-Nachpass)
-        const outputPath = absolutePath.replace(/\.(md|markdown)$/i, '.pdf');
-        await fs.writeFile(outputPath, await finalizePdfMetadata(pdfData, { frontmatter, filePath: absolutePath }));
-
-        console.log(`PDF erstellt: ${outputPath}`);
-        app.exit(0);
-
-    } catch (error) {
-        console.error(`Fehler bei der Konvertierung: ${error.message}`);
-        app.exit(1);
-    }
-}
-
-// CLI Batch mode - convert all markdown files in a directory
-async function runCLIBatch(inputDir) {
-    const marked = require('marked');
-    // E4: Callouts auch im CLI-PDF — dieselbe Extension wie die Preview (callouts.js)
-    marked.use(require('./callouts').createCalloutExtension());
-    const os = require('os');
-
-    try {
-        // Resolve absolute path
-        const absolutePath = path.isAbsolute(inputDir)
-            ? inputDir
-            : path.resolve(process.cwd(), inputDir);
-
-        // Check if directory exists
-        try {
-            const stat = await fs.stat(absolutePath);
-            if (!stat.isDirectory()) {
-                console.error(`Fehler: Kein Verzeichnis: ${absolutePath}`);
-                app.exit(1);
-                return;
-            }
-        } catch {
-            console.error(`Fehler: Verzeichnis nicht gefunden: ${absolutePath}`);
-            app.exit(1);
-            return;
-        }
-
-        // Find all markdown files
-        const files = await fs.readdir(absolutePath);
-        const mdFiles = files.filter(f => /\.(md|markdown)$/i.test(f));
-
-        if (mdFiles.length === 0) {
-            console.log(`Keine Markdown-Dateien in ${absolutePath} gefunden.`);
-            app.exit(0);
-            return;
-        }
-
-        console.log(`Gefunden: ${mdFiles.length} Markdown-Datei(en) in ${absolutePath}`);
-
-        let successCount = 0;
-        let errorCount = 0;
-
-        for (const mdFile of mdFiles) {
-            const filePath = path.join(absolutePath, mdFile);
-            try {
-                console.log(`Konvertiere: ${mdFile}`);
-
-                // Read markdown content
-                const markdownContent = await fs.readFile(filePath, 'utf-8');
-
-                // Extract frontmatter — drives KaTeX + PDF template choice
-                const { frontmatter, body: markdownBody } = extractFrontmatter(markdownContent);
-
-                // D2: Server-side KaTeX for CLI batch mode (same as single-file CLI)
-                const markdownWithMath = renderMermaidForCLI(renderMathForCLI(markdownBody));
-
-                // Convert to HTML
-                const htmlContent = marked.parse(markdownWithMath);
-
-                // Convert images to base64
-                currentFilePath = filePath;
-                const htmlWithImages = await convertImagesToBase64(htmlContent);
-
-                // Create temporary HTML file
-                const tempHtmlPath = path.join(os.tmpdir(), `mrxdown-cli-${Date.now()}.html`);
-                await fs.writeFile(tempHtmlPath, buildPdfHtml({ bodyContent: htmlWithImages, frontmatter }), 'utf-8');
-
-                // Create hidden window for PDF generation
-                const pdfWindow = new BrowserWindow({
-                    width: 800,
-                    height: 1000,
-                    show: false,
-                    webPreferences: { nodeIntegration: false, contextIsolation: true }
-                });
-
-                await pdfWindow.loadFile(tempHtmlPath);
-                await pdfWindow.webContents.executeJavaScript(PDF_SMART_WAIT_JS);
-
-                const pdfData = await pdfWindow.webContents.printToPDF({
-                    marginsType: 0,
-                    pageSize: 'A4',
-                    printBackground: true,
-                    landscape: false,
-                    preferCSSPageSize: true,
-                    generateTaggedPDF: true,
-                    generateDocumentOutline: true
-                });
-
-                pdfWindow.close();
-                await fs.unlink(tempHtmlPath).catch(() => {});
-
-                const outputPath = filePath.replace(/\.(md|markdown)$/i, '.pdf');
-                await fs.writeFile(outputPath, await finalizePdfMetadata(pdfData, { frontmatter, filePath }));
-
-                console.log(`  ✓ ${mdFile.replace(/\.(md|markdown)$/i, '.pdf')}`);
-                successCount++;
-
-            } catch (error) {
-                console.error(`  ✗ ${mdFile}: ${error.message}`);
-                errorCount++;
-            }
-        }
-
-        console.log(`\nFertig: ${successCount} erfolgreich, ${errorCount} fehlgeschlagen`);
-        app.exit(errorCount > 0 ? 1 : 0);
-
-    } catch (error) {
-        console.error(`Fehler: ${error.message}`);
-        app.exit(1);
-    }
-}
-
 // Check for CLI arguments
 // In packaged mode process.argv has no script path at [1], so user args start at [1].
 // In dev mode (electron main.js) they start at [2].
 const args = process.argv.slice(app.isPackaged ? 1 : 2);
-// --pdf flag explicitly requests PDF conversion (used by context menu and mrxdown.cmd wrapper)
+// K7: `--to <format>` wählt das Zielformat (pdf|html|docx); `--pdf` bleibt als
+// Alias für `--to pdf` (Kontextmenüs, mrxdown.cmd, bestehende Skripte).
 const hasPdfFlag = args.includes('--pdf');
-const cliArg = args.find(arg => !arg.startsWith('-'));
+const toFlagIdx = args.indexOf('--to');
+const cliFormat = (toFlagIdx !== -1 && args[toFlagIdx + 1])
+    ? String(args[toFlagIdx + 1]).toLowerCase()
+    : (hasPdfFlag ? 'pdf' : null);
+// Alle Nicht-Flag-Argumente außer dem --to-Wert sind Eingabepfade (Shell-Globs
+// kommen bereits expandiert als mehrere Argumente an).
+const cliPaths = args.filter((a, i) =>
+    !a.startsWith('-') && !(toFlagIdx !== -1 && i === toFlagIdx + 1));
+const cliArg = cliPaths[0];
 
-// Determine whether this invocation is headless PDF conversion or GUI mode
+// Determine whether this invocation is headless conversion or GUI mode.
+// Headless: explizites Zielformat (--to/--pdf) mit Pfaden, oder legacy:
+// ein Verzeichnis-Argument (impliziert PDF-Batch).
 function isHeadlessMode() {
     if (!cliArg) return false;
-    if (hasPdfFlag) return true;
+    if (cliFormat) return true;
     try {
         return fsSync.statSync(path.isAbsolute(cliArg) ? cliArg : path.resolve(process.cwd(), cliArg)).isDirectory();
     } catch { return false; }
 }
 
 if (isHeadlessMode()) {
-    // Headless PDF conversion — skip single-instance lock so it always runs
+    // Headless conversion — skip single-instance lock so it always runs
     app.whenReady().then(() => {
-        if (fsSync.existsSync(path.isAbsolute(cliArg) ? cliArg : path.resolve(process.cwd(), cliArg)) &&
-            fsSync.statSync(path.isAbsolute(cliArg) ? cliArg : path.resolve(process.cwd(), cliArg)).isDirectory()) {
-            runCLIBatch(cliArg);
-        } else {
-            runCLI(cliArg);
-        }
+        const { runCli } = require('./src/main/cli');
+        runCli({ paths: cliPaths, format: cliFormat || 'pdf' });
     });
 } else {
     // GUI mode — enforce single instance so file-opens go to the running window
@@ -1699,7 +1495,7 @@ if (isHeadlessMode()) {
             // any injected Electron flags (--enable-features=..., --enable-logging, etc.).
             const sliceStart = app.isPackaged ? 1 : 2;
             const secondArg = commandLine.slice(sliceStart).find(a => !a.startsWith('-') && /\.(md|markdown|txt)$/i.test(a));
-            if (secondArg && mainWindow && !commandLine.includes('--pdf')) {
+            if (secondArg && mainWindow && !commandLine.includes('--pdf') && !commandLine.includes('--to')) {
                 const absPath = path.isAbsolute(secondArg) ? secondArg : path.resolve(workingDirectory, secondArg);
                 fs.readFile(absPath, 'utf-8').then(content => {
                     mainWindow.webContents.send('file-opened', { filePath: absPath, content });
