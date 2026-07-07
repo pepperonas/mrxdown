@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
 
+## [0.9.0] - 2026-07-08
+
+### 📄 DOCX-Export (K2) — Word ohne Pandoc
+- **Word-Export im Export-Dialog** (`Cmd+Shift+E` → Format „Word (DOCX)"): JS-nativ über `@turbodocx/html-to-docx`, keine externen Binaries. Input ist das Preview-HTML (dieselbe Quelle wie der PDF-Export) → echte Word-Heading-Styles (per mammoth-Roundtrip verifiziert), Tabellen, Listen, Links, eingebettete Bilder (inkl. Downscaling-Pipeline), Code-Blöcke als Courier-Absätze.
+- **Frontmatter → Dokumenteigenschaften**: title/author/subtitle/keywords landen in `docProps/core.xml`.
+- **Optionales echtes TOC-Feld** (Checkbox im Dialog): OOXML-`TOC \o "1-3"`-Feld + `updateFields` — Word füllt das Inhaltsverzeichnis beim Öffnen selbst.
+- KaTeX-Formeln werden dedupliziert (MathML-Zweig gestrippt), Mermaid-Diagramme durch einen Platzhalter ersetzt (Word kann kein SVG).
+- Registry-Anbindung: DOCX erschien im Export-Dialog ohne eine Zeile Dialog-Sonderlogik — Format-Katalog und `needs`-Felder kommen aus der K1-Registry.
+- Tests: 8 Jest (mammoth-Roundtrip, docProps, Courier-Code, TOC-Injektion) + erweitertes E2E `export-dialog` (17 Checks).
+
 ## [0.8.0] - 2026-07-08
 
 ### 💬 Callouts / Admonitions (E4)

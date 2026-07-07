@@ -12,6 +12,7 @@ module.exports = {
         const ids = (formats || []).map(f => f.id);
         d.assert('HTML-Format registriert', ids.includes('html'));
         d.assert('PDF-Format registriert', ids.includes('pdf'));
+        d.assert('DOCX-Format registriert (K2)', ids.includes('docx'));
         const pdf = (formats || []).find(f => f.id === 'pdf') || {};
         d.assertEq('PDF deklariert Options-Panel', pdf.optionsPanel, 'pdf');
         d.assert('PDF deklariert benötigte Dokumentfelder',
@@ -54,6 +55,19 @@ module.exports = {
         `);
         d.assert('PDF-Optionen versteckt bei Format HTML', switched.pdfOptionsHidden);
         d.assert('Format-Beschreibung wird angezeigt', switched.description.length > 0);
+
+        // K2: DOCX zeigt seine eigene Options-Sektion, PDF-Optionen bleiben zu
+        const docxUi = await d.exec(`
+            const select = document.getElementById('exportFormat');
+            select.value = 'docx';
+            select.dispatchEvent(new Event('change'));
+            return {
+                docxVisible: !document.getElementById('exportDocxOptions').hidden,
+                pdfHidden: document.getElementById('exportPdfOptions').hidden
+            };
+        `);
+        d.assert('DOCX-Optionen sichtbar bei Format DOCX', docxUi.docxVisible);
+        d.assert('PDF-Optionen versteckt bei Format DOCX', docxUi.pdfHidden);
 
         // Schließen über Escape-Pfad (closeExportDialog) + Reset auf PDF für Folge-Szenarien
         const closed = await d.exec(`
