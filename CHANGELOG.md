@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
 
+## [0.8.0] - 2026-07-08
+
+### 💬 Callouts / Admonitions (E4)
+- **`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`** (GitHub-/Obsidian-Stil) rendern in der Vorschau als gestylte Boxen mit Icon + deutschem Label (Hinweis/Tipp/Wichtig/Warnung/Achtung); eigener Titel via `> [!TIP] Mein Titel`. Markdown im Body (Listen, fett, Code …) funktioniert; unbekannte Typen und normale Zitate bleiben Blockquotes.
+- **Auch im PDF** (GUI und CLI): eine geteilte marked-Extension (`callouts.js`, dual-use wie editor-utils.js) erzeugt in Preview und Headless-CLI identisches Markup; druckfreundliche Styles in allen drei PDF-Templates, `page-break-inside: avoid`.
+- **M3-Token-Styling** in der Vorschau (color-mix-Flächen, Akzent pro Typ, Light-Theme folgt automatisch); neue Token-Rolle `--md-warning` (dark + light) ergänzt.
+- Tests: 11 Jest (Header-Parsing + marked-Integration) + E2E-Szenario `callouts` (9 Checks, inkl. DOMPurify-Überleben der Icon-SVGs und Theme-Wechsel).
+
 ## [0.7.0] - 2026-07-08
 
 ### 📋 Paste-as-Markdown + Datei-Import (K6)

@@ -69,6 +69,10 @@ function configureMarkedOnce() {
         sanitize: false,
         pedantic: false
     });
+    // E4: Callouts (> [!NOTE] …) — geteilte Extension mit dem CLI-PDF-Pfad (callouts.js)
+    if (typeof createCalloutExtension === 'function') {
+        marked.use(createCalloutExtension());
+    }
 }
 
 function initializeApp() {

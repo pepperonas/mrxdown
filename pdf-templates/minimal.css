@@ -101,3 +101,31 @@ h1, h2, h3, h4, h5, h6 { break-after: avoid; }
 pre, table, figure, blockquote, img { break-inside: avoid; }
 p { widows: 3; orphans: 3; hyphens: auto; text-wrap: pretty; }
 thead { display: table-header-group; }
+
+/* E4: Callouts (> [!NOTE] …) — GitHub-nahe Druckfarben */
+.callout {
+    border-left: 3px solid #0969da;
+    border-radius: 4px;
+    background: #f6f8fa !important;
+    padding: 10px 14px;
+    margin: 1em 0;
+    page-break-inside: avoid;
+}
+.callout-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0 0 5px 0;
+    font-weight: 600;
+    color: #0969da;
+}
+.callout-title .callout-icon { flex-shrink: 0; }
+.callout > :last-child { margin-bottom: 0; }
+.callout-tip       { border-left-color: #1a7f37; }
+.callout-tip .callout-title       { color: #1a7f37; }
+.callout-important { border-left-color: #8250df; }
+.callout-important .callout-title { color: #8250df; }
+.callout-warning   { border-left-color: #9a6700; }
+.callout-warning .callout-title   { color: #9a6700; }
+.callout-caution   { border-left-color: #d1242f; }
+.callout-caution .callout-title   { color: #d1242f; }
