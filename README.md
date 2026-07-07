@@ -60,6 +60,7 @@
 | **Schreiben** | Smart Enter (Listen), URL-über-Auswahl → Link, Als-HTML-kopieren (`Cmd+Shift+C`), Auto-Save, Session Recovery, Schreibziel-Tracker, Fokus-Modus |
 | **Dashboard** | Dokument-Info-Panel, Live-Statistiken (Zeichen/Wörter/Absätze/Lesezeit), Markdown-Lint |
 | **Bilder** | Drag & Drop, Clipboard-Paste — automatisch in `images/`-Unterordner gespeichert |
+| **Import** | Rich-Text/HTML-Paste → Markdown (Turndown, abschaltbar, ⌘⇧V = plain), `.docx`/`.html` per Drag&Drop → neuer Markdown-Tab |
 | **Dateien** | Drag & Drop (Dateien + Ordner), File Watching, Recent Files, Einstellungen |
 | **Editor-Ops** | Zeile duplizieren/löschen/verschieben, Block ein-/ausrücken, Kommentar-Toggle, Checkbox-Toggle |
 | **Rendering** | YAML-Frontmatter-Unterstützung, Typewriter-Modus, inkrementelles DOM-Diffing (morphdom) |
@@ -67,7 +68,7 @@
 | **CLI** | Headless Markdown-zu-PDF Konvertierung vom Terminal |
 | **Quick Action** | macOS Rechtsklick-Kontextmenü für Markdown → PDF Konvertierung |
 | **Windows Kontextmenü** | Windows Rechtsklick → "Mit MrxDown zu PDF konvertieren" (automatisch per Installer) |
-| **Qualität** | 79 Unit-Tests + 78 E2E-Checks (echte App headless) + CLI-PDF-Roundtrip als Release-Gate in CI |
+| **Qualität** | 90 Unit-Tests + 97 E2E-Checks (echte App headless) + CLI-PDF-Roundtrip als Release-Gate in CI |
 
 ## Download & Installation
 

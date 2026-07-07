@@ -89,6 +89,7 @@ function showSettings() {
     document.getElementById('settingsFontSize').value = settings.fontSize || 14;
     document.getElementById('settingsTabSize').value = settings.tabSize || 4;
     document.getElementById('settingsAutoSave').checked = settings.autoSave || false;
+    document.getElementById('settingsPasteHtmlMd').checked = settings.pasteHtmlAsMarkdown !== false;
     document.getElementById('settingsLineNumbers').checked = settings.showLineNumbers || false;
     document.getElementById('settingsWordWrap').checked = settings.wordWrap !== false;
     document.getElementById('settingsSyncScroll').checked = settings.syncScroll !== false;
@@ -119,6 +120,7 @@ function applySettings() {
     settings.showLineNumbers = newLineNumbers;
     settings.wordWrap = newWordWrap;
     settings.syncScroll = newSyncScroll;
+    settings.pasteHtmlAsMarkdown = document.getElementById('settingsPasteHtmlMd').checked;
     settings.autoSaveInterval = Math.max(1, Math.min(60, newAutoSaveInterval || 5));
 
     const newWritingGoal = parseInt(document.getElementById('settingsWritingGoal').value);
