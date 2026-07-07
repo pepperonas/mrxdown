@@ -17,6 +17,8 @@
     <script src="vendor/marked.min.js"></script>
     <script src="vendor/purify.min.js"></script>
     <script src="vendor/morphdom.min.js"></script>
+    <script src="vendor/turndown.min.js"></script>
+    <script src="vendor/turndown-plugin-gfm.min.js"></script>
     <script src="vendor/highlight.min.js"></script>
     <script defer src="vendor/katex/katex.min.js"></script>
     <script defer src="vendor/katex/auto-render.min.js"></script>
@@ -464,6 +466,7 @@
                         <label><input type="checkbox" id="settingsLineNumbers"> Zeilennummern anzeigen</label>
                         <label><input type="checkbox" id="settingsWordWrap" checked> Zeilenumbruch</label>
                         <label><input type="checkbox" id="settingsSyncScroll" checked> Scroll-Synchronisation</label>
+                        <label><input type="checkbox" id="settingsPasteHtmlMd" checked> HTML beim Einfügen in Markdown umwandeln</label>
                     </div>
                     <div class="settings-row">
                         <label for="settingsAutoSaveInterval" style="color: var(--text-secondary); font-size: 14px;">Auto-Save Intervall (Sekunden)</label>

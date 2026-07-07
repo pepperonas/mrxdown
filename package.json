@@ -1,6 +1,6 @@
 {
   "name": "mrxdown",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Ein moderner Markdown-Editor mit Live-Vorschau",
   "main": "main.js",
   "homepage": "https://github.com/pepperonas/mrxdown",
@@ -33,7 +33,8 @@
     "test:all": "npm test && npm run test:e2e",
     "build:editor": "esbuild src/codemirror-setup.js --bundle --outfile=vendor/codemirror-bundle.js --format=iife --global-name=CMSetup --minify",
     "build:hljs": "esbuild src/hljs-entry.js --bundle --outfile=vendor/highlight.min.js --format=iife --minify",
-    "build:vendor": "npm run build:editor && npm run build:hljs",
+    "build:turndown": "esbuild node_modules/turndown/dist/turndown.js --minify --outfile=vendor/turndown.min.js && esbuild node_modules/turndown-plugin-gfm/dist/turndown-plugin-gfm.js --minify --outfile=vendor/turndown-plugin-gfm.min.js",
+    "build:vendor": "npm run build:editor && npm run build:hljs && npm run build:turndown",
     "install-mac": "bash scripts/install-macos.sh"
   },
   "keywords": [
@@ -213,9 +214,12 @@
     "electron-updater": "^6.8.3",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.45",
+    "mammoth": "^1.12.0",
     "marked": "^12.0.1",
     "mermaid": "^11.14.0",
     "morphdom": "^2.7.8",
-    "pdfjs-dist": "^5.6.205"
+    "pdfjs-dist": "^5.6.205",
+    "turndown": "^7.2.4",
+    "turndown-plugin-gfm": "^1.0.2"
   }
 }

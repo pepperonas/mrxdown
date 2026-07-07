@@ -197,6 +197,45 @@ function lintMarkdown(text) {
     return warnings;
 }
 
+// --- K6: Paste-as-Markdown — pure Entscheidungs- und Aufräum-Logik ---
+
+// Tags, deren Vorkommen bedeutet, dass die HTML-Zwischenablage echte Struktur/
+// Formatierung trägt, die im reinen Text verloren ginge. Reine Wrapper
+// (div/span/p/br) zählen NICHT — dort ist text/plain gleichwertig und der
+// normale Paste-Pfad das erwartete Verhalten.
+const HTML_PASTE_MEANINGFUL_TAGS = /<(a|b|strong|em|i|u|s|strike|del|mark|h[1-6]|ul|ol|li|table|thead|tbody|tr|td|th|blockquote|pre|code|img|hr|dl|dt|dd|sup|sub)[\s/>]/i;
+
+// Entscheidet, ob eine HTML-Zwischenablage in Markdown konvertiert werden soll.
+// Konservativ: im Zweifel false → normaler Paste (kein Datenverlust möglich).
+function shouldConvertHtmlPaste(html, plainText) {
+    if (!html || !html.trim()) return false;
+    // Copy aus dem eigenen CodeMirror-Editor: die HTML-Variante ist nur
+    // gestyltes Editor-DOM — konvertieren würde den Quelltext zerstören.
+    if (/class="[^"]*\bcm-(line|editor|content)\b/.test(html)) return false;
+    // Ohne text/plain-Fallback konvertieren wir, sobald überhaupt HTML da ist
+    // (sonst würde gar nichts eingefügt); mit Fallback nur bei echter Struktur.
+    if (!HTML_PASTE_MEANINGFUL_TAGS.test(html)) return false;
+    return true;
+}
+
+// Nachbearbeitung des von Turndown erzeugten Markdowns: überzählige Leerzeilen
+// eindampfen, Ränder trimmen. Bewusst minimal — zwei trailing Spaces (harte
+// Zeilenumbrüche) und Einrückungen bleiben unangetastet.
+function cleanupPastedMarkdown(markdown) {
+    if (!markdown) return '';
+    return markdown
+        .replace(/\r\n/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        // Turndown padded Listen-Marker auf 4 Zeichen ("-   x", "1.  x") —
+        // normalisieren auf ein Leerzeichen, wie es der Editor selbst schreibt.
+        // (Theoretisch träfe das auch Zeilen in Code-Fences; reale Code-Zeilen
+        // beginnen aber praktisch nie mit "-␣␣␣" — bewusster Trade-off.)
+        .replace(/^(\s*)([-*+])[ ]{2,}(?=\S)/gm, '$1$2 ')
+        .replace(/^(\s*)(\d+\.)[ ]{2,}(?=\S)/gm, '$1$2 ')
+        .replace(/^\n+/, '')
+        .replace(/\s+$/, '');
+}
+
 // Export for Node.js (tests), no-op in browser
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -206,6 +245,8 @@ if (typeof module !== 'undefined' && module.exports) {
         unindentLines,
         toggleLineComment,
         analyzeDocument,
-        lintMarkdown
+        lintMarkdown,
+        shouldConvertHtmlPaste,
+        cleanupPastedMarkdown
     };
 }

@@ -88,6 +88,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getExportFormats: () => ipcRenderer.invoke('get-export-formats'),
     exportDocument: (payload) => ipcRenderer.invoke('export-document', payload),
 
+    // K6: DOCX-Import (mammoth im Main-Prozess)
+    convertDocxToHtml: (payload) => ipcRenderer.invoke('convert-docx-to-html', payload),
+
     // Theme "System"
     getSystemTheme: () => ipcRenderer.invoke('get-system-theme'),
     onSystemThemeChanged: (callback) => onOnce('system-theme-changed', callback),

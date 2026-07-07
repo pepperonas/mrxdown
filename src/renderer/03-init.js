@@ -301,6 +301,13 @@ function handleDrop(e) {
                 }
             }
 
+            // K6: .docx/.html per Drag&Drop → zu Markdown konvertieren (neuer Tab)
+            const lowerName = file.name.toLowerCase();
+            if (lowerName.endsWith('.docx') || lowerName.endsWith('.html') || lowerName.endsWith('.htm')) {
+                importDroppedFile(file);
+                return;
+            }
+
             if (file.type === 'text/markdown' || file.type === 'text/plain' ||
                 file.name.endsWith('.md') || file.name.endsWith('.markdown')) {
                 const reader = new FileReader();

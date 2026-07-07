@@ -14,6 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
 
+## [0.7.0] - 2026-07-08
+
+### 📋 Paste-as-Markdown + Datei-Import (K6)
+- **Rich-Text/HTML einfügen → automatisch Markdown**: Kopiertes aus Word, Google Docs, Browsern etc. landet als sauberes Markdown im Editor (Turndown + GFM-Plugin, vendored, 12,6 KB — ATX-Headings, `-`-Listen, GFM-Tabellen, Fenced-Code). Konservative Heuristik: konvertiert nur, wenn die HTML-Variante echte Struktur trägt (`shouldConvertHtmlPaste`); reine Text-Wrapper, Copys aus dem eigenen Editor und Einfügen im Code-Fence bleiben normaler Paste. Google-Docs-Bold-Wrapper wird entpackt. Abschaltbar in den Einstellungen.
+- **⌘⇧V — Einfügen ohne Formatierung** (Menü „Bearbeiten", Kontextmenü, Command Palette): fügt immer text/plain ein, an der Konvertierung vorbei.
+- **`.docx`-/`.html`-Import per Drag&Drop**: konvertiert nach Markdown und öffnet das Ergebnis als neuen (ungespeicherten) Tab. DOCX via mammoth im Main-Prozess (lazy-required; Datei-Inhalt läuft als Uint8Array über validierte IPC — `File.path` existiert unter Electron 43 nicht mehr), HTML direkt im Renderer.
+- **Fix: Paste-Pipeline lief zu spät** — CodeMirrors eigener paste-Handler fügte text/plain ein und konsumierte das Event, BEVOR der document-Listener drankam. Der Paste-Handler läuft jetzt in der Capture-Phase (+ stopPropagation bei Übernahme). Das repariert auch das bestehende **Paste-URL-über-Auswahl** (`[Auswahl](URL)`), das dadurch still wirkungslos war.
+- Neue Tests: 11 Jest (Paste-Heuristik + Markdown-Cleanup) + E2E-Szenario `paste-import` (19 Checks, inkl. echtem DOCX→Markdown-Roundtrip über die mammoth-IPC mit `.docx`-Fixture).
+
 ## [0.6.0] - 2026-07-07
 
 ### 🧩 Export-Registry + gemeinsamer Export-Dialog (Konverter-Grundstein, K1)

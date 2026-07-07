@@ -118,7 +118,8 @@ const defaultSettings = {
     showLineNumbers: true,
     wordWrap: true,
     tabSize: 4,
-    pdfTemplate: 'default'
+    pdfTemplate: 'default',
+    pasteHtmlAsMarkdown: true
 };
 let settings = { ...defaultSettings, ...loadSettingsFromDisk() };
 const recentFiles = loadRecentFilesFromDisk();
@@ -279,6 +280,11 @@ function getMenuTemplate() {
             { role: 'cut', label: 'Ausschneiden' },
             { role: 'copy', label: 'Kopieren' },
             { role: 'paste', label: 'Einfügen' },
+            {
+                label: 'Einfügen ohne Formatierung',
+                accelerator: 'CmdOrCtrl+Shift+V',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'paste-plain' }); }
+            },
             { role: 'selectAll', label: 'Alles auswählen' },
             { type: 'separator' },
             {
@@ -551,6 +557,7 @@ function createWindow() {
             { label: 'Ausschneiden', accelerator: 'CmdOrCtrl+X', role: 'cut' },
             { label: 'Kopieren', accelerator: 'CmdOrCtrl+C', role: 'copy' },
             { label: 'Einfügen', accelerator: 'CmdOrCtrl+V', role: 'paste' },
+            { label: 'Einfügen ohne Formatierung', accelerator: 'CmdOrCtrl+Shift+V', click: () => mainWindow.webContents.send('menu-action', { action: 'paste-plain' }) },
             { type: 'separator' },
             { label: 'Fett', accelerator: 'CmdOrCtrl+B', click: () => mainWindow.webContents.send('menu-action', { action: 'format-bold' }) },
             { label: 'Kursiv', accelerator: 'CmdOrCtrl+I', click: () => mainWindow.webContents.send('menu-action', { action: 'format-italic' }) },
@@ -1081,6 +1088,31 @@ ipcMain.handle('export-document', async (event, payload) => {
     } catch (error) {
         console.error('Export fehlgeschlagen:', error);
         return { success: false, error: error.message };
+    }
+});
+
+// K6: DOCX → HTML für den Import (mammoth, lazy-required — ~3 MB nur bei Bedarf).
+// Der Renderer schickt den Datei-Inhalt als Uint8Array, weil File.path unter
+// Electron 43 nicht mehr existiert. Inputs werden validiert (Typ + Größen-Cap).
+const DOCX_IMPORT_MAX_BYTES = 50 * 1024 * 1024;
+ipcMain.handle('convert-docx-to-html', async (event, payload) => {
+    try {
+        if (!payload || typeof payload !== 'object') return { error: 'Ungültige Anfrage.' };
+        const data = payload.data;
+        if (!(data instanceof Uint8Array) || data.byteLength === 0) {
+            return { error: 'Ungültige Datei-Daten.' };
+        }
+        if (data.byteLength > DOCX_IMPORT_MAX_BYTES) {
+            return { error: 'Datei zu groß (max. 50 MB).' };
+        }
+        const mammoth = require('mammoth');
+        const result = await mammoth.convertToHtml({
+            buffer: Buffer.from(data.buffer, data.byteOffset, data.byteLength)
+        });
+        return { html: result.value, warnings: (result.messages || []).map(m => m.message) };
+    } catch (error) {
+        console.error('DOCX-Import fehlgeschlagen:', error);
+        return { error: error.message };
     }
 });
 

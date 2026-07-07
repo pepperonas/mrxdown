@@ -31,6 +31,8 @@ build/*
 !vendor/purify.min.js
 !vendor/morphdom.min.js
 !vendor/highlight.min.js
+!vendor/turndown.min.js
+!vendor/turndown-plugin-gfm.min.js
 !vendor/mermaid.min.js
 !vendor/katex/katex.min.js
 !vendor/katex/auto-render.min.js

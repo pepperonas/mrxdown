@@ -253,7 +253,131 @@ function setupCheckboxToggle() {
     });
 }
 
-// --- C2: Image Paste Handler ---
+// --- K6: HTML → Markdown (Turndown, vendored) ---
+
+let _turndownService = null;
+function getTurndownService() {
+    if (_turndownService) return _turndownService;
+    if (typeof TurndownService === 'undefined') return null;
+    _turndownService = new TurndownService({
+        headingStyle: 'atx',
+        hr: '---',
+        bulletListMarker: '-',
+        codeBlockStyle: 'fenced',
+        emDelimiter: '*'
+    });
+    // GFM-Plugin: Tabellen, Strikethrough, Task-Listen
+    if (typeof turndownPluginGfm !== 'undefined' && turndownPluginGfm.gfm) {
+        _turndownService.use(turndownPluginGfm.gfm);
+    }
+    return _turndownService;
+}
+
+// HTML (Clipboard, Word, Google Docs, Web) → Markdown. DOMParser erzeugt ein
+// inertes Dokument: Skripte laufen nicht, nichts wird gerendert — das Ergebnis
+// ist reiner Markdown-TEXT für den Editor, keine HTML-Senke (kein DOMPurify nötig).
+function convertHtmlToMarkdown(html) {
+    const td = getTurndownService();
+    if (!td || !html) return null;
+    try {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        // Clipboard-/Office-Kruscht raus, bevor Turndown ihn als Text mitnimmt
+        doc.querySelectorAll('script, style, meta, link, title').forEach(n => n.remove());
+        // Google Docs packt ALLES in <b style="font-weight:normal" id="docs-internal-guid-…">
+        // — ohne Unwrap würde das gesamte Dokument fett.
+        doc.querySelectorAll('b[id^="docs-internal-guid"], b[style*="font-weight:normal"]').forEach(b => {
+            b.replaceWith(...b.childNodes);
+        });
+        return cleanupPastedMarkdown(td.turndown(doc.body));
+    } catch (err) {
+        console.warn('HTML→Markdown-Konvertierung fehlgeschlagen:', err);
+        return null;
+    }
+}
+
+// K6: Expliziter Plain-Paste (⌘⇧V) — fügt text/plain direkt ein, an der
+// HTML→Markdown-Konvertierung vorbei.
+async function pastePlainText() {
+    if (!editor || !editor.cmView) return;
+    try {
+        const text = await navigator.clipboard.readText();
+        if (!text) return;
+        const { from, to } = editor.cmView.state.selection.main;
+        editor.cmView.dispatch({
+            changes: { from, to, insert: text },
+            selection: { anchor: from + text.length }
+        });
+        handleEditorInput();
+    } catch (err) {
+        console.warn('Einfügen ohne Formatierung fehlgeschlagen:', err);
+    }
+}
+
+// K6: .docx-/.html-Import per Drag&Drop — konvertiert nach Markdown und öffnet
+// das Ergebnis als neuen (ungespeicherten) Tab. DOCX läuft über mammoth im
+// Main-Prozess (Datei-Inhalt als Uint8Array — File.path existiert unter
+// Electron 43 nicht mehr), HTML wird direkt hier gelesen.
+async function importDroppedFile(file) {
+    const lower = file.name.toLowerCase();
+    try {
+        let html;
+        if (lower.endsWith('.docx')) {
+            if (!window.electronAPI || !window.electronAPI.convertDocxToHtml) return;
+            const buf = await file.arrayBuffer();
+            const result = await window.electronAPI.convertDocxToHtml({
+                data: new Uint8Array(buf),
+                name: file.name
+            });
+            if (!result || result.error) {
+                await showAlert('DOCX-Import fehlgeschlagen', (result && result.error) || 'Unbekannter Fehler');
+                return;
+            }
+            html = result.html;
+        } else {
+            html = await file.text();
+        }
+
+        const md = convertHtmlToMarkdown(html);
+        if (md === null) {
+            await showAlert('Import fehlgeschlagen', `„${file.name}" konnte nicht zu Markdown konvertiert werden.`);
+            return;
+        }
+
+        const tab = createNewTab(md, null);
+        tab.title = file.name.replace(/\.(docx|html?|htm)$/i, '') + '.md';
+        tab.isModified = true; // Import ist ungespeichert — Speichern fragt nach Zielort
+        renderTabs();
+        syncDocumentEdited();
+        fileName.textContent = tab.title;
+        if (window.electronAPI) window.electronAPI.updateWindowTitle(tab.title);
+    } catch (err) {
+        console.error('Import fehlgeschlagen:', err);
+        await showAlert('Import fehlgeschlagen', err.message);
+    }
+}
+
+// Cursor/Selektion im Editor durch Markdown-Text ersetzen
+function insertMarkdownAtSelection(md) {
+    const { from, to } = editor.cmView.state.selection.main;
+    editor.cmView.dispatch({
+        changes: { from, to, insert: md },
+        selection: { anchor: from + md.length }
+    });
+    handleEditorInput();
+}
+
+// Steht die aktuelle Cursor-Position innerhalb eines offenen Code-Fences?
+function selectionInsideCodeFence(from) {
+    const before = editor.cmView.state.sliceDoc(0, from);
+    const fenceCount = (before.match(/^(```|~~~)/gm) || []).length;
+    return fenceCount % 2 === 1;
+}
+
+// --- C2/K6: Paste-Pipeline. Präzedenz: Bild → URL-über-Auswahl → HTML→Markdown → normal ---
+// CAPTURE-Phase + stopPropagation: CodeMirrors eigener paste-Handler (auf
+// .cm-content) fügt sonst text/plain ein und preventDefaulted, BEVOR ein
+// Bubble-Listener auf document drankommt — Auswahl-Features und die
+// HTML→MD-Konvertierung würden doppelt bzw. gar nicht einfügen.
 function setupImagePaste() {
     document.addEventListener('paste', async (e) => {
         if (!e.clipboardData || !e.clipboardData.items) return;
@@ -261,6 +385,7 @@ function setupImagePaste() {
         for (const item of e.clipboardData.items) {
             if (item.type.startsWith('image/')) {
                 e.preventDefault();
+                e.stopPropagation();
                 const blob = item.getAsFile();
                 if (!blob) return;
 
@@ -291,30 +416,45 @@ function setupImagePaste() {
             }
         }
 
-        // Paste-URL-über-Auswahl → [Auswahl](URL). Universal editor convention
-        // (VS Code, Obsidian, Typora, iA Writer). Only when: focus is in the
-        // editor, there IS a selection, the clipboard is exactly one URL, and
-        // the selection is not inside a fenced code block.
+        // Ab hier nur im Editor relevant — sonst normaler Paste (Dialoge, Suchfeld …)
         const target = e.target;
         if (!(target && target.closest && target.closest('.cm-editor'))) return;
         if (!editor || !editor.cmView) return;
-        const clip = e.clipboardData.getData('text/plain').trim();
-        if (!/^https?:\/\/\S+$/.test(clip)) return;
+        const plainText = e.clipboardData.getData('text/plain');
         const { from, to } = editor.cmView.state.selection.main;
-        if (from === to) return; // no selection → normal paste
-        const before = editor.cmView.state.sliceDoc(0, from);
-        const fenceCount = (before.match(/^(```|~~~)/gm) || []).length;
-        if (fenceCount % 2 === 1) return; // inside a code fence → normal paste
-        const selText = editor.cmView.state.sliceDoc(from, to);
-        if (/\]\(/.test(selText)) return; // selection already contains link syntax
-        e.preventDefault();
-        const md = `[${selText}](${clip})`;
-        editor.cmView.dispatch({
-            changes: { from, to, insert: md },
-            selection: { anchor: from + md.length }
-        });
-        handleEditorInput();
-    });
+
+        // Paste-URL-über-Auswahl → [Auswahl](URL). Universal editor convention
+        // (VS Code, Obsidian, Typora, iA Writer). Only when: there IS a selection,
+        // the clipboard is exactly one URL, and the selection is not inside a
+        // fenced code block. Gewinnt vor der HTML→Markdown-Konvertierung.
+        const clip = plainText.trim();
+        if (/^https?:\/\/\S+$/.test(clip) && from !== to && !selectionInsideCodeFence(from)) {
+            const selText = editor.cmView.state.sliceDoc(from, to);
+            if (!/\]\(/.test(selText)) {
+                e.preventDefault();
+                e.stopPropagation();
+                insertMarkdownAtSelection(`[${selText}](${clip})`);
+                return;
+            }
+        }
+
+        // K6: Rich-Text/HTML → Markdown (Turndown). Nur wenn die HTML-Variante
+        // echte Struktur trägt (shouldConvertHtmlPaste, editor-utils.js), nicht
+        // aus dem eigenen Editor stammt und der Cursor nicht in einem Code-Fence
+        // steht. Abschaltbar in den Einstellungen; ⌘⇧V fügt immer plain ein.
+        if (settings.pasteHtmlAsMarkdown !== false && !selectionInsideCodeFence(from)) {
+            const html = e.clipboardData.getData('text/html');
+            if (shouldConvertHtmlPaste(html, plainText)) {
+                const md = convertHtmlToMarkdown(html);
+                if (md) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    insertMarkdownAtSelection(md);
+                    return;
+                }
+            }
+        }
+    }, true); // capture — vor CodeMirrors eigenem paste-Handler
 }
 
 // --- C7: Image Drag & Drop ---
@@ -416,6 +556,7 @@ function registerCommands() {
         { id: 'focus-mode', label: 'Focus-Modus', shortcut: '\u2318\u21e7F', action: () => toggleFocusMode() },
         { id: 'typewriter-mode', label: 'Typewriter-Modus', action: () => toggleTypewriterMode() },
         { id: 'export-dialog', label: 'Exportieren\u2026 (Format w\u00e4hlen)', shortcut: '\u2318\u21e7E', action: () => showExportDialog() },
+        { id: 'paste-plain', label: 'Einf\u00fcgen ohne Formatierung', shortcut: '\u2318\u21e7V', action: () => pastePlainText() },
     ];
 }
 
@@ -862,6 +1003,9 @@ window.closeCommandPalette = closeCommandPalette;
 window.showExportDialog = showExportDialog;
 window.closeExportDialog = closeExportDialog;
 window.runExportFromDialog = runExportFromDialog;
+window.pastePlainText = pastePlainText;
+window.convertHtmlToMarkdown = convertHtmlToMarkdown;
+window.importDroppedFile = importDroppedFile;
 window.refreshFileTree = refreshFileTree;
 
 // Initialize session stats on load
