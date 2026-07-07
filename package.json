@@ -82,6 +82,7 @@
       "preload.js",
       "index.html",
       "src/renderer/**/*",
+      "src/main/**/*",
       "editor-utils.js",
       "icons.js",
       "cm-adapter.js",
