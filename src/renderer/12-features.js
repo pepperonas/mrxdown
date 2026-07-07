@@ -107,6 +107,8 @@ function updateExportFormatUI() {
     if (desc) desc.textContent = fmt ? fmt.description : '';
     const pdfSection = document.getElementById('exportPdfOptions');
     if (pdfSection) pdfSection.hidden = !(fmt && fmt.optionsPanel === 'pdf');
+    const docxSection = document.getElementById('exportDocxOptions');
+    if (docxSection) docxSection.hidden = !(fmt && fmt.optionsPanel === 'docx');
 }
 
 async function showExportDialog() {
@@ -167,6 +169,8 @@ async function runExportFromDialog() {
             settings.pdfTemplate = payload.options.template;
             saveSettings();
         }
+    } else if (fmt && fmt.optionsPanel === 'docx') {
+        payload.options = { toc: document.getElementById('docxToc').checked };
     }
 
     closeExportDialog();
