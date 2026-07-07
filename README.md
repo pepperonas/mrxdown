@@ -63,12 +63,12 @@
 | **Import** | Rich-Text/HTML-Paste → Markdown (Turndown, abschaltbar, ⌘⇧V = plain), `.docx`/`.html` per Drag&Drop → neuer Markdown-Tab |
 | **Dateien** | Drag & Drop (Dateien + Ordner), File Watching, Recent Files, Einstellungen |
 | **Editor-Ops** | Zeile duplizieren/löschen/verschieben, Block ein-/ausrücken, Kommentar-Toggle, Checkbox-Toggle |
-| **Rendering** | YAML-Frontmatter-Unterstützung, Typewriter-Modus, inkrementelles DOM-Diffing (morphdom) |
+| **Rendering** | YAML-Frontmatter-Unterstützung, Callouts (`> [!NOTE]` … in Preview + PDF), Typewriter-Modus, inkrementelles DOM-Diffing (morphdom) |
 | **Rechtschreibung** | Integrierte Rechtschreibprüfung (DE/EN) mit Korrekturvorschlägen |
 | **CLI** | Headless Markdown-zu-PDF Konvertierung vom Terminal |
 | **Quick Action** | macOS Rechtsklick-Kontextmenü für Markdown → PDF Konvertierung |
 | **Windows Kontextmenü** | Windows Rechtsklick → "Mit MrxDown zu PDF konvertieren" (automatisch per Installer) |
-| **Qualität** | 90 Unit-Tests + 97 E2E-Checks (echte App headless) + CLI-PDF-Roundtrip als Release-Gate in CI |
+| **Qualität** | 101 Unit-Tests + 106 E2E-Checks (echte App headless) + CLI-PDF-Roundtrip als Release-Gate in CI |
 
 ## Download & Installation
 

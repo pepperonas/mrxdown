@@ -214,3 +214,32 @@ body.light-theme .frontmatter-box {
 body.light-theme .preview-header {
     border-color: #dee2e6;
 }
+
+/* E4: Callouts/Admonitions (> [!NOTE] …) — Akzent pro Typ über --co-Farbvariable,
+   Flächen via color-mix aus den M3-Tokens (Light-Theme folgt automatisch). */
+#preview .callout {
+    --co: var(--md-primary);
+    border-left: 3px solid var(--co);
+    border-radius: var(--md-shape-sm);
+    background: color-mix(in srgb, var(--co) 8%, transparent);
+    padding: 12px 16px;
+    margin: 1em 0;
+}
+#preview .callout-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 6px 0;
+    font-weight: 600;
+    color: var(--co);
+}
+#preview .callout-title .callout-icon {
+    flex-shrink: 0;
+}
+#preview .callout > :last-child { margin-bottom: 0; }
+#preview .callout > p { margin: 0.4em 0; }
+#preview .callout-note      { --co: var(--md-primary); }
+#preview .callout-tip       { --co: var(--md-tertiary); }
+#preview .callout-important { --co: var(--md-secondary); }
+#preview .callout-warning   { --co: var(--md-warning); }
+#preview .callout-caution   { --co: var(--md-error); }

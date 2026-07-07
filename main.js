@@ -1447,6 +1447,8 @@ Entwickelt mit Electron`,
 // CLI Support - convert markdown to PDF from command line
 async function runCLI(inputFile) {
     const marked = require('marked');
+    // E4: Callouts auch im CLI-PDF — dieselbe Extension wie die Preview (callouts.js)
+    marked.use(require('./callouts').createCalloutExtension());
     const os = require('os');
 
     try {
@@ -1544,6 +1546,8 @@ async function runCLI(inputFile) {
 // CLI Batch mode - convert all markdown files in a directory
 async function runCLIBatch(inputDir) {
     const marked = require('marked');
+    // E4: Callouts auch im CLI-PDF — dieselbe Extension wie die Preview (callouts.js)
+    marked.use(require('./callouts').createCalloutExtension());
     const os = require('os');
 
     try {

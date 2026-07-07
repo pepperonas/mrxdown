@@ -25,6 +25,8 @@
     --md-tertiary-container: #384b2f;
     --md-on-tertiary-container: #cde8bb;
 
+    /* E4: Warn-Rolle für Callouts (M3 kennt nur error — amber-Ton ergänzt) */
+    --md-warning: #e8c26c;
     --md-error: #ffb4ab;
     --md-on-error: #690005;
     --md-error-container: #93000a;
@@ -159,6 +161,7 @@ body.light-theme {
     --md-tertiary-container: #d5e8c4;
     --md-on-tertiary-container: #111f04;
 
+    --md-warning: #7a5900;
     --md-error: #ba1a1a;
     --md-on-error: #ffffff;
     --md-error-container: #ffdad6;

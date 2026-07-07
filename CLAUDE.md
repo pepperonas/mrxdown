@@ -64,6 +64,8 @@ src/renderer/        -> Renderer process, 13 ordered classic-script modules (01-
 index.html           -> UI structure (CSS in separate files, no inline styles); loads the renderer modules in order
 preload.js           -> IPC bridge: ~30 methods via contextBridge.exposeInMainWorld('electronAPI', {...})
 editor-utils.js      -> Pure functions shared between renderer (browser) and tests (Node.js)
+callouts.js          -> E4: marked extension for > [!NOTE] callouts — dual-use (renderer preview
+                        AND CLI-PDF in main.js), so both paths emit identical callout HTML
 icons.js             -> Lucide SVG icon helper: getIcon(name, size) returns SVG strings
 cm-adapter.js        -> EditorAdapter class: textarea-compatible wrapper around CodeMirror 6
 src/codemirror-setup.js -> CM6 ESM entry point, bundled via esbuild into vendor/codemirror-bundle.js
@@ -122,6 +124,7 @@ Tests in `tests/` cover pure functions from `editor-utils.js` and `src/main/expo
 - `heading-id.test.js` — GitHub-compatible ID generation
 - `frontmatter.test.js` — YAML-lite frontmatter parsing (`src/main/export/frontmatter.js`)
 - `paste-markdown.test.js` — HTML-paste conversion heuristic + markdown cleanup (K6)
+- `callouts.test.js` — callout header parsing + marked extension rendering (E4)
 - `smart-enter.test.js` — List continuation logic
 - `indent.test.js` — Block indent/unindent
 - `toggle-comment.test.js` — HTML comment toggling
