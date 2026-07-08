@@ -13,6 +13,8 @@ const { renderHtmlToPdf } = require('./export/pdf-render');
 const { convertImagesToBase64 } = require('./export/images');
 
 const SUPPORTED_FORMATS = ['pdf', 'html', 'docx', 'slides', 'epub'];
+// K3: optionale Pandoc-Formate (nur nutzbar, wenn Pandoc installiert ist)
+const { PANDOC_FORMATS, convertWithPandoc, detectPandoc } = require('./export/pandoc');
 
 // Geteilte marked-Instanz (Callouts + Heading-IDs) — src/main/export/markdown.js
 const { getSharedMarked, resetHeadingIds } = require('./export/markdown');
@@ -84,6 +86,16 @@ async function convertMarkdownFile(filePath, format) {
         return outputPath;
     }
 
+    const pandocDef = PANDOC_FORMATS.find(f => f.id === format);
+    if (pandocDef) {
+        const buffer = await convertWithPandoc({
+            rawMarkdown: markdownContent, filePath, to: pandocDef.to, ext: pandocDef.ext
+        });
+        const outputPath = outBase + '.' + pandocDef.ext;
+        await fs.writeFile(outputPath, buffer);
+        return outputPath;
+    }
+
     throw new Error(`Format nicht implementiert: ${format}`);
 }
 
@@ -124,8 +136,15 @@ async function collectInputFiles(inputPaths) {
 // (window-all-closed ist im Headless-Modus abgeschaltet).
 async function runCli({ paths, format }) {
     try {
-        if (!SUPPORTED_FORMATS.includes(format)) {
-            console.error(`Fehler: Unbekanntes Zielformat "${format}". Unterstützt: ${SUPPORTED_FORMATS.join(', ')}`);
+        const isPandocFormat = PANDOC_FORMATS.some(f => f.id === format);
+        if (!SUPPORTED_FORMATS.includes(format) && !isPandocFormat) {
+            const all = [...SUPPORTED_FORMATS, ...PANDOC_FORMATS.map(f => f.id + '*')];
+            console.error(`Fehler: Unbekanntes Zielformat "${format}". Unterstützt: ${all.join(', ')} (* benötigt Pandoc)`);
+            app.exit(1);
+            return;
+        }
+        if (isPandocFormat && !(await detectPandoc())) {
+            console.error(`Fehler: Das Format "${format}" benötigt Pandoc. Installation: https://pandoc.org/installing.html (macOS: brew install pandoc)`);
             app.exit(1);
             return;
         }

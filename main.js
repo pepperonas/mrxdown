@@ -1056,8 +1056,12 @@ ipcMain.handle('get-pdf-templates', () => {
     }));
 });
 
-// K1: Export-Registry — Format-Katalog für den gemeinsamen Export-Dialog
-ipcMain.handle('get-export-formats', () => exportRegistry.listFormats());
+// K1: Export-Registry — Format-Katalog für den gemeinsamen Export-Dialog.
+// K3: vorher werden (einmalig) die optionalen Pandoc-Formate detected/registriert.
+ipcMain.handle('get-export-formats', async () => {
+    await require('./src/main/export/pandoc').ensurePandocFormatsRegistered(exportRegistry);
+    return exportRegistry.listFormats();
+});
 
 // K1: Generischer Export über die Registry. Der Renderer schickt die vom
 // jeweiligen Format benötigten Dokument-Felder (siehe format.needs) mit;

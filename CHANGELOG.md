@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
 
+## [0.17.0] - 2026-07-08
+
+### 🧰 Pandoc als optionaler Power-Backend (K3)
+- **Ist Pandoc installiert, schalten sich vier zusätzliche Zielformate frei**: LaTeX, LaTeX Beamer, OpenDocument (ODT) und reStructuredText — im Export-Dialog (klar gekennzeichnet „… (Pandoc)" / „benötigt Pandoc") und im CLI (`--to latex|beamer|odt|rst`; die Fehlermeldung listet sie mit `*` und Installations-Hinweis).
+- **Nie eine harte Dependency**: ohne Pandoc existieren die Formate schlicht nicht, alle Kern-Formate (HTML/PDF/DOCX/Slides/EPUB) bleiben nativ. Detection einmalig und gecacht, mit macOS-GUI-PATH-Fallbacks (`/opt/homebrew/bin`, `/usr/local/bin`) und Windows-Kandidaten.
+- **Sichere Ausführung**: `execFile` ohne Shell, Markdown via stdin, binärsichere Temp-Ausgabedatei (ODT), `--resource-path` auf das Quellverzeichnis; Quellformat `gfm+yaml_metadata_block` (Frontmatter → Titel/Autor).
+- Tests: 7 Jest (Detection-Caching, Format-Invarianten; Konvertierungs-Tests laufen nur mit installiertem Pandoc — LaTeX/RST-Inhalte, ODT-Zip-Struktur, Beamer) + bedingter E2E-Check (mit Pandoc: Formate + Kennzeichnung da; ohne: sauber abwesend).
+
 ## [0.16.0] - 2026-07-08
 
 ### 📚 EPUB-Export — E-Books ohne Pandoc (K5)
