@@ -90,6 +90,19 @@ function showSettings() {
     document.getElementById('settingsTabSize').value = settings.tabSize || 4;
     document.getElementById('settingsAutoSave').checked = settings.autoSave || false;
     document.getElementById('settingsPasteHtmlMd').checked = settings.pasteHtmlAsMarkdown !== false;
+    // I1: KI-Einstellungen (Key ist write-only — nur Status anzeigen)
+    const ai = settings.ai || {};
+    document.getElementById('settingsAiEnabled').checked = !!ai.enabled;
+    document.getElementById('settingsAiProvider').value = ai.provider || 'ollama';
+    document.getElementById('settingsAiEndpoint').value = ai.endpoint || '';
+    document.getElementById('settingsAiModel').value = ai.model || '';
+    document.getElementById('settingsAiKey').value = '';
+    if (window.electronAPI && window.electronAPI.hasAiApiKey) {
+        window.electronAPI.hasAiApiKey().then(has => {
+            const state = document.getElementById('settingsAiKeyState');
+            if (state) state.textContent = has ? '(gespeichert ✓)' : '(keiner)';
+        });
+    }
     document.getElementById('settingsLineNumbers').checked = settings.showLineNumbers || false;
     document.getElementById('settingsWordWrap').checked = settings.wordWrap !== false;
     document.getElementById('settingsSyncScroll').checked = settings.syncScroll !== false;
@@ -121,6 +134,18 @@ function applySettings() {
     settings.wordWrap = newWordWrap;
     settings.syncScroll = newSyncScroll;
     settings.pasteHtmlAsMarkdown = document.getElementById('settingsPasteHtmlMd').checked;
+    // I1: KI-Einstellungen übernehmen; Key nur bei Eingabe (write-only, safeStorage)
+    settings.ai = {
+        enabled: document.getElementById('settingsAiEnabled').checked,
+        provider: document.getElementById('settingsAiProvider').value,
+        endpoint: document.getElementById('settingsAiEndpoint').value.trim(),
+        model: document.getElementById('settingsAiModel').value.trim()
+    };
+    const aiKeyInput = document.getElementById('settingsAiKey');
+    if (aiKeyInput && aiKeyInput.value && window.electronAPI && window.electronAPI.setAiApiKey) {
+        window.electronAPI.setAiApiKey(aiKeyInput.value);
+        aiKeyInput.value = '';
+    }
     settings.autoSaveInterval = Math.max(1, Math.min(60, newAutoSaveInterval || 5));
 
     const newWritingGoal = parseInt(document.getElementById('settingsWritingGoal').value);
@@ -238,6 +263,12 @@ function handleGlobalShortcuts(e) {
         if (snippetsModal && snippetsModal.classList.contains('visible')) {
             e.preventDefault();
             closeSnippetsDialog();
+            return;
+        }
+        const aiModal = document.getElementById('aiModal');
+        if (aiModal && aiModal.classList.contains('visible')) {
+            e.preventDefault();
+            closeAiDialog();
             return;
         }
     }

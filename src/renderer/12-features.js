@@ -187,6 +187,132 @@ async function runExportFromDialog() {
     }
 }
 
+// --- I1: KI-Assistent (opt-in) ---
+// Alle Requests laufen im Main-Prozess; hier lebt nur UI + Streaming-Anzeige.
+
+let _aiActionsCatalog = null;
+let _aiActiveRequest = null; // { id, range: {from,to}, hasSelection }
+let _aiRequestSeq = 0;
+window._aiLastError = null; // auch für E2E-Sichtbarkeit
+
+function setupAiListeners() {
+    if (!window.electronAPI || !window.electronAPI.onAiChunk) return;
+    window.electronAPI.onAiChunk((event, { requestId, delta }) => {
+        if (!_aiActiveRequest || requestId !== _aiActiveRequest.id) return;
+        const result = document.getElementById('aiResult');
+        if (result) result.value += delta;
+    });
+    window.electronAPI.onAiDone((event, { requestId, cancelled }) => {
+        if (!_aiActiveRequest || requestId !== _aiActiveRequest.id) return;
+        const status = document.getElementById('aiStatus');
+        if (status) status.textContent = cancelled ? 'Abgebrochen.' : 'Fertig — „Ersetzen" übernimmt den Vorschlag.';
+        const runBtn = document.getElementById('aiRunBtn');
+        if (runBtn) { runBtn.disabled = false; runBtn.textContent = 'Ausführen'; }
+        const applyBtn = document.getElementById('aiApplyBtn');
+        const result = document.getElementById('aiResult');
+        if (applyBtn) applyBtn.disabled = cancelled || !result || !result.value.trim();
+        _aiActiveRequest.running = false;
+    });
+    window.electronAPI.onAiError((event, { requestId, error }) => {
+        window._aiLastError = error;
+        if (!_aiActiveRequest || requestId !== _aiActiveRequest.id) return;
+        const status = document.getElementById('aiStatus');
+        if (status) status.textContent = '⚠️ ' + error;
+        const runBtn = document.getElementById('aiRunBtn');
+        if (runBtn) { runBtn.disabled = false; runBtn.textContent = 'Ausführen'; }
+        _aiActiveRequest.running = false;
+    });
+}
+
+async function showAiDialog() {
+    if (!settings.ai || !settings.ai.enabled) {
+        await showAlert('KI-Assistent ist deaktiviert',
+            'Aktiviere ihn in den Einstellungen (opt-in). Empfehlung: lokales Ollama — dann verlässt kein Text den Rechner.');
+        return;
+    }
+    const modal = document.getElementById('aiModal');
+    if (!modal || !editor || !editor.cmView) return;
+
+    // Aktions-Katalog lazy laden
+    const select = document.getElementById('aiAction');
+    if (!_aiActionsCatalog && window.electronAPI && window.electronAPI.getAiActions) {
+        try { _aiActionsCatalog = await window.electronAPI.getAiActions(); }
+        catch (_) { _aiActionsCatalog = []; }
+        select.textContent = '';
+        for (const a of _aiActionsCatalog) {
+            const opt = document.createElement('option');
+            opt.value = a.id;
+            opt.textContent = a.label + (a.hint ? ' — ' + a.hint : '');
+            select.appendChild(opt);
+        }
+    }
+
+    // Auswahl (oder ganzes Dokument) einfangen
+    const { from, to } = editor.cmView.state.selection.main;
+    const hasSelection = from !== to;
+    const range = hasSelection ? { from, to } : { from: 0, to: editor.value.length };
+    const text = editor.value.substring(range.from, range.to);
+    _aiActiveRequest = { id: null, range, hasSelection, running: false };
+
+    document.getElementById('aiOriginal').value = text;
+    document.getElementById('aiResult').value = '';
+    document.getElementById('aiApplyBtn').disabled = true;
+    document.getElementById('aiStatus').textContent = hasSelection
+        ? `${text.length} Zeichen ausgewählt.`
+        : `Keine Auswahl — das ganze Dokument (${text.length} Zeichen) wird verwendet.`;
+
+    // Privacy-Hinweis: lokal vs. Cloud
+    const info = document.getElementById('aiPrivacyInfo');
+    const endpoint = (settings.ai.endpoint || '').trim() || 'http://localhost:11434';
+    const isLocal = settings.ai.provider === 'ollama' && /^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(endpoint + '/');
+    if (isLocal) {
+        info.textContent = '🔒 Lokal (' + endpoint + ') — der Text verlässt deinen Rechner nicht.';
+        info.style.color = 'var(--md-tertiary)';
+    } else {
+        info.textContent = '⚠️ Der ausgewählte Text wird an ' + endpoint + ' gesendet (' + (settings.ai.provider || 'ollama') + ').';
+        info.style.color = 'var(--md-warning)';
+    }
+
+    modal.classList.add('visible');
+}
+
+function runAiAction() {
+    if (!_aiActiveRequest || _aiActiveRequest.running) return;
+    const select = document.getElementById('aiAction');
+    const original = document.getElementById('aiOriginal');
+    if (!select || !select.value || !original) return;
+    const requestId = 'ai-' + (++_aiRequestSeq);
+    _aiActiveRequest.id = requestId;
+    _aiActiveRequest.running = true;
+    document.getElementById('aiResult').value = '';
+    document.getElementById('aiApplyBtn').disabled = true;
+    document.getElementById('aiStatus').textContent = 'Läuft…';
+    const runBtn = document.getElementById('aiRunBtn');
+    if (runBtn) { runBtn.disabled = true; runBtn.textContent = 'Läuft…'; }
+    window.electronAPI.aiRun({ requestId, action: select.value, text: original.value });
+}
+
+function applyAiResult() {
+    const result = document.getElementById('aiResult');
+    if (!_aiActiveRequest || !result || !result.value.trim()) return;
+    const md = result.value.replace(/\s+$/, '');
+    const { from, to } = _aiActiveRequest.range;
+    editor.cmView.dispatch({
+        changes: { from, to, insert: md },
+        selection: { anchor: from + md.length }
+    });
+    handleEditorInput();
+    closeAiDialog();
+}
+
+function closeAiDialog() {
+    if (_aiActiveRequest && _aiActiveRequest.running && _aiActiveRequest.id) {
+        window.electronAPI.aiCancel(_aiActiveRequest.id);
+    }
+    const modal = document.getElementById('aiModal');
+    if (modal) modal.classList.remove('visible');
+}
+
 // --- E2: Snippet-Verwaltung (eigene Slash-Befehle in settings.snippets) ---
 
 let _snippetEditIndex = -1; // -1 = neues Snippet
@@ -684,6 +810,7 @@ function registerCommands() {
         { id: 'export-dialog', label: 'Exportieren\u2026 (Format w\u00e4hlen)', shortcut: '\u2318\u21e7E', action: () => showExportDialog() },
         { id: 'paste-plain', label: 'Einf\u00fcgen ohne Formatierung', shortcut: '\u2318\u21e7V', action: () => pastePlainText() },
         { id: 'snippets', label: 'Eigene Snippets bearbeiten\u2026', action: () => showSnippetsDialog() },
+        { id: 'ai-assist', label: 'KI-Assistent\u2026', shortcut: '\u2318\u21e7A', action: () => showAiDialog() },
         { id: 'table-format', label: 'Tabelle formatieren (Pipes ausrichten)', action: () => tableFormatBlock() },
         { id: 'table-align', label: 'Tabellen-Spalte: Ausrichtung wechseln', action: () => tableToggleAlignment() },
     ];
@@ -1132,6 +1259,10 @@ window.closeCommandPalette = closeCommandPalette;
 window.showExportDialog = showExportDialog;
 window.closeExportDialog = closeExportDialog;
 window.runExportFromDialog = runExportFromDialog;
+window.showAiDialog = showAiDialog;
+window.closeAiDialog = closeAiDialog;
+window.runAiAction = runAiAction;
+window.applyAiResult = applyAiResult;
 window.showSnippetsDialog = showSnippetsDialog;
 window.closeSnippetsDialog = closeSnippetsDialog;
 window.newSnippet = newSnippet;

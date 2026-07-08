@@ -95,6 +95,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getVaultIndex: (vaultRoot) => ipcRenderer.invoke('get-vault-index', vaultRoot),
     findBacklinks: (payload) => ipcRenderer.invoke('find-backlinks', payload),
 
+    // I1: KI-Assistent (opt-in) — Streaming über Events, Key write-only
+    getAiActions: () => ipcRenderer.invoke('get-ai-actions'),
+    aiRun: (payload) => ipcRenderer.send('ai-run', payload),
+    aiCancel: (requestId) => ipcRenderer.send('ai-cancel', requestId),
+    onAiChunk: (callback) => onOnce('ai-chunk', callback),
+    onAiDone: (callback) => onOnce('ai-done', callback),
+    onAiError: (callback) => onOnce('ai-error', callback),
+    setAiApiKey: (key) => ipcRenderer.invoke('set-ai-api-key', key),
+    hasAiApiKey: () => ipcRenderer.invoke('has-ai-api-key'),
+
     // Theme "System"
     getSystemTheme: () => ipcRenderer.invoke('get-system-theme'),
     onSystemThemeChanged: (callback) => onOnce('system-theme-changed', callback),

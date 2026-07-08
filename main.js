@@ -33,6 +33,8 @@ const { convertImagesToBase64 } = require('./src/main/export/images');
 // K1: Export-Registry — Katalog aller Zielformate + die Format-Implementierungen,
 // die auch die Legacy-IPC-Pfade (export-html, print-to-pdf*) antreiben.
 const exportRegistry = require('./src/main/export/registry');
+// I1: AI-Assist — Aktions-Katalog + Streaming (opt-in, Requests nur im Main-Prozess)
+const { AI_ACTIONS, AI_PROVIDERS, AI_SYSTEM_PROMPT, streamAiCompletion } = require('./src/main/ai');
 const htmlFormat = require('./src/main/export/formats/html');
 const pdfFormat = require('./src/main/export/formats/pdf');
 
@@ -120,7 +122,10 @@ const defaultSettings = {
     tabSize: 4,
     pdfTemplate: 'default',
     pasteHtmlAsMarkdown: true,
-    snippets: []
+    snippets: [],
+    // I1: KI-Assistent — IMMER opt-in, nie Default-an. Key liegt separat
+    // safeStorage-verschlüsselt in aiApiKeyEnc (nie im Renderer).
+    ai: { enabled: false, provider: 'ollama', endpoint: '', model: '' }
 };
 let settings = { ...defaultSettings, ...loadSettingsFromDisk() };
 const recentFiles = loadRecentFilesFromDisk();
@@ -285,6 +290,11 @@ function getMenuTemplate() {
                 label: 'Einfügen ohne Formatierung',
                 accelerator: 'CmdOrCtrl+Shift+V',
                 click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'paste-plain' }); }
+            },
+            {
+                label: 'KI-Assistent…',
+                accelerator: 'CmdOrCtrl+Shift+A',
+                click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'ai-assist' }); }
             },
             { role: 'selectAll', label: 'Alles auswählen' },
             { type: 'separator' },
@@ -1040,6 +1050,9 @@ ipcMain.handle('get-settings', () => {
 });
 
 ipcMain.on('save-settings', (event, newSettings) => {
+    // I1: der safeStorage-verschlüsselte AI-Key wird nur über set-ai-api-key
+    // geschrieben — ein Renderer-Payload darf ihn weder setzen noch löschen.
+    if (newSettings && typeof newSettings === 'object') delete newSettings.aiApiKeyEnc;
     settings = { ...settings, ...newSettings };
     saveSettingsToDisk();
 });
@@ -1200,6 +1213,94 @@ ipcMain.handle('find-backlinks', async (event, { vaultRoot, targetPath } = {}) =
         if (results.length >= 50) break;
     }
     return results;
+});
+
+// I1: KI-Assistent — Streaming über Events, Key via safeStorage, alles opt-in.
+const _aiRequests = new Map(); // requestId -> AbortController
+
+function getAiApiKey() {
+    if (!settings.aiApiKeyEnc) return '';
+    try {
+        const { safeStorage } = require('electron');
+        return safeStorage.decryptString(Buffer.from(settings.aiApiKeyEnc, 'base64'));
+    } catch { return ''; }
+}
+
+ipcMain.handle('set-ai-api-key', (event, key) => {
+    if (typeof key !== 'string') return { ok: false, error: 'Ungültiger Key' };
+    if (key === '') {
+        delete settings.aiApiKeyEnc;
+        saveSettingsToDisk();
+        return { ok: true };
+    }
+    const { safeStorage } = require('electron');
+    if (!safeStorage.isEncryptionAvailable()) {
+        return { ok: false, error: 'OS-Verschlüsselung nicht verfügbar — Key wird nicht gespeichert.' };
+    }
+    settings.aiApiKeyEnc = safeStorage.encryptString(key).toString('base64');
+    saveSettingsToDisk();
+    return { ok: true };
+});
+
+ipcMain.handle('has-ai-api-key', () => !!settings.aiApiKeyEnc);
+
+ipcMain.handle('get-ai-actions', () => Object.entries(AI_ACTIONS).map(([id, a]) => ({
+    id, label: a.label, hint: a.hint || ''
+})));
+
+const AI_MAX_TEXT = 200 * 1024;
+ipcMain.on('ai-run', async (event, payload) => {
+    const requestId = payload && (typeof payload.requestId === 'string' || typeof payload.requestId === 'number')
+        ? payload.requestId : null;
+    const send = (channel, data) => {
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, data);
+    };
+    if (requestId === null) return;
+    try {
+        const ai = settings.ai || {};
+        if (!ai.enabled) {
+            send('ai-error', { requestId, error: 'KI-Assistent ist deaktiviert (Einstellungen → KI-Assistent).' });
+            return;
+        }
+        const def = AI_ACTIONS[payload.action];
+        if (!def) {
+            send('ai-error', { requestId, error: `Unbekannte Aktion: ${payload.action}` });
+            return;
+        }
+        const text = payload.text;
+        if (typeof text !== 'string' || !text.trim()) {
+            send('ai-error', { requestId, error: 'Kein Text übergeben.' });
+            return;
+        }
+        if (text.length > AI_MAX_TEXT) {
+            send('ai-error', { requestId, error: 'Auswahl zu groß (max. 200 KB).' });
+            return;
+        }
+        const controller = new AbortController();
+        _aiRequests.set(requestId, controller);
+        await streamAiCompletion({
+            provider: AI_PROVIDERS.includes(ai.provider) ? ai.provider : 'ollama',
+            endpoint: typeof ai.endpoint === 'string' ? ai.endpoint : '',
+            model: (typeof ai.model === 'string' && ai.model.trim()) ? ai.model.trim() : 'llama3.2',
+            apiKey: getAiApiKey(),
+            prompt: def.build(text),
+            system: AI_SYSTEM_PROMPT
+        }, (delta) => send('ai-chunk', { requestId, delta }), controller.signal);
+        send('ai-done', { requestId });
+    } catch (error) {
+        if (error && error.name === 'AbortError') {
+            send('ai-done', { requestId, cancelled: true });
+        } else {
+            send('ai-error', { requestId, error: error.message });
+        }
+    } finally {
+        _aiRequests.delete(requestId);
+    }
+});
+
+ipcMain.on('ai-cancel', (event, requestId) => {
+    const controller = _aiRequests.get(requestId);
+    if (controller) controller.abort();
 });
 
 // Recent files handlers

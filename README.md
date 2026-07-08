@@ -67,10 +67,11 @@
 | **Tabellen** | Floating-Toolbar (Spalten/Zeilen/Ausrichtung/Auto-Format), Tab-Navigation, CSV/TSV-Paste → Markdown-Tabelle |
 | **Rendering** | YAML-Frontmatter, Callouts (`> [!NOTE]` …), Wiki-Links (`[[Notiz]]` mit Vault-Autocomplete + Klick-Anlegen), Typewriter-Modus, inkrementelles DOM-Diffing (morphdom) |
 | **Rechtschreibung** | Integrierte Rechtschreibprüfung (DE/EN) mit Korrekturvorschlägen |
+| **KI (opt-in)** | `⌘⇧A`: Umschreiben/Kürzen/Übersetzen/Ton/Zusammenfassen/Grammatik/Titel — Ollama lokal empfohlen, OpenAI-/Anthropic-kompatibel; Vorschau vor dem Einsetzen, Key verschlüsselt |
 | **CLI** | Headless-Konverter: `mrxdown --to pdf\|html\|docx\|slides\|epub <datei\|ordner …>` (Globs, Batch, Exit-Codes) |
 | **Quick Action** | macOS Rechtsklick-Kontextmenü für Markdown → PDF Konvertierung |
 | **Windows Kontextmenü** | Windows Rechtsklick → "Mit MrxDown zu PDF konvertieren" (automatisch per Installer) |
-| **Qualität** | 184 Unit-Tests + 154 E2E-Checks (echte App headless) + CLI-Roundtrips (PDF/HTML/DOCX/Slides/EPUB) als Release-Gate in CI |
+| **Qualität** | 193 Unit-Tests + 168 E2E-Checks (echte App headless) + CLI-Roundtrips (PDF/HTML/DOCX/Slides/EPUB) als Release-Gate in CI |
 | **Sicherheit** | Sandbox + Context-Isolation, CSP, Electron Fuses, gehärtetes DOMPurify, validierte IPC, `npm audit`-Gate — Details in [SECURITY.md](SECURITY.md) |
 
 ## Download & Installation

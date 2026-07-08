@@ -14,6 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
 
+## [0.18.0] - 2026-07-08
+
+### 🤖 KI-Assistent — opt-in, self-hosted zuerst (I1)
+- **`⌘⇧A` / Bearbeiten → KI-Assistent…**: 8 Aktionen auf die Auswahl (oder das ganze Dokument): Umschreiben, Kürzen, Übersetzen (DE↔EN), Ton formeller/lockerer, Zusammenfassen, Grammatik-Fix, Titel vorschlagen. **Vorschau vor dem Einsetzen** (Original + gestreamter Vorschlag nebeneinander, „Ersetzen" übernimmt), Streaming live ins UI, abbrechbar.
+- **Provider-agnostisch, NIE Default-an**: Ollama (lokal, Default-Empfehlung), OpenAI-kompatible APIs, Anthropic. Endpoint + Modell in den Einstellungen; ohne explizites Aktivieren passiert nichts, kein Request ohne Klick auf „Ausführen".
+- **Privacy sichtbar gemacht**: der Dialog zeigt vor jedem Lauf, wohin der Text geht — „🔒 Lokal" bei Ollama/localhost, Warnung mit Endpoint bei Cloud.
+- **Architektur**: alle Requests laufen im Main-Prozess (die Renderer-CSP hat `connect-src 'none'` — der Renderer KANN gar nicht selbst telefonieren); der Prompt-Katalog ist geschlossen und lebt main-seitig; **API-Key safeStorage-verschlüsselt und write-only** (erreicht den Renderer nie, `save-settings` kann ihn nicht überschreiben).
+- Tests: 9 Jest (Request-Builder pro Provider — Key geht nie an Ollama —, NDJSON/SSE-Stream-Parser inkl. zerteilter Chunks) + E2E `ai-assist` (14 Checks gegen einen Mock-Ollama-Server: Opt-in-Gate ohne Request, geschlossener Aktions-Katalog, Streaming, Ersetzen, Key-Roundtrip).
+
 ## [0.17.0] - 2026-07-08
 
 ### 🧰 Pandoc als optionaler Power-Backend (K3)
