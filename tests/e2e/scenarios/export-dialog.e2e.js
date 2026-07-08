@@ -13,6 +13,7 @@ module.exports = {
         d.assert('HTML-Format registriert', ids.includes('html'));
         d.assert('PDF-Format registriert', ids.includes('pdf'));
         d.assert('DOCX-Format registriert (K2)', ids.includes('docx'));
+        d.assert('Slides-Format registriert (K4)', ids.includes('slides'));
         const pdf = (formats || []).find(f => f.id === 'pdf') || {};
         d.assertEq('PDF deklariert Options-Panel', pdf.optionsPanel, 'pdf');
         d.assert('PDF deklariert benötigte Dokumentfelder',
@@ -68,6 +69,21 @@ module.exports = {
         `);
         d.assert('DOCX-Optionen sichtbar bei Format DOCX', docxUi.docxVisible);
         d.assert('PDF-Optionen versteckt bei Format DOCX', docxUi.pdfHidden);
+
+        // K4: Slides-Panel (Theme-Auswahl)
+        const slidesUi = await d.exec(`
+            const select = document.getElementById('exportFormat');
+            select.value = 'slides';
+            select.dispatchEvent(new Event('change'));
+            return {
+                slidesVisible: !document.getElementById('exportSlidesOptions').hidden,
+                docxHidden: document.getElementById('exportDocxOptions').hidden,
+                themeCount: document.getElementById('slidesTheme').options.length
+            };
+        `);
+        d.assert('Slides-Optionen sichtbar bei Format Slides', slidesUi.slidesVisible);
+        d.assert('DOCX-Optionen versteckt bei Format Slides', slidesUi.docxHidden);
+        d.assert('Theme-Auswahl befüllt', slidesUi.themeCount >= 10);
 
         // Schließen über Escape-Pfad (closeExportDialog) + Reset auf PDF für Folge-Szenarien
         const closed = await d.exec(`

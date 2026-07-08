@@ -236,6 +236,48 @@ function cleanupPastedMarkdown(markdown) {
         .replace(/\s+$/, '');
 }
 
+// --- K4: Slide-Export — pure Folien-Split-Logik ---
+
+// Zerlegt Markdown (OHNE Frontmatter — vorher extrahieren!) an Folientrennern:
+// eine Zeile aus --- oder === (3+), der eine LEERE Zeile vorausgeht. Die
+// Leerzeilen-Bedingung löst beide Kollisionen: Setext-Headings ("Text\n---")
+// und den Frontmatter-Delimiter. Trenner in Code-Fences zählen nie.
+// Speaker-Notes: ein <!-- notes: ... -->-Kommentar pro Folie wird extrahiert.
+// Rückgabe: [{ markdown, notes }] — leere Folien (Doppel-Trenner) fallen raus.
+function splitSlides(markdown) {
+    const lines = (markdown || '').replace(/\r\n/g, '\n').split('\n');
+    const rawSlides = [];
+    let current = [];
+    let inFence = false;
+    let prevBlank = true; // Dokumentanfang zählt wie Leerzeile
+
+    for (const line of lines) {
+        if (/^\s*(```|~~~)/.test(line)) inFence = !inFence;
+        const isSeparator = !inFence && prevBlank && /^ {0,3}(-{3,}|={3,})\s*$/.test(line);
+        if (isSeparator) {
+            rawSlides.push(current.join('\n'));
+            current = [];
+            prevBlank = true;
+            continue;
+        }
+        current.push(line);
+        prevBlank = line.trim() === '';
+    }
+    rawSlides.push(current.join('\n'));
+
+    const slides = rawSlides.map(md => {
+        let notes = null;
+        const cleaned = md.replace(/<!--\s*notes?:\s*([\s\S]*?)-->/i, (m, n) => {
+            notes = n.trim();
+            return '';
+        });
+        return { markdown: cleaned.trim(), notes };
+    }).filter(s => s.markdown || s.notes);
+
+    // Ein leeres Dokument ist EINE leere Folie, kein leeres Deck
+    return slides.length > 0 ? slides : [{ markdown: '', notes: null }];
+}
+
 // Export for Node.js (tests), no-op in browser
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -247,6 +289,7 @@ if (typeof module !== 'undefined' && module.exports) {
         analyzeDocument,
         lintMarkdown,
         shouldConvertHtmlPaste,
-        cleanupPastedMarkdown
+        cleanupPastedMarkdown,
+        splitSlides
     };
 }

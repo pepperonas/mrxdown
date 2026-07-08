@@ -62,6 +62,19 @@ async function main() {
         check('DOCX: Frontmatter → docProps', core.includes('Konverter-Test') && core.includes('Martin'));
     }
 
+    // --- --to slides (self-contained reveal.js) ---
+    fs.writeFileSync(path.join(dir, 'deck.md'), '---\ntitle: Deck\n---\n\n# Folie 1\n<!-- notes: Sprechernotiz -->\n\n---\n\n# Folie 2\n');
+    const slides = run(['--to', 'slides', path.join(dir, 'deck.md')]);
+    check('--to slides Exit-Code 0', slides.status === 0, 'status=' + slides.status + ' ' + (slides.stderr || ''));
+    const slidesOut = path.join(dir, 'deck.slides.html');
+    check('Slides-Datei erzeugt (.slides.html)', fs.existsSync(slidesOut));
+    if (fs.existsSync(slidesOut)) {
+        const deck = fs.readFileSync(slidesOut, 'utf-8');
+        check('Slides: 2 Sections + Reveal + Notes',
+            (deck.match(/<section>/g) || []).length === 2 && deck.includes('Reveal.initialize') && deck.includes('Sprechernotiz'));
+        check('Slides: self-contained (keine externen Ressourcen)', !/(src|href)="https?:\/\//.test(deck));
+    }
+
     // --- Mehrere Datei-Argumente (Shell-Glob-Muster) ---
     fs.rmSync(htmlOut, { force: true });
     const multi = run(['--to', 'html', path.join(dir, 'doc.md'), path.join(dir, 'zwei.md')]);

@@ -559,6 +559,26 @@
                             <label><input type="checkbox" id="docxToc"> Inhaltsverzeichnis-Feld einfügen (Word aktualisiert beim Öffnen)</label>
                         </div>
                     </div><!-- /exportDocxOptions -->
+                    <div id="exportSlidesOptions" hidden>
+                        <div class="settings-row">
+                            <label for="slidesTheme" style="color: var(--text-secondary); font-size: 14px;">Folien-Theme</label>
+                            <select class="search-input" id="slidesTheme" style="width: 140px;">
+                                <option value="black" selected>Black</option>
+                                <option value="white">White</option>
+                                <option value="league">League</option>
+                                <option value="beige">Beige</option>
+                                <option value="night">Night</option>
+                                <option value="serif">Serif</option>
+                                <option value="simple">Simple</option>
+                                <option value="solarized">Solarized</option>
+                                <option value="moon">Moon</option>
+                                <option value="dracula">Dracula</option>
+                                <option value="sky">Sky</option>
+                                <option value="blood">Blood</option>
+                            </select>
+                        </div>
+                        <div style="color: var(--text-muted, #888); font-size: 12px; margin: 4px 0 8px 0;">„---" (mit Leerzeile davor) trennt Folien · &lt;!-- notes: … --&gt; wird Speaker-Note</div>
+                    </div><!-- /exportSlidesOptions -->
                     <div class="search-buttons">
                         <button class="modal-button" onclick="runExportFromDialog()">Exportieren</button>
                         <button class="modal-button outlined" onclick="closeExportDialog()">Abbrechen</button>

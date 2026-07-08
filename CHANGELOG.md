@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
 
+## [0.11.0] - 2026-07-08
+
+### 🎞️ Slide-Export — Präsentationen aus Markdown (K4)
+- **Neues Format „Präsentation (reveal.js)"** im Export-Dialog und CLI (`--to slides` → `<name>.slides.html`): eine **self-contained HTML-Datei** (reveal.js 6 + CSS + Theme + Notes-Plugin inline, Bilder base64) — läuft offline in jedem Browser, live im Browser verifiziert (Init, Navigation, Callouts auf Folien).
+- **`---`/`===` als Folientrenner** (mit Leerzeile davor — löst die Kollisionen mit Setext-Headings und dem Frontmatter-Delimiter; Trenner in Code-Fences zählen nie). Pure Split-Logik `splitSlides()` in editor-utils.js.
+- **Speaker-Notes** via `<!-- notes: … -->` pro Folie (reveal-Notes-Plugin, Taste S öffnet die Sprecheransicht).
+- **12 Themes** (black/white/league/…): Dialog-Auswahl > Frontmatter `theme:` > Default; ungültige Werte fallen sicher zurück.
+- Refactor: geteilte Main-Prozess-marked-Instanz (`src/main/export/markdown.js`, Callouts + Heading-IDs) für CLI und Slides.
+- Tests: 12 Jest (Split-Kanten: Setext, Fences, Doppel-Trenner, Notes; generateSlides self-contained + Themes) + E2E (Dialog-Panel, CLI-Roundtrip mit Section-/Notes-Checks).
+
 ## [0.10.0] - 2026-07-08
 
 ### ⌨️ CLI zum echten Konverter (K7)

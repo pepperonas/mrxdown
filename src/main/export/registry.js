@@ -39,5 +39,6 @@ function listFormats() {
 registerFormat(require('./formats/html'));
 registerFormat(require('./formats/pdf'));
 registerFormat(require('./formats/docx'));
+registerFormat(require('./formats/slides'));
 
 module.exports = { registerFormat, getFormat, listFormats };

@@ -12,34 +12,17 @@ const { buildPdfHtml, renderMathForCLI, renderMermaidForCLI } = require('./expor
 const { renderHtmlToPdf } = require('./export/pdf-render');
 const { convertImagesToBase64 } = require('./export/images');
 
-const SUPPORTED_FORMATS = ['pdf', 'html', 'docx'];
+const SUPPORTED_FORMATS = ['pdf', 'html', 'docx', 'slides'];
 
-let _marked = null;
-let _headingIds = {}; // pro Datei zurückgesetzt (convertMarkdownFile)
-function getMarked() {
-    if (!_marked) {
-        _marked = require('marked');
-        // E4: Callouts auch headless — dieselbe Extension wie die Preview (callouts.js)
-        _marked.use(require('../../callouts').createCalloutExtension());
-        // Heading-IDs wie in der Preview (GitHub-kompatibel, editor-utils.js) —
-        // interne Anker-Links funktionieren damit auch in CLI-HTML/-PDF.
-        const { generateHeadingId } = require('../../editor-utils');
-        const renderer = new _marked.Renderer();
-        renderer.heading = function (text, level, raw) {
-            const id = generateHeadingId(raw, _headingIds);
-            return `<h${level} id="${id}">${text}</h${level}>`;
-        };
-        _marked.use({ renderer });
-    }
-    return _marked;
-}
+// Geteilte marked-Instanz (Callouts + Heading-IDs) — src/main/export/markdown.js
+const { getSharedMarked, resetHeadingIds } = require('./export/markdown');
 
 // Eine Markdown-Datei in das Zielformat konvertieren; gibt den Ausgabepfad zurück.
 async function convertMarkdownFile(filePath, format) {
     const markdownContent = await fs.readFile(filePath, 'utf-8');
     const { frontmatter, body } = extractFrontmatter(markdownContent);
-    const marked = getMarked();
-    _headingIds = {}; // Duplikat-Zähler pro Dokument
+    const marked = getSharedMarked();
+    resetHeadingIds(); // Duplikat-Zähler pro Dokument
     const baseDir = path.dirname(filePath);
     const outBase = filePath.replace(/\.(md|markdown)$/i, '');
 
@@ -78,6 +61,16 @@ async function convertMarkdownFile(filePath, format) {
         const html = marked.parse(withMath);
         const buffer = await generateDocx({ previewHtml: html, rawMarkdown: markdownContent, filePath });
         const outputPath = outBase + '.docx';
+        await fs.writeFile(outputPath, buffer);
+        return outputPath;
+    }
+
+    if (format === 'slides') {
+        // K4: self-contained reveal.js-Präsentation; --- (mit Leerzeile davor)
+        // trennt Folien, <!-- notes: … --> wird zu Speaker-Notes.
+        const { generateSlides } = require('./export/formats/slides');
+        const buffer = await generateSlides({ rawMarkdown: markdownContent, filePath });
+        const outputPath = outBase + '.slides.html';
         await fs.writeFile(outputPath, buffer);
         return outputPath;
     }
