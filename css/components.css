@@ -866,6 +866,12 @@ body.light-theme #preview blockquote {
 }
 
 /* E3: Floating-Tabellen-Toolbar */
+.table-toolbar[hidden] {
+    /* Die display:flex-Regel unten überstimmt sonst das UA-[hidden] —
+       ohne diese Regel schwebt die Toolbar permanent bei 0,0 über der
+       Haupt-Toolbar (Bug v0.18.0). */
+    display: none;
+}
 .table-toolbar {
     position: fixed;
     z-index: 900;
