@@ -328,6 +328,14 @@ function handleExternalLinks() {
     document.addEventListener('click', (e) => {
         const link = e.target.closest('a[href]');
         if (!link) return;
+
+        // E1: Wiki-Links — öffnen (data-wiki-path) oder anlegen (missing)
+        if (link.classList.contains('wiki-link')) {
+            e.preventDefault();
+            handleWikiLinkClick(link);
+            return;
+        }
+
         const href = link.getAttribute('href');
         if (!href) return;
 

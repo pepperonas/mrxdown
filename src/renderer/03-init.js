@@ -73,6 +73,10 @@ function configureMarkedOnce() {
     if (typeof createCalloutExtension === 'function') {
         marked.use(createCalloutExtension());
     }
+    // E1: Wiki-Links — Resolver liest den Vault-Index (07-files-menu) zur Render-Zeit
+    if (typeof createWikiLinkExtension === 'function') {
+        marked.use(createWikiLinkExtension(target => resolveWikiTarget(target, vaultIndex)));
+    }
 }
 
 function initializeApp() {

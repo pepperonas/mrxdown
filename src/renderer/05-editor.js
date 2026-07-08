@@ -605,6 +605,14 @@ function checkAutocomplete() {
         return;
     }
 
+    // E1: Wiki-Link-Popup bei [[ und beim Weitertippen ([[par → gefiltert).
+    // Stoppt an | und # — Alias/Heading vervollständigen wir nicht.
+    const wikiMatch = lineText.match(/\[\[([^\[\]|#]*)$/);
+    if (wikiMatch && typeof vaultIndex !== 'undefined' && vaultIndex.length > 0) {
+        showAutocompleteWikiLinks(pos - wikiMatch[1].length, wikiMatch[1]);
+        return;
+    }
+
     // Check if we should show completion hints
     const charBefore = text.substring(Math.max(0, pos - 2), pos);
 
@@ -646,6 +654,54 @@ function showAutocompleteLanguages(insertFrom, prefix = '') {
         item.addEventListener('click', () => {
             replaceRange(insertFrom, insertFrom + prefix.length, lang + '\n\n```');
             editor.selectionStart = editor.selectionEnd = insertFrom + lang.length + 1;
+            hideAutocomplete();
+            handleEditorInput();
+        });
+        popup.appendChild(item);
+    });
+
+    autocompleteSelectedIndex = 0;
+    positionAutocomplete(insertFrom);
+    popup.style.display = 'block';
+    popup.scrollTop = 0;
+    autocompleteVisible = true;
+}
+
+// E1: Wiki-Link-Vervollständigung aus dem Vault-Index. closeBrackets hat beim
+// Tippen von [[ meist schon ]] eingefügt — vorhandene Schließer nach dem Cursor
+// werden konsumiert statt verdoppelt.
+function showAutocompleteWikiLinks(insertFrom, prefix = '') {
+    const popup = document.getElementById('autocompletePopup');
+    if (!popup) return;
+
+    const needle = prefix.toLowerCase();
+    const names = vaultIndex
+        .map(f => f.name.replace(/\.(md|markdown)$/i, ''))
+        .filter((n, i, arr) => arr.indexOf(n) === i); // Duplikate (md/markdown) raus
+    const starts = names.filter(n => n.toLowerCase().startsWith(needle));
+    const contains = needle
+        ? names.filter(n => !n.toLowerCase().startsWith(needle) && n.toLowerCase().includes(needle))
+        : [];
+    const candidates = [...starts, ...contains].slice(0, 12);
+    if (candidates.length === 0) {
+        hideAutocomplete();
+        return;
+    }
+
+    popup.textContent = '';
+    candidates.forEach((name, index) => {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item' + (index === 0 ? ' selected' : '');
+        item.textContent = name;
+        item.addEventListener('click', () => {
+            const cursorPos = insertFrom + prefix.length;
+            const after = editor.value.substring(cursorPos, cursorPos + 2);
+            let existingClosers = 0;
+            if (after.startsWith(']]')) existingClosers = 2;
+            else if (after.startsWith(']')) existingClosers = 1;
+            const closers = ']]'.slice(existingClosers);
+            replaceRange(insertFrom, cursorPos, name + closers);
+            editor.selectionStart = editor.selectionEnd = insertFrom + name.length + 2;
             hideAutocomplete();
             handleEditorInput();
         });

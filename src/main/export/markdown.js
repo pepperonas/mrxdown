@@ -9,6 +9,8 @@ function getSharedMarked() {
     if (!_marked) {
         _marked = require('marked');
         _marked.use(require('../../../callouts').createCalloutExtension());
+        // E1: Wiki-Links headless ohne Vault-Kontext — nur das Label rendern
+        _marked.use(require('../../../wikilinks').createWikiLinkExtension(null));
         const { generateHeadingId } = require('../../../editor-utils');
         const renderer = new _marked.Renderer();
         renderer.heading = function (text, level, raw) {

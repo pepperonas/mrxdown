@@ -91,6 +91,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // K6: DOCX-Import (mammoth im Main-Prozess)
     convertDocxToHtml: (payload) => ipcRenderer.invoke('convert-docx-to-html', payload),
 
+    // E1: Wiki-Links — Vault-Index + Backlinks
+    getVaultIndex: (vaultRoot) => ipcRenderer.invoke('get-vault-index', vaultRoot),
+    findBacklinks: (payload) => ipcRenderer.invoke('find-backlinks', payload),
+
     // Theme "System"
     getSystemTheme: () => ipcRenderer.invoke('get-system-theme'),
     onSystemThemeChanged: (callback) => onOnce('system-theme-changed', callback),
