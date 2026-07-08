@@ -567,6 +567,19 @@ function setupImagePaste() {
                 }
             }
         }
+
+        // E3: CSV/TSV → Markdown-Tabelle. Greift nur bei stark tabellarischem
+        // Plain-Text (≥2 Zeilen, ≥2 Spalten, konsistente Spaltenzahl) — Excel-
+        // Kopien laufen schon über den HTML-Pfad darüber. Gleiche Abschaltung.
+        if (settings.pasteHtmlAsMarkdown !== false && !selectionInsideCodeFence(from)) {
+            const csvTable = csvToMarkdownTable(plainText);
+            if (csvTable) {
+                e.preventDefault();
+                e.stopPropagation();
+                insertMarkdownAtSelection(csvTable + '\n');
+                return;
+            }
+        }
     }, true); // capture — vor CodeMirrors eigenem paste-Handler
 }
 
@@ -671,6 +684,8 @@ function registerCommands() {
         { id: 'export-dialog', label: 'Exportieren\u2026 (Format w\u00e4hlen)', shortcut: '\u2318\u21e7E', action: () => showExportDialog() },
         { id: 'paste-plain', label: 'Einf\u00fcgen ohne Formatierung', shortcut: '\u2318\u21e7V', action: () => pastePlainText() },
         { id: 'snippets', label: 'Eigene Snippets bearbeiten\u2026', action: () => showSnippetsDialog() },
+        { id: 'table-format', label: 'Tabelle formatieren (Pipes ausrichten)', action: () => tableFormatBlock() },
+        { id: 'table-align', label: 'Tabellen-Spalte: Ausrichtung wechseln', action: () => tableToggleAlignment() },
     ];
 }
 

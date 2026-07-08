@@ -330,6 +330,233 @@ const SLASH_COMMANDS = [
     { id: 'wikilink', label: 'Wiki-Link', hint: '[[…]]', body: '[[{{cursor}}]]' }
 ];
 
+// --- E3: Visueller Tabellen-Editor — pure Tabellen-Logik ---
+
+// Zelle-Split, der \| respektiert. Gibt die inneren Zellen einer |-Zeile zurück.
+function splitTableRow(line) {
+    const trimmed = line.trim().replace(/^\|/, '').replace(/\|$/, '');
+    const cells = [];
+    let current = '';
+    for (let i = 0; i < trimmed.length; i++) {
+        const ch = trimmed[i];
+        if (ch === '\\' && trimmed[i + 1] === '|') {
+            current += '\\|';
+            i++;
+        } else if (ch === '|') {
+            cells.push(current.trim());
+            current = '';
+        } else {
+            current += ch;
+        }
+    }
+    cells.push(current.trim());
+    return cells;
+}
+
+function isTableSeparatorLine(line) {
+    return /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line)
+        || /^\s*\|\s*:?-{3,}:?\s*\|\s*$/.test(line);
+}
+
+// Parst einen Block von |-Zeilen zu { header, align, rows }.
+// align: 'left' | 'center' | 'right' | null (kein Marker) je Spalte.
+function parseMarkdownTable(lines) {
+    if (!Array.isArray(lines) || lines.length < 2) return null;
+    if (!isTableSeparatorLine(lines[1])) return null;
+    const header = splitTableRow(lines[0]);
+    const align = splitTableRow(lines[1]).map(cell => {
+        const c = cell.trim();
+        const left = c.startsWith(':');
+        const right = c.endsWith(':');
+        if (left && right) return 'center';
+        if (right) return 'right';
+        if (left) return 'left';
+        return null;
+    });
+    const rows = lines.slice(2).map(splitTableRow);
+    const cols = header.length;
+    // Alle Zeilen auf Header-Breite normalisieren
+    while (align.length < cols) align.push(null);
+    align.length = cols;
+    for (const row of rows) {
+        while (row.length < cols) row.push('');
+        row.length = cols;
+    }
+    return { header, align, rows };
+}
+
+// Serialisiert mit ausgerichteten Pipes (Auto-Format): Spaltenbreite = längste
+// Zelle (min. 3), Alignment-Marker :--- / :---: / ---:.
+function formatMarkdownTable(table) {
+    const cols = table.header.length;
+    const widths = [];
+    for (let c = 0; c < cols; c++) {
+        let w = (table.header[c] || '').length;
+        for (const row of table.rows) w = Math.max(w, (row[c] || '').length);
+        widths.push(Math.max(w, 3));
+    }
+    const pad = (s, c) => {
+        const str = s || '';
+        const diff = widths[c] - str.length;
+        if (table.align[c] === 'right') return ' '.repeat(diff) + str;
+        if (table.align[c] === 'center') {
+            const l = Math.floor(diff / 2);
+            return ' '.repeat(l) + str + ' '.repeat(diff - l);
+        }
+        return str + ' '.repeat(diff);
+    };
+    const sepCell = (c) => {
+        const a = table.align[c];
+        const dashes = '-'.repeat(Math.max(widths[c] - (a === 'center' ? 2 : a ? 1 : 0), 3));
+        if (a === 'center') return ':' + dashes + ':';
+        if (a === 'right') return dashes + ':';
+        if (a === 'left') return ':' + dashes;
+        return dashes;
+    };
+    const lines = [];
+    lines.push('| ' + table.header.map((h, c) => pad(h, c)).join(' | ') + ' |');
+    lines.push('|' + widths.map((w, c) => ' ' + sepCell(c) + ' ').join('|') + '|');
+    for (const row of table.rows) {
+        lines.push('| ' + row.map((cell, c) => pad(cell, c)).join(' | ') + ' |');
+    }
+    return lines.join('\n');
+}
+
+// Tabellen-Operationen — geben NEUE Tabellen-Objekte zurück (kein Mutieren).
+function tableAddColumn(table, index) {
+    const at = Math.max(0, Math.min(index, table.header.length));
+    const ins = (arr, val) => [...arr.slice(0, at), val, ...arr.slice(at)];
+    return {
+        header: ins(table.header, 'Spalte'),
+        align: ins(table.align, null),
+        rows: table.rows.map(r => ins(r, ''))
+    };
+}
+
+function tableDeleteColumn(table, index) {
+    if (table.header.length <= 1) return table; // letzte Spalte bleibt
+    const at = Math.max(0, Math.min(index, table.header.length - 1));
+    const del = (arr) => arr.filter((_, i) => i !== at);
+    return { header: del(table.header), align: del(table.align), rows: table.rows.map(del) };
+}
+
+function tableAddRow(table, index) {
+    const at = Math.max(0, Math.min(index, table.rows.length));
+    const empty = table.header.map(() => '');
+    return { ...table, rows: [...table.rows.slice(0, at), empty, ...table.rows.slice(at)] };
+}
+
+function tableDeleteRow(table, index) {
+    if (table.rows.length <= 1) return table; // letzte Datenzeile bleibt
+    const at = Math.max(0, Math.min(index, table.rows.length - 1));
+    return { ...table, rows: table.rows.filter((_, i) => i !== at) };
+}
+
+// Ausrichtung zyklisch: null → left → center → right → null
+function tableCycleAlignment(table, colIndex) {
+    const order = [null, 'left', 'center', 'right'];
+    const at = Math.max(0, Math.min(colIndex, table.align.length - 1));
+    const next = order[(order.indexOf(table.align[at]) + 1) % order.length];
+    const align = [...table.align];
+    align[at] = next;
+    return { ...table, align };
+}
+
+// Findet den Tabellen-Block um cursorPos: zusammenhängende |-Zeilen mit
+// gültiger Separator-Zeile. Rückgabe { start, end, lines, rowIndex } | null.
+// rowIndex: 0 = Header, 1 = Separator, 2+ = Datenzeilen.
+function findTableBounds(text, cursorPos) {
+    const lines = text.split('\n');
+    let offset = 0;
+    let lineIdx = -1;
+    const lineStarts = [];
+    for (let i = 0; i < lines.length; i++) {
+        lineStarts.push(offset);
+        if (cursorPos >= offset && cursorPos <= offset + lines[i].length) lineIdx = i;
+        offset += lines[i].length + 1;
+    }
+    if (lineIdx === -1) return null;
+    const isTableLine = (l) => {
+        const t = l.trim();
+        return t.startsWith('|') && t.includes('|', 1);
+    };
+    if (!isTableLine(lines[lineIdx])) return null;
+    let first = lineIdx;
+    while (first > 0 && isTableLine(lines[first - 1])) first--;
+    let last = lineIdx;
+    while (last < lines.length - 1 && isTableLine(lines[last + 1])) last++;
+    if (last - first < 1) return null;
+    if (!isTableSeparatorLine(lines[first + 1])) return null;
+    const blockLines = lines.slice(first, last + 1);
+    return {
+        start: lineStarts[first],
+        end: lineStarts[last] + lines[last].length,
+        lines: blockLines,
+        rowIndex: lineIdx - first
+    };
+}
+
+// Spaltenindex der Cursor-Position innerhalb einer Tabellenzeile (\|-sicher).
+function tableColumnAtPos(lineText, colOffset) {
+    let count = 0;
+    let seenFirstPipe = false;
+    for (let i = 0; i < Math.min(colOffset, lineText.length); i++) {
+        if (lineText[i] === '\\' && lineText[i + 1] === '|') { i++; continue; }
+        if (lineText[i] === '|') {
+            if (!seenFirstPipe) { seenFirstPipe = true; continue; }
+            count++;
+        }
+    }
+    return count;
+}
+
+// CSV/TSV → Markdown-Tabelle. Konservativ: mindestens 2 Zeilen, mindestens
+// 2 Spalten, ALLE Zeilen mit identischer Spaltenzahl. Delimiter-Priorität
+// Tab > Semikolon > Komma; einfache "…"-Quotes (mit Delimiter darin) werden
+// respektiert. Kein Tabellen-Kandidat → null (normaler Paste).
+function csvToMarkdownTable(text) {
+    const raw = (text || '').replace(/\r\n/g, '\n').replace(/\n+$/, '');
+    const lines = raw.split('\n');
+    if (lines.length < 2) return null;
+
+    const splitQuoted = (line, delim) => {
+        const cells = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (ch === '"') {
+                if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+                else inQuotes = !inQuotes;
+            } else if (ch === delim && !inQuotes) {
+                cells.push(current.trim());
+                current = '';
+            } else {
+                current += ch;
+            }
+        }
+        cells.push(current.trim());
+        return cells;
+    };
+
+    for (const delim of ['\t', ';', ',']) {
+        const parsed = lines.map(l => splitQuoted(l, delim));
+        const cols = parsed[0].length;
+        // Komma ist auch Prosa-Zeichen — dort strenger: ≥3 Zeilen oder ≥3 Spalten.
+        if (delim === ',' && lines.length < 3 && cols < 3) continue;
+        if (cols >= 2 && parsed.every(p => p.length === cols)) {
+            const esc = (c) => c.replace(/\|/g, '\\|');
+            const table = {
+                header: parsed[0].map(esc),
+                align: parsed[0].map(() => null),
+                rows: parsed.slice(1).map(r => r.map(esc))
+            };
+            return formatMarkdownTable(table);
+        }
+    }
+    return null;
+}
+
 // Export for Node.js (tests), no-op in browser
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -344,6 +571,17 @@ if (typeof module !== 'undefined' && module.exports) {
         cleanupPastedMarkdown,
         splitSlides,
         expandSnippet,
-        SLASH_COMMANDS
+        SLASH_COMMANDS,
+        splitTableRow,
+        parseMarkdownTable,
+        formatMarkdownTable,
+        tableAddColumn,
+        tableDeleteColumn,
+        tableAddRow,
+        tableDeleteRow,
+        tableCycleAlignment,
+        findTableBounds,
+        tableColumnAtPos,
+        csvToMarkdownTable
     };
 }

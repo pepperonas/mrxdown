@@ -32,6 +32,14 @@ function handleMenuAction(action, data = {}) {
         case 'paste-plain':
             pastePlainText();
             break;
+        case 'table-col-left': tableInsertColumnLeft(); break;
+        case 'table-col-right': tableInsertColumnRight(); break;
+        case 'table-col-delete': tableRemoveColumn(); break;
+        case 'table-row-above': tableInsertRowAbove(); break;
+        case 'table-row-below': tableInsertRowBelow(); break;
+        case 'table-row-delete': tableRemoveRow(); break;
+        case 'table-align': tableToggleAlignment(); break;
+        case 'table-format': tableFormatBlock(); break;
         case 'batch-export-pdf':
             batchExportPDF();
             break;
