@@ -31,7 +31,7 @@ async function renderHtmlToPdf(fullHtml, printOptions = {}, meta = null) {
         width: 800,
         height: 1000,
         show: false,
-        webPreferences: { nodeIntegration: false, contextIsolation: true }
+        webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } // Q2
     });
     const tempHtmlPath = path.join(app.getPath('temp'), `mrxdown-pdf-${process.pid}-${Date.now()}.html`);
     try {

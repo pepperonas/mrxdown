@@ -117,6 +117,10 @@ Key constraints:
 - **Settings**: `main.js` reads/writes `settings.json` and `recent-files.json` in `app.getPath('userData')`.
 - **Global function exposure**: Functions used in HTML `onclick` handlers must be assigned to `window.*` in the `DOMContentLoaded` listener at the top of renderer.js.
 
+### Security (Q2)
+
+See SECURITY.md for the full model. Rules that affect day-to-day changes: all windows run `sandbox: true` (preload must stay contextBridge/ipcRenderer-only); index.html has a CSP (`default-src 'none'`, script-src needs 'unsafe-inline' until onclick attributes are refactored — new remote loads of ANY kind will be blocked); every new IPC handler validates inputs; every new HTML sink goes through DOMPurify (preview config forbids style/form/…, keeps input for task checkboxes); vendor files are ONLY updated via `npm run build:vendor` / `build:vendor-libs` (never hand-copied); `npm audit --audit-level=high` gates CI; Electron fuses are flipped in `scripts/after-pack-fuses.js` (afterPack).
+
 ### Heading ID Algorithm
 
 Duplicated in three places (renderer.js custom renderer, renderer.js post-processing, editor-utils.js). Algorithm: lowercase, replace emojis with `-`, replace spaces with `-`, REMOVE (don't replace) special chars like `&`, `/`, `:`, keep German umlauts, don't collapse multiple dashes, trim trailing dashes. `"DNS & DHCP"` becomes `"dns--dhcp"` (double dash).

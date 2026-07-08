@@ -603,7 +603,7 @@ async function copyAsHtml() {
     if (!source.trim()) return;
     let html = marked.parse(source);
     if (typeof DOMPurify !== 'undefined') {
-        html = DOMPurify.sanitize(html, { ADD_ATTR: ['id'], ADD_TAGS: ['br'] });
+        html = DOMPurify.sanitize(html, { ADD_ATTR: ['id'], ADD_TAGS: ['br'], FORBID_TAGS: ['style', 'form', 'textarea', 'select', 'button', 'link', 'meta', 'base'] }); // Q2: wie Preview-Sanitize
     }
     try {
         await navigator.clipboard.writeText(html);
