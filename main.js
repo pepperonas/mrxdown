@@ -1066,7 +1066,7 @@ ipcMain.handle('export-document', async (event, payload) => {
             }
             doc[field] = value;
         }
-        const contentSource = doc.fullHtml || doc.previewHtml || '';
+        const contentSource = doc.fullHtml || doc.previewHtml || doc.rawMarkdown || '';
         if (!contentSource.trim()) {
             return { success: false, error: 'Der Dokumentinhalt ist leer.' };
         }

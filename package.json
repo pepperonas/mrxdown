@@ -1,6 +1,6 @@
 {
   "name": "mrxdown",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Ein moderner Markdown-Editor mit Live-Vorschau",
   "main": "main.js",
   "homepage": "https://github.com/pepperonas/mrxdown",
@@ -222,6 +222,7 @@
     "mermaid": "^11.14.0",
     "morphdom": "^2.7.8",
     "pdfjs-dist": "^5.6.205",
+    "reveal.js": "^6.0.1",
     "turndown": "^7.2.4",
     "turndown-plugin-gfm": "^1.0.2"
   }

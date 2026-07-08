@@ -55,7 +55,7 @@
 | **Sidebar** | Rekursiver Datei-Explorer mit Lazy Loading, aktive Datei-Hervorhebung, Gliederung |
 | **Suche** | Nicht-modale Suche & Ersetzen mit Regex, Groß/Klein, Ganze Wörter |
 | **Command Palette** | `Cmd+Shift+P` — Fuzzy-Suche über alle Befehle und Shortcuts |
-| **Export** | Gemeinsamer Export-Dialog (`Cmd+Shift+E`) mit Format-Registry: HTML, PDF, **Word (DOCX)** inkl. TOC-Feld + Dokumenteigenschaften, Batch-PDF aller Tabs, PDF-Optionen (Vorlage, Seitenformat, TOC, Seitenzahlen) |
+| **Export** | Gemeinsamer Export-Dialog (`Cmd+Shift+E`) mit Format-Registry: HTML, PDF, **Word (DOCX)**, **Slides (reveal.js, self-contained)**, Batch-PDF aller Tabs, format-spezifische Optionen |
 | **PDF** | Syntax-Highlighting in Code-Blöcken, Inhaltsverzeichnis, konfigurierbare Ränder/Schriftgröße |
 | **Schreiben** | Smart Enter (Listen), URL-über-Auswahl → Link, Als-HTML-kopieren (`Cmd+Shift+C`), Auto-Save, Session Recovery, Schreibziel-Tracker, Fokus-Modus |
 | **Dashboard** | Dokument-Info-Panel, Live-Statistiken (Zeichen/Wörter/Absätze/Lesezeit), Markdown-Lint |
@@ -65,10 +65,10 @@
 | **Editor-Ops** | Zeile duplizieren/löschen/verschieben, Block ein-/ausrücken, Kommentar-Toggle, Checkbox-Toggle |
 | **Rendering** | YAML-Frontmatter-Unterstützung, Callouts (`> [!NOTE]` … in Preview + PDF), Typewriter-Modus, inkrementelles DOM-Diffing (morphdom) |
 | **Rechtschreibung** | Integrierte Rechtschreibprüfung (DE/EN) mit Korrekturvorschlägen |
-| **CLI** | Headless-Konverter: `mrxdown --to pdf\|html\|docx <datei\|ordner …>` (Globs, Batch, Exit-Codes) |
+| **CLI** | Headless-Konverter: `mrxdown --to pdf\|html\|docx\|slides <datei\|ordner …>` (Globs, Batch, Exit-Codes) |
 | **Quick Action** | macOS Rechtsklick-Kontextmenü für Markdown → PDF Konvertierung |
 | **Windows Kontextmenü** | Windows Rechtsklick → "Mit MrxDown zu PDF konvertieren" (automatisch per Installer) |
-| **Qualität** | 109 Unit-Tests + 109 E2E-Checks (echte App headless) + CLI-PDF-Roundtrip als Release-Gate in CI |
+| **Qualität** | 121 Unit-Tests + 113 E2E-Checks (echte App headless) + CLI-Roundtrips (PDF/HTML/DOCX/Slides) als Release-Gate in CI |
 
 ## Download & Installation
 
