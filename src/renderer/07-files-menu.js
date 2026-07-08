@@ -40,6 +40,9 @@ function handleMenuAction(action, data = {}) {
         case 'table-row-delete': tableRemoveRow(); break;
         case 'table-align': tableToggleAlignment(); break;
         case 'table-format': tableFormatBlock(); break;
+        case 'ai-assist':
+            showAiDialog();
+            break;
         case 'batch-export-pdf':
             batchExportPDF();
             break;

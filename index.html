@@ -487,6 +487,32 @@
                         <label style="color: var(--text-secondary); font-size: 14px;">Eigene Slash-Snippets</label>
                         <button class="modal-button outlined" onclick="showSnippetsDialog()" style="padding: 4px 14px;">Bearbeiten…</button>
                     </div>
+                    <div class="search-options" style="margin-top: 8px;">
+                        <label><input type="checkbox" id="settingsAiEnabled"> KI-Assistent aktivieren (opt-in)</label>
+                    </div>
+                    <div style="color: var(--text-muted, #888); font-size: 12px; margin: 2px 0 6px 0;">
+                        Empfohlen: lokales <strong>Ollama</strong> — dann verlässt kein Text den Rechner. Bei Cloud-Endpoints wird der ausgewählte Text an den Anbieter gesendet.
+                    </div>
+                    <div class="settings-row">
+                        <label for="settingsAiProvider" style="color: var(--text-secondary); font-size: 14px;">Provider</label>
+                        <select class="search-input" id="settingsAiProvider" style="width: 200px;">
+                            <option value="ollama" selected>Ollama (lokal)</option>
+                            <option value="openai">OpenAI-kompatibel</option>
+                            <option value="anthropic">Anthropic</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <label for="settingsAiEndpoint" style="color: var(--text-secondary); font-size: 14px;">Endpoint</label>
+                        <input type="text" class="table-editor-input" id="settingsAiEndpoint" placeholder="http://localhost:11434" style="width: 260px;">
+                    </div>
+                    <div class="settings-row">
+                        <label for="settingsAiModel" style="color: var(--text-secondary); font-size: 14px;">Modell</label>
+                        <input type="text" class="table-editor-input" id="settingsAiModel" placeholder="llama3.2" style="width: 200px;">
+                    </div>
+                    <div class="settings-row">
+                        <label for="settingsAiKey" style="color: var(--text-secondary); font-size: 14px;">API-Key <span id="settingsAiKeyState" style="color: var(--text-muted, #888); font-size: 11px;"></span></label>
+                        <input type="password" class="table-editor-input" id="settingsAiKey" placeholder="(unverändert)" autocomplete="off" style="width: 260px;">
+                    </div>
                     <div class="search-buttons">
                         <button class="modal-button" onclick="applySettings()">Übernehmen</button>
                         <button class="modal-button outlined" onclick="closeSettingsDialog()">Abbrechen</button>
@@ -593,6 +619,34 @@
                     <div class="search-buttons">
                         <button class="modal-button" onclick="runExportFromDialog()">Exportieren</button>
                         <button class="modal-button outlined" onclick="closeExportDialog()">Abbrechen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- I1: KI-Assistent (opt-in) -->
+    <div class="modal-overlay" id="aiModal">
+        <div class="modal" style="max-width: 640px;">
+            <div class="modal-header">
+                <h2 class="modal-title">KI-Assistent</h2>
+            </div>
+            <div class="modal-content">
+                <div class="search-controls">
+                    <div class="settings-row">
+                        <label for="aiAction" style="color: var(--text-secondary); font-size: 14px;">Aktion</label>
+                        <select class="search-input" id="aiAction" style="width: 260px;"></select>
+                    </div>
+                    <div id="aiPrivacyInfo" style="font-size: 12px; margin: 4px 0 8px 0;"></div>
+                    <label style="color: var(--text-muted, #888); font-size: 12px;">Original (Auswahl)</label>
+                    <textarea id="aiOriginal" class="search-input" rows="5" readonly style="width: 100%; font-family: monospace; font-size: 12px; resize: vertical;"></textarea>
+                    <label style="color: var(--text-muted, #888); font-size: 12px; margin-top: 6px;">Vorschlag</label>
+                    <textarea id="aiResult" class="search-input" rows="7" readonly placeholder="Noch nichts generiert — „Ausführen" startet die Anfrage." style="width: 100%; font-family: monospace; font-size: 12px; resize: vertical;"></textarea>
+                    <div id="aiStatus" style="color: var(--text-muted, #888); font-size: 12px; margin: 4px 0;"></div>
+                    <div class="search-buttons">
+                        <button class="modal-button" id="aiRunBtn" onclick="runAiAction()">Ausführen</button>
+                        <button class="modal-button" id="aiApplyBtn" onclick="applyAiResult()" disabled>Ersetzen</button>
+                        <button class="modal-button outlined" onclick="closeAiDialog()">Schließen</button>
                     </div>
                 </div>
             </div>

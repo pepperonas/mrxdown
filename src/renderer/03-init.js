@@ -84,6 +84,9 @@ function initializeApp() {
     // which thrashed global state and made batch-export susceptible to races.
     configureMarkedOnce();
 
+    // I1: KI-Streaming-Listener einmalig registrieren (onOnce-idempotent)
+    if (typeof setupAiListeners === 'function') setupAiListeners();
+
     // Initialize CodeMirror editor via adapter
     const editorContainer = document.getElementById('editor');
     if (editorContainer) {
