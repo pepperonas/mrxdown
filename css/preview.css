@@ -243,3 +243,26 @@ body.light-theme .preview-header {
 #preview .callout-important { --co: var(--md-secondary); }
 #preview .callout-warning   { --co: var(--md-warning); }
 #preview .callout-caution   { --co: var(--md-error); }
+
+/* E1: Wiki-Links ([[Notiz]]) — aufgelöst = Tertiär-Akzent, fehlend = gestrichelt */
+#preview .wiki-link {
+    color: var(--md-tertiary);
+    text-decoration: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--md-tertiary) 50%, transparent);
+    background: color-mix(in srgb, var(--md-tertiary) 8%, transparent);
+    border-radius: 3px;
+    padding: 0 3px;
+    cursor: pointer;
+}
+#preview .wiki-link:hover {
+    background: color-mix(in srgb, var(--md-tertiary) 18%, transparent);
+}
+#preview .wiki-link-missing {
+    color: var(--md-on-surface-variant, var(--text-secondary));
+    border-bottom-style: dashed;
+    border-bottom-color: color-mix(in srgb, var(--md-error) 55%, transparent);
+    background: color-mix(in srgb, var(--md-error) 6%, transparent);
+}
+#preview .wiki-link-missing:hover {
+    background: color-mix(in srgb, var(--md-error) 14%, transparent);
+}

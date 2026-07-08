@@ -400,3 +400,38 @@ body {
 
 /* Light Theme Overrides */
 /* Light-Theme-Overrides entfernt — Tokens sind theme-bewusst (variables.css) */
+
+/* E1: Backlinks-Panel in der Sidebar */
+.backlinks-panel .backlink-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 12px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--md-shape-sm);
+}
+.backlinks-panel .backlink-item:hover {
+    background: var(--md-surface-container-high);
+    color: var(--text-primary);
+}
+.backlinks-panel .backlink-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.backlinks-panel .backlink-count {
+    flex-shrink: 0;
+    font-size: 11px;
+    padding: 0 6px;
+    border-radius: var(--md-shape-full);
+    background: color-mix(in srgb, var(--md-tertiary) 20%, transparent);
+    color: var(--md-tertiary);
+}
+.backlinks-panel .backlink-empty {
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--text-muted, #888);
+}

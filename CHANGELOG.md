@@ -14,6 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
 
+## [0.12.0] - 2026-07-08
+
+### 🔗 Wiki-Links & Backlinks — Zettelkasten-Modus (E1)
+- **`[[Notiz]]`, `[[Notiz#Heading]]`, `[[Notiz|Alias]]`** rendern in der Vorschau als klickbare Wiki-Links: aufgelöste Links (Tertiär-Akzent) öffnen die Datei, fehlende (gestrichelt) legen sie nach Rückfrage im Vault an (`# Titel`-Gerüst, Dateiname gehärtet). Links in Code bleiben Literale.
+- **Ordner = Vault**: der geladene Sidebar-Ordner (sonst das Verzeichnis der aktiven Datei) wird rekursiv indiziert (`get-vault-index`-IPC, Tiefe ≤ 8, ≤ 5000 Dateien, versteckte Ordner/node_modules ausgenommen).
+- **Autocomplete bei `[[`**: Vorschläge aus dem Vault (Präfix vor Substring), konsumiert vorhandene `]]`-Schließer von closeBrackets statt sie zu verdoppeln — nutzt das bestehende Fence-Popup-System.
+- **Backlinks-Panel** in der Sidebar („Was verlinkt hierher?"): Scan über die geteilte `extractWikiTargets`-Logik (Code-Fences ausgenommen, case-insensitive, Zähler-Badge), aktualisiert bei Tab-Wechsel/Speichern/Vault-Wechsel (debounced), Klick öffnet die Quelle.
+- **Dual-use `wikilinks.js`** (wie callouts.js): Preview und Headless-Exporte teilen die marked-Extension — in CLI/PDF/DOCX rendern Wiki-Links als Label statt als roher `[[…]]`-Text.
+- Bewusst vertagt: Graph-Ansicht (E1-Bonus) und Heading-Sprung nach Öffnen.
+- Tests: 16 Jest (Parsing/Resolver/Extension/Target-Scan) + E2E `wiki-links` (12 Checks gegen echten Temp-Vault: rekursiver Index, Rendering, Klick-Öffnen, Backlinks, Autocomplete, IPC-Härtung).
+
 ## [0.11.0] - 2026-07-08
 
 ### 🎞️ Slide-Export — Präsentationen aus Markdown (K4)

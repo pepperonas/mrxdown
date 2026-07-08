@@ -25,6 +25,7 @@ function handleFileSaved(filePath) {
 
         renderTabs();
         syncDocumentEdited();
+        if (typeof scheduleBacklinksUpdate === 'function') scheduleBacklinksUpdate(); // E1
         if (activeTab.id === activeTabId) {
             fileName.textContent = activeTab.title;
             if (window.electronAPI) {

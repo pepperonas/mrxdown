@@ -1116,6 +1116,71 @@ ipcMain.handle('convert-docx-to-html', async (event, payload) => {
     }
 });
 
+// E1: Wiki-Links — rekursiver Vault-Index (alle .md unterhalb der Vault-Wurzel).
+// Limits gegen Amok-Wurzeln (z. B. jemand lädt /Users als Ordner): Tiefe 8,
+// 5000 Dateien, versteckte Ordner/node_modules übersprungen.
+const VAULT_MAX_DEPTH = 8;
+const VAULT_MAX_FILES = 5000;
+async function walkVault(dirPath, depth, out) {
+    if (depth > VAULT_MAX_DEPTH || out.length >= VAULT_MAX_FILES) return;
+    let entries;
+    try {
+        entries = await fs.readdir(dirPath, { withFileTypes: true });
+    } catch { return; }
+    for (const e of entries) {
+        if (out.length >= VAULT_MAX_FILES) return;
+        if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+        const full = path.join(dirPath, e.name);
+        if (e.isDirectory()) {
+            await walkVault(full, depth + 1, out);
+        } else if (/\.(md|markdown)$/i.test(e.name)) {
+            out.push({ name: e.name, path: full });
+        }
+    }
+}
+
+ipcMain.handle('get-vault-index', async (event, vaultRoot) => {
+    if (typeof vaultRoot !== 'string' || !vaultRoot) return [];
+    try {
+        const stat = await fs.stat(vaultRoot);
+        if (!stat.isDirectory()) return [];
+    } catch { return []; }
+    const out = [];
+    await walkVault(vaultRoot, 0, out);
+    return out;
+});
+
+// E1: Backlinks — welche Vault-Dateien verlinken auf targetPath?
+// Scan über extractWikiTargets (wikilinks.js, geteilt mit dem Renderer),
+// Dateien > 512 KB werden übersprungen (keine Notizen, sondern Dumps).
+const BACKLINK_MAX_FILE_SIZE = 512 * 1024;
+ipcMain.handle('find-backlinks', async (event, { vaultRoot, targetPath } = {}) => {
+    if (typeof vaultRoot !== 'string' || typeof targetPath !== 'string') return [];
+    const targetName = path.basename(targetPath).replace(/\.(md|markdown)$/i, '').toLowerCase();
+    if (!targetName) return [];
+    const files = [];
+    try {
+        const stat = await fs.stat(vaultRoot);
+        if (!stat.isDirectory()) return [];
+    } catch { return []; }
+    await walkVault(vaultRoot, 0, files);
+    const { extractWikiTargets } = require('./wikilinks');
+    const results = [];
+    for (const f of files) {
+        if (f.path === targetPath) continue;
+        try {
+            const stat = await fs.stat(f.path);
+            if (stat.size > BACKLINK_MAX_FILE_SIZE) continue;
+            const content = await fs.readFile(f.path, 'utf-8');
+            const count = extractWikiTargets(content)
+                .filter(t => t.toLowerCase() === targetName).length;
+            if (count > 0) results.push({ name: f.name, path: f.path, count });
+        } catch { /* Datei nicht lesbar — überspringen */ }
+        if (results.length >= 50) break;
+    }
+    return results;
+});
+
 // Recent files handlers
 ipcMain.handle('get-recent-files', () => {
     return recentFiles;

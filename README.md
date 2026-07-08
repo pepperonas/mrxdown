@@ -52,7 +52,7 @@
 | **Design** | Material 3 Expressive: tonale Farbpalette (Dark/Light/System), physikbasierte Feder-Animationen, Ripple, Circular-Reveal-Theme-Wechsel |
 | **Themes** | Dark, Light & System (folgt dem OS live) mit Toggle-Button |
 | **Tabs** | Multi-Tab-Editor mit Drag-to-Reorder, Undo-History pro Tab, Tab wiederherstellen (`Cmd+Shift+T`), Tab-Übersicht (`Alt+Cmd+T`) |
-| **Sidebar** | Rekursiver Datei-Explorer mit Lazy Loading, aktive Datei-Hervorhebung, Gliederung |
+| **Sidebar** | Rekursiver Datei-Explorer mit Lazy Loading, aktive Datei-Hervorhebung, Gliederung, Backlinks-Panel |
 | **Suche** | Nicht-modale Suche & Ersetzen mit Regex, Groß/Klein, Ganze Wörter |
 | **Command Palette** | `Cmd+Shift+P` — Fuzzy-Suche über alle Befehle und Shortcuts |
 | **Export** | Gemeinsamer Export-Dialog (`Cmd+Shift+E`) mit Format-Registry: HTML, PDF, **Word (DOCX)**, **Slides (reveal.js, self-contained)**, Batch-PDF aller Tabs, format-spezifische Optionen |
@@ -63,12 +63,12 @@
 | **Import** | Rich-Text/HTML-Paste → Markdown (Turndown, abschaltbar, ⌘⇧V = plain), `.docx`/`.html` per Drag&Drop → neuer Markdown-Tab |
 | **Dateien** | Drag & Drop (Dateien + Ordner), File Watching, Recent Files, Einstellungen |
 | **Editor-Ops** | Zeile duplizieren/löschen/verschieben, Block ein-/ausrücken, Kommentar-Toggle, Checkbox-Toggle |
-| **Rendering** | YAML-Frontmatter-Unterstützung, Callouts (`> [!NOTE]` … in Preview + PDF), Typewriter-Modus, inkrementelles DOM-Diffing (morphdom) |
+| **Rendering** | YAML-Frontmatter, Callouts (`> [!NOTE]` …), Wiki-Links (`[[Notiz]]` mit Vault-Autocomplete + Klick-Anlegen), Typewriter-Modus, inkrementelles DOM-Diffing (morphdom) |
 | **Rechtschreibung** | Integrierte Rechtschreibprüfung (DE/EN) mit Korrekturvorschlägen |
 | **CLI** | Headless-Konverter: `mrxdown --to pdf\|html\|docx\|slides <datei\|ordner …>` (Globs, Batch, Exit-Codes) |
 | **Quick Action** | macOS Rechtsklick-Kontextmenü für Markdown → PDF Konvertierung |
 | **Windows Kontextmenü** | Windows Rechtsklick → "Mit MrxDown zu PDF konvertieren" (automatisch per Installer) |
-| **Qualität** | 121 Unit-Tests + 113 E2E-Checks (echte App headless) + CLI-Roundtrips (PDF/HTML/DOCX/Slides) als Release-Gate in CI |
+| **Qualität** | 137 Unit-Tests + 125 E2E-Checks (echte App headless) + CLI-Roundtrips (PDF/HTML/DOCX/Slides) als Release-Gate in CI |
 
 ## Download & Installation
 

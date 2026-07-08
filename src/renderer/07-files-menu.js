@@ -176,6 +176,134 @@ function openRecentFile(filePath) {
 // E3: Sidebar File Tree — fully recursive with lazy loading and active file highlighting
 let fileTreeRootDir = '';
 
+// --- E1: Wiki-Links — Vault-Index + Backlinks ---
+// Vault = geladener Sidebar-Ordner; ohne Ordner das Verzeichnis der aktiven Datei.
+let vaultIndex = [];
+let _vaultRootCached = '';
+let _backlinksTimer = null;
+
+function currentVaultRoot() {
+    if (fileTreeRootDir) return fileTreeRootDir;
+    const activeTab = tabs.find(t => t.id === activeTabId);
+    if (activeTab && activeTab.filePath) {
+        return activeTab.filePath.replace(/[/\\][^/\\]+$/, '');
+    }
+    return '';
+}
+
+async function refreshVaultIndex() {
+    const root = currentVaultRoot();
+    if (!root || !window.electronAPI || !window.electronAPI.getVaultIndex) {
+        vaultIndex = [];
+        _vaultRootCached = '';
+        return;
+    }
+    try {
+        vaultIndex = await window.electronAPI.getVaultIndex(root) || [];
+        _vaultRootCached = root;
+    } catch (_) {
+        vaultIndex = [];
+    }
+    // Preview neu rendern — Wiki-Links lösen jetzt gegen den frischen Index auf
+    if (typeof renderMarkdown === 'function') renderMarkdown(true);
+    scheduleBacklinksUpdate();
+}
+
+// Beim Tab-Wechsel nur neu indizieren, wenn sich die Vault-Wurzel ändert
+function ensureVaultIndex() {
+    const root = currentVaultRoot();
+    if (root && root !== _vaultRootCached) {
+        refreshVaultIndex();
+    } else {
+        scheduleBacklinksUpdate();
+    }
+}
+
+function scheduleBacklinksUpdate() {
+    if (_backlinksTimer) clearTimeout(_backlinksTimer);
+    _backlinksTimer = setTimeout(updateBacklinksPanel, 800);
+}
+
+async function updateBacklinksPanel() {
+    const panel = document.getElementById('backlinksPanel');
+    if (!panel) return;
+    const activeTab = tabs.find(t => t.id === activeTabId);
+    const root = currentVaultRoot();
+    panel.textContent = '';
+
+    const renderEmpty = (text) => {
+        const empty = document.createElement('div');
+        empty.className = 'backlink-empty';
+        empty.textContent = text;
+        panel.appendChild(empty);
+    };
+
+    if (!activeTab || !activeTab.filePath || !root
+        || !window.electronAPI || !window.electronAPI.findBacklinks) {
+        renderEmpty('Keine Backlinks');
+        return;
+    }
+
+    let links = [];
+    try {
+        links = await window.electronAPI.findBacklinks({
+            vaultRoot: root,
+            targetPath: activeTab.filePath
+        }) || [];
+    } catch (_) { /* Panel bleibt leer */ }
+
+    if (links.length === 0) {
+        renderEmpty('Keine Backlinks');
+        return;
+    }
+    for (const link of links) {
+        const item = document.createElement('div');
+        item.className = 'backlink-item';
+        const name = document.createElement('span');
+        name.className = 'backlink-name';
+        name.textContent = link.name.replace(/\.(md|markdown)$/i, '');
+        item.appendChild(name);
+        if (link.count > 1) {
+            const badge = document.createElement('span');
+            badge.className = 'backlink-count';
+            badge.textContent = String(link.count);
+            item.appendChild(badge);
+        }
+        item.title = link.path;
+        item.addEventListener('click', () => {
+            if (window.electronAPI) window.electronAPI.openFilePath(link.path);
+        });
+        panel.appendChild(item);
+    }
+}
+
+// E1: Klick auf einen Wiki-Link in der Preview — öffnen oder anlegen
+async function handleWikiLinkClick(el) {
+    const existingPath = el.dataset.wikiPath;
+    if (existingPath) {
+        if (window.electronAPI) window.electronAPI.openFilePath(existingPath);
+        return;
+    }
+    const target = el.dataset.wikiTarget;
+    if (!target) return;
+    const root = currentVaultRoot();
+    if (!root || !window.electronAPI || !window.electronAPI.saveFileSync) {
+        await showAlert('Kein Vault aktiv', 'Öffne zuerst einen Ordner oder speichere die Datei, damit Notizen angelegt werden können.');
+        return;
+    }
+    const ok = await showConfirm(`Notiz „${target}" existiert nicht. Jetzt anlegen?`);
+    if (!ok) return;
+    // Dateiname härten — keine Pfad-Traversal über den Linktext
+    const safeName = target.replace(/[/\\:*?"<>|]/g, '-').trim();
+    if (!safeName) return;
+    const newPath = root + '/' + safeName + '.md';
+    const result = await window.electronAPI.saveFileSync(`# ${target}\n\n`, newPath);
+    if (result && result.success) {
+        window.electronAPI.openFilePath(newPath);
+        refreshVaultIndex();
+    }
+}
+
 function getFileIcon(name, isDirectory) {
     if (isDirectory) return 'folder-closed';
     if (name.endsWith('.md') || name.endsWith('.markdown')) return 'file-text';
@@ -187,7 +315,9 @@ async function loadFileTree(dirPath) {
     const fileExplorer = document.getElementById('fileExplorer');
     if (!fileExplorer) return;
 
+    const rootChanged = fileTreeRootDir !== dirPath;
     fileTreeRootDir = dirPath;
+    if (rootChanged) refreshVaultIndex(); // E1: Vault = Sidebar-Wurzel
 
     try {
         const entries = await window.electronAPI.listDirectory(dirPath);

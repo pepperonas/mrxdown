@@ -222,6 +222,8 @@ function cycleTab(direction) {
 }
 
 function switchTab(tabId) {
+    // E1: Backlinks-Panel + Vault-Index dem neuen Tab nachführen
+    if (typeof ensureVaultIndex === 'function') setTimeout(ensureVaultIndex, 0);
     if (activeTabId === tabId) return;
     
     // Save current tab state

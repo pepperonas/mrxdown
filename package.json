@@ -1,6 +1,6 @@
 {
   "name": "mrxdown",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Ein moderner Markdown-Editor mit Live-Vorschau",
   "main": "main.js",
   "homepage": "https://github.com/pepperonas/mrxdown",
@@ -86,6 +86,7 @@
       "src/main/**/*",
       "editor-utils.js",
       "callouts.js",
+      "wikilinks.js",
       "icons.js",
       "cm-adapter.js",
       "css/**/*",
