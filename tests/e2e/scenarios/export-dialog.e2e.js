@@ -2,6 +2,8 @@
 // Prüft den Format-Katalog (get-export-formats), das Umschalten der
 // format-spezifischen Options-Sektion und den Modal-Lebenszyklus.
 
+const path = require('path');
+
 module.exports = {
     name: 'export-dialog',
     async run(d) {
@@ -15,6 +17,17 @@ module.exports = {
         d.assert('DOCX-Format registriert (K2)', ids.includes('docx'));
         d.assert('Slides-Format registriert (K4)', ids.includes('slides'));
         d.assert('EPUB-Format registriert (K5)', ids.includes('epub'));
+
+        // K3: Pandoc-Formate erscheinen genau dann, wenn Pandoc installiert ist
+        const { detectPandoc } = require(path.join(__dirname, '..', '..', '..', 'src', 'main', 'export', 'pandoc'));
+        const pandoc = await detectPandoc();
+        if (pandoc) {
+            d.assert('Pandoc-Formate freigeschaltet (K3)', ids.includes('latex') && ids.includes('odt'));
+            const latex = formats.find(f => f.id === 'latex');
+            d.assert('Pandoc-Kennzeichnung im Katalog', /Pandoc/.test(latex.label) && /benötigt Pandoc/.test(latex.description));
+        } else {
+            d.assert('Ohne Pandoc keine Pandoc-Formate (K3-Fallback)', !ids.includes('latex') && !ids.includes('odt'));
+        }
         const pdf = (formats || []).find(f => f.id === 'pdf') || {};
         d.assertEq('PDF deklariert Options-Panel', pdf.optionsPanel, 'pdf');
         d.assert('PDF deklariert benötigte Dokumentfelder',
