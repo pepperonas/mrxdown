@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
 
+## [0.14.0] - 2026-07-08
+
+### 📊 Visueller Tabellen-Editor (E3)
+- **Floating-Toolbar** erscheint, sobald der Cursor in einer Markdown-Tabelle steht: Spalte links/rechts einfügen, Spalte löschen, Zeile darüber/darunter, Zeile löschen, **Ausrichtung zyklisch wechseln** (`:---`/`:---:`/`---:`), **Auto-Format** (Pipes an der längsten Zelle ausrichten). Cursor bleibt nach jeder Operation in derselben Zelle.
+- Alle Operationen auch über **Format → Tabelle** (Menü) und die Command Palette; die bestehende Tab-Zellen-Navigation bleibt.
+- **CSV/TSV-Paste → Markdown-Tabelle**: stark tabellarischer Plain-Text (≥2 Zeilen, konsistente Spaltenzahl; Tab/Semikolon ab 2×2, Komma erst ab 3 Zeilen oder 3 Spalten — Prosa-Schutz) wird beim Einfügen formatiert konvertiert; `"…"`-Quotes mit Delimiter darin und `|`-Escaping werden respektiert. Excel-Kopien liefen schon über den K6-HTML-Pfad.
+- Pure Tabellen-Logik (Parse/Format/Ops/CSV, `\|`-sicher) in editor-utils.js — 19 Jest-Tests + E2E `table-editor` (11 Checks).
+
 ## [0.13.0] - 2026-07-08
 
 ### ⚡ Slash-Commands & Snippets (E2)

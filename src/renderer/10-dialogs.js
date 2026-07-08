@@ -70,6 +70,91 @@ function closeTableEditor() {
     tableEditor.classList.remove('visible');
 }
 
+// --- E3: Visueller Tabellen-Editor — Operationen + Floating-Toolbar ---
+
+// Tabelle + Cursor-Kontext unter dem Cursor (oder null)
+function getTableContext() {
+    if (!editor) return null;
+    const pos = editor.selectionStart;
+    const bounds = findTableBounds(editor.value, pos);
+    if (!bounds) return null;
+    const table = parseMarkdownTable(bounds.lines);
+    if (!table) return null;
+    const text = editor.value;
+    const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+    let lineEnd = text.indexOf('\n', lineStart);
+    if (lineEnd === -1) lineEnd = text.length;
+    const col = Math.min(
+        tableColumnAtPos(text.substring(lineStart, lineEnd), pos - lineStart),
+        table.header.length - 1
+    );
+    // Datenzeilen-Index (rows[]): Header/Separator zählen als "vor Zeile 0"
+    const dataRow = Math.max(0, Math.min(bounds.rowIndex - 2, table.rows.length - 1));
+    return { bounds, table, col, rowIndex: bounds.rowIndex, dataRow };
+}
+
+// Cursor nach dem Neuformatieren in dieselbe Zelle setzen
+function _cursorToTableCell(tableStart, formatted, rowIndex, col) {
+    const lines = formatted.split('\n');
+    const row = Math.max(0, Math.min(rowIndex, lines.length - 1));
+    let offset = 0;
+    for (let i = 0; i < row; i++) offset += lines[i].length + 1;
+    const line = lines[row];
+    // Start der col-ten Zelle: hinter dem (col+1)-ten unescapten Pipe
+    let pipes = 0;
+    let cellStart = 0;
+    for (let i = 0; i < line.length; i++) {
+        if (line[i] === '\\' && line[i + 1] === '|') { i++; continue; }
+        if (line[i] === '|') {
+            pipes++;
+            if (pipes === col + 1) { cellStart = i + 2; break; }
+        }
+    }
+    const target = tableStart + offset + Math.min(cellStart, line.length);
+    editor.selectionStart = editor.selectionEnd = target;
+}
+
+// op(ctx) → neue Tabelle; ersetzt den Block formatiert und stellt den Cursor wieder her
+function applyTableOp(op, cursorRowDelta = 0) {
+    const ctx = getTableContext();
+    if (!ctx) return;
+    const newTable = op(ctx);
+    const formatted = formatMarkdownTable(newTable);
+    replaceRange(ctx.bounds.start, ctx.bounds.end, formatted);
+    _cursorToTableCell(ctx.bounds.start, formatted, ctx.rowIndex + cursorRowDelta, ctx.col);
+    editor.focus();
+    handleEditorInput();
+    updateTableToolbar();
+}
+
+function tableInsertColumnLeft()  { applyTableOp(ctx => tableAddColumn(ctx.table, ctx.col)); }
+function tableInsertColumnRight() { applyTableOp(ctx => tableAddColumn(ctx.table, ctx.col + 1)); }
+function tableRemoveColumn()      { applyTableOp(ctx => tableDeleteColumn(ctx.table, ctx.col)); }
+function tableInsertRowAbove()    { applyTableOp(ctx => tableAddRow(ctx.table, ctx.dataRow)); }
+function tableInsertRowBelow()    { applyTableOp(ctx => tableAddRow(ctx.table, ctx.rowIndex < 2 ? 0 : ctx.dataRow + 1), 1); }
+function tableRemoveRow()         { applyTableOp(ctx => ctx.rowIndex >= 2 ? tableDeleteRow(ctx.table, ctx.dataRow) : ctx.table); }
+function tableToggleAlignment()   { applyTableOp(ctx => tableCycleAlignment(ctx.table, ctx.col)); }
+function tableFormatBlock()       { applyTableOp(ctx => ctx.table); }
+
+// Floating-Toolbar: erscheint, sobald der Cursor in einer Tabelle steht
+function updateTableToolbar() {
+    const toolbar = document.getElementById('tableToolbar');
+    if (!toolbar || !editor) return;
+    const bounds = findTableBounds(editor.value, editor.selectionStart);
+    if (!bounds || !parseMarkdownTable(bounds.lines)) {
+        toolbar.hidden = true;
+        return;
+    }
+    // Über der ersten Tabellenzeile positionieren (Muster: positionAutocomplete)
+    const editorRect = editor.getBoundingClientRect();
+    const lineIndex = editor.value.substring(0, bounds.start).split('\n').length - 1;
+    const lineHeight = parseFloat(getComputedStyle(editor.contentDOM).lineHeight) || 22;
+    const top = editorRect.top + (lineIndex * lineHeight) - editor.scrollTop - 14;
+    toolbar.style.top = Math.max(top, editorRect.top + 4) + 'px';
+    toolbar.style.left = (editorRect.left + 24) + 'px';
+    toolbar.hidden = false;
+}
+
 // --- Table Navigation Helpers ---
 
 function isCursorInTable(pos) {

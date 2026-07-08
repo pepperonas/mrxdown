@@ -653,6 +653,20 @@
     <!-- Autocomplete Popup -->
     <div id="autocompletePopup" class="autocomplete-popup" style="display: none;"></div>
 
+    <!-- E3: Floating-Toolbar für Tabellen (erscheint bei Cursor in Tabelle) -->
+    <div id="tableToolbar" class="table-toolbar" hidden>
+        <button onclick="tableInsertColumnLeft()" title="Spalte links einfügen">+Sp←</button>
+        <button onclick="tableInsertColumnRight()" title="Spalte rechts einfügen">+Sp→</button>
+        <button onclick="tableRemoveColumn()" title="Spalte löschen">−Sp</button>
+        <span class="table-toolbar-sep"></span>
+        <button onclick="tableInsertRowAbove()" title="Zeile darüber einfügen">+Ze↑</button>
+        <button onclick="tableInsertRowBelow()" title="Zeile darunter einfügen">+Ze↓</button>
+        <button onclick="tableRemoveRow()" title="Zeile löschen">−Ze</button>
+        <span class="table-toolbar-sep"></span>
+        <button onclick="tableToggleAlignment()" title="Spalten-Ausrichtung wechseln (links/mittig/rechts)">≡</button>
+        <button onclick="tableFormatBlock()" title="Tabelle formatieren (Pipes ausrichten)">⌗</button>
+    </div>
+
     <script src="vendor/codemirror-bundle.js"></script>
     <script src="cm-adapter.js"></script>
     <script src="icons.js"></script>

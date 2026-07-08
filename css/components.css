@@ -864,3 +864,38 @@ body.light-theme #preview blockquote {
     color: var(--text-muted, #888);
     white-space: nowrap;
 }
+
+/* E3: Floating-Tabellen-Toolbar */
+.table-toolbar {
+    position: fixed;
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px 6px;
+    border-radius: var(--md-shape-full);
+    background: var(--md-surface-container-high);
+    border: 1px solid var(--md-surface-container-highest);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+.table-toolbar button {
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-family: inherit;
+    padding: 3px 7px;
+    border-radius: var(--md-shape-full);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.table-toolbar button:hover {
+    background: color-mix(in srgb, var(--md-primary) 16%, transparent);
+    color: var(--md-primary);
+}
+.table-toolbar-sep {
+    width: 1px;
+    height: 14px;
+    background: var(--md-surface-container-highest);
+    margin: 0 3px;
+}

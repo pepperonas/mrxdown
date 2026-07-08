@@ -64,12 +64,13 @@
 | **Import** | Rich-Text/HTML-Paste → Markdown (Turndown, abschaltbar, ⌘⇧V = plain), `.docx`/`.html` per Drag&Drop → neuer Markdown-Tab |
 | **Dateien** | Drag & Drop (Dateien + Ordner), File Watching, Recent Files, Einstellungen |
 | **Editor-Ops** | Zeile duplizieren/löschen/verschieben, Block ein-/ausrücken, Kommentar-Toggle, Checkbox-Toggle |
+| **Tabellen** | Floating-Toolbar (Spalten/Zeilen/Ausrichtung/Auto-Format), Tab-Navigation, CSV/TSV-Paste → Markdown-Tabelle |
 | **Rendering** | YAML-Frontmatter, Callouts (`> [!NOTE]` …), Wiki-Links (`[[Notiz]]` mit Vault-Autocomplete + Klick-Anlegen), Typewriter-Modus, inkrementelles DOM-Diffing (morphdom) |
 | **Rechtschreibung** | Integrierte Rechtschreibprüfung (DE/EN) mit Korrekturvorschlägen |
 | **CLI** | Headless-Konverter: `mrxdown --to pdf\|html\|docx\|slides <datei\|ordner …>` (Globs, Batch, Exit-Codes) |
 | **Quick Action** | macOS Rechtsklick-Kontextmenü für Markdown → PDF Konvertierung |
 | **Windows Kontextmenü** | Windows Rechtsklick → "Mit MrxDown zu PDF konvertieren" (automatisch per Installer) |
-| **Qualität** | 148 Unit-Tests + 140 E2E-Checks (echte App headless) + CLI-Roundtrips (PDF/HTML/DOCX/Slides) als Release-Gate in CI |
+| **Qualität** | 166 Unit-Tests + 151 E2E-Checks (echte App headless) + CLI-Roundtrips (PDF/HTML/DOCX/Slides) als Release-Gate in CI |
 
 ## Download & Installation
 

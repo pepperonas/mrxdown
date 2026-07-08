@@ -368,6 +368,21 @@ function getMenuTemplate() {
                 accelerator: 'CmdOrCtrl+T',
                 click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'insert-table' }); }
             },
+            {
+                label: 'Tabelle',
+                submenu: [
+                    { label: 'Spalte links einfügen', click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'table-col-left' }); } },
+                    { label: 'Spalte rechts einfügen', click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'table-col-right' }); } },
+                    { label: 'Spalte löschen', click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'table-col-delete' }); } },
+                    { type: 'separator' },
+                    { label: 'Zeile darüber einfügen', click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'table-row-above' }); } },
+                    { label: 'Zeile darunter einfügen', click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'table-row-below' }); } },
+                    { label: 'Zeile löschen', click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'table-row-delete' }); } },
+                    { type: 'separator' },
+                    { label: 'Ausrichtung wechseln', click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'table-align' }); } },
+                    { label: 'Tabelle formatieren', click: () => { if (mainWindow) mainWindow.webContents.send('menu-action', { action: 'table-format' }); } }
+                ]
+            },
             { type: 'separator' },
             {
                 label: 'Überschrift 1',

@@ -482,6 +482,9 @@ function updateCursorPosition() {
         cursorEl.textContent = `Z ${line}, Sp ${col}`;
     }
 
+    // E3: Tabellen-Toolbar folgt dem Cursor (zeigt/versteckt sich selbst)
+    if (typeof updateTableToolbar === 'function') updateTableToolbar();
+
     // Update file type indicator
     const activeTab = tabs.find(tab => tab.id === activeTabId);
     const fileTypeEl = document.getElementById('fileTypeInfo');
