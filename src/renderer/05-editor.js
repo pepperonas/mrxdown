@@ -613,6 +613,14 @@ function checkAutocomplete() {
         return;
     }
 
+    // E2: Slash-Menü — nur am Zeilenanfang (Einrückung erlaubt), damit "/" in
+    // Prosa und URLs nie triggert. /tab → gefiltert.
+    const slashMatch = lineText.match(/^\s*\/([a-zäöüß0-9-]*)$/i);
+    if (slashMatch) {
+        showAutocompleteSlashCommands(pos - slashMatch[1].length - 1, slashMatch[1]);
+        return;
+    }
+
     // Check if we should show completion hints
     const charBefore = text.substring(Math.max(0, pos - 2), pos);
 
@@ -704,6 +712,65 @@ function showAutocompleteWikiLinks(insertFrom, prefix = '') {
             editor.selectionStart = editor.selectionEnd = insertFrom + name.length + 2;
             hideAutocomplete();
             handleEditorInput();
+        });
+        popup.appendChild(item);
+    });
+
+    autocompleteSelectedIndex = 0;
+    positionAutocomplete(insertFrom);
+    popup.style.display = 'block';
+    popup.scrollTop = 0;
+    autocompleteVisible = true;
+}
+
+// E2: Slash-Befehle (eingebaute SLASH_COMMANDS + eigene settings.snippets).
+// insertFrom = Position des "/" — Auswahl ersetzt "/" + Präfix durch den
+// expandierten Snippet-Body ({{date}}/{{time}}/{{title}}/{{cursor}}).
+function showAutocompleteSlashCommands(insertFrom, prefix = '') {
+    const popup = document.getElementById('autocompletePopup');
+    if (!popup) return;
+
+    const custom = (settings && Array.isArray(settings.snippets) ? settings.snippets : [])
+        .filter(s => s && s.name && s.body)
+        .map(s => ({ id: s.name, label: s.name, hint: 'Snippet', body: s.body }));
+    const all = [...custom, ...SLASH_COMMANDS];
+
+    const needle = prefix.toLowerCase();
+    const starts = all.filter(c => c.id.toLowerCase().startsWith(needle) || c.label.toLowerCase().startsWith(needle));
+    const contains = needle
+        ? all.filter(c => !starts.includes(c) && (c.label.toLowerCase().includes(needle) || c.id.toLowerCase().includes(needle)))
+        : [];
+    const candidates = [...starts, ...contains].slice(0, 14);
+    if (candidates.length === 0) {
+        hideAutocomplete();
+        return;
+    }
+
+    popup.textContent = '';
+    candidates.forEach((cmd, index) => {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item' + (index === 0 ? ' selected' : '');
+        const label = document.createElement('span');
+        label.textContent = cmd.label;
+        item.appendChild(label);
+        if (cmd.hint) {
+            const hint = document.createElement('span');
+            hint.className = 'autocomplete-hint';
+            hint.textContent = cmd.hint;
+            item.appendChild(hint);
+        }
+        item.addEventListener('click', () => {
+            const cursorPos = insertFrom + 1 + prefix.length; // hinter "/" + Präfix
+            const activeTab = tabs.find(t => t.id === activeTabId);
+            const title = activeTab ? activeTab.title.replace(/\.(md|markdown|txt)$/i, '') : '';
+            const { text, cursorOffset } = expandSnippet(cmd.body, { title });
+            replaceRange(insertFrom, cursorPos, text);
+            const target = insertFrom + (cursorOffset === -1 ? text.length : cursorOffset);
+            editor.selectionStart = editor.selectionEnd = target;
+            hideAutocomplete();
+            handleEditorInput();
+            // Code-Block-Befehl: direkt die Sprachauswahl anbieten
+            if (cmd.id === 'codeblock') checkAutocomplete();
         });
         popup.appendChild(item);
     });

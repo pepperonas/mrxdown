@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
 
+## [0.13.0] - 2026-07-08
+
+### ⚡ Slash-Commands & Snippets (E2)
+- **`/` am Zeilenanfang öffnet das Befehlsmenü** (tippfilterbar, Pfeiltasten/Enter/Escape wie gehabt): 20 eingebaute Blöcke — Tabelle, Code-Block (mit direkt anschließender Sprachauswahl), alle 5 Callouts, Zitat, Aufgaben-/Listen, Linie, Datum/Uhrzeit, Frontmatter, Bild, Link, Mermaid, Mathe-Block, Wiki-Link. Mitten in Prosa/URLs triggert `/` nie.
+- **Eigene Snippets** (Einstellungen → „Eigene Slash-Snippets" oder Command Palette): Name + Body mit Platzhaltern **`{{date}}`** (ISO), **`{{time}}`**, **`{{title}}`** und **`{{cursor}}`** (Cursor-Stop); Namen werden kebab-case-normalisiert, Duplikate überschrieben. Persistiert in settings.json.
+- Pure Expansions-Logik `expandSnippet()` + Befehlskatalog in editor-utils.js; das Menü nutzt das bestehende Autocomplete-Popup (jetzt mit gedämpftem Hint rechts).
+- Tests: 11 Jest (Platzhalter, Cursor-Stop, Katalog-Invarianten) + E2E `slash-commands` (15 Checks inkl. Nicht-Trigger-Fälle und Snippet-Verwaltung).
+
 ## [0.12.0] - 2026-07-08
 
 ### 🔗 Wiki-Links & Backlinks — Zettelkasten-Modus (E1)

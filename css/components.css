@@ -851,3 +851,16 @@ body.light-theme #preview blockquote {
 .error-toast-close:hover {
     color: var(--text-primary);
 }
+
+/* E2: Slash-Menü — Befehls-Hint rechts, gedämpft */
+.autocomplete-item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+.autocomplete-item .autocomplete-hint {
+    font-size: 11px;
+    color: var(--text-muted, #888);
+    white-space: nowrap;
+}

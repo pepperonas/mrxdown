@@ -187,6 +187,111 @@ async function runExportFromDialog() {
     }
 }
 
+// --- E2: Snippet-Verwaltung (eigene Slash-Befehle in settings.snippets) ---
+
+let _snippetEditIndex = -1; // -1 = neues Snippet
+
+function _snippetsList() {
+    if (!Array.isArray(settings.snippets)) settings.snippets = [];
+    return settings.snippets;
+}
+
+function refreshSnippetSelect() {
+    const select = document.getElementById('snippetSelect');
+    if (!select) return;
+    select.textContent = '';
+    const list = _snippetsList();
+    const optNew = document.createElement('option');
+    optNew.value = '-1';
+    optNew.textContent = '— Neues Snippet —';
+    select.appendChild(optNew);
+    list.forEach((s, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = s.name;
+        select.appendChild(opt);
+    });
+    select.value = String(_snippetEditIndex);
+}
+
+function loadSnippetIntoForm() {
+    const list = _snippetsList();
+    const nameEl = document.getElementById('snippetName');
+    const bodyEl = document.getElementById('snippetBody');
+    if (_snippetEditIndex >= 0 && list[_snippetEditIndex]) {
+        nameEl.value = list[_snippetEditIndex].name;
+        bodyEl.value = list[_snippetEditIndex].body;
+    } else {
+        nameEl.value = '';
+        bodyEl.value = '';
+    }
+}
+
+function showSnippetsDialog() {
+    _snippetEditIndex = _snippetsList().length > 0 ? 0 : -1;
+    const modal = document.getElementById('snippetsModal');
+    if (!modal) return;
+    modal.classList.add('visible');
+    refreshSnippetSelect();
+    loadSnippetIntoForm();
+    const select = document.getElementById('snippetSelect');
+    if (select && !select._snippetBound) {
+        select.addEventListener('change', () => {
+            _snippetEditIndex = parseInt(select.value, 10);
+            loadSnippetIntoForm();
+        });
+        select._snippetBound = true;
+    }
+}
+
+function closeSnippetsDialog() {
+    const modal = document.getElementById('snippetsModal');
+    if (modal) modal.classList.remove('visible');
+}
+
+function newSnippet() {
+    _snippetEditIndex = -1;
+    refreshSnippetSelect();
+    loadSnippetIntoForm();
+    document.getElementById('snippetName').focus();
+}
+
+async function saveSnippet() {
+    const name = document.getElementById('snippetName').value.trim().toLowerCase().replace(/\s+/g, '-');
+    const body = document.getElementById('snippetBody').value;
+    if (!name || !body.trim()) {
+        await showAlert('Snippet unvollständig', 'Name und Inhalt dürfen nicht leer sein.');
+        return;
+    }
+    const list = _snippetsList();
+    // Namen eindeutig halten — gleicher Name überschreibt (außer sich selbst)
+    const existing = list.findIndex((s, i) => s.name === name && i !== _snippetEditIndex);
+    if (existing !== -1) {
+        list.splice(existing, 1);
+        if (existing < _snippetEditIndex) _snippetEditIndex--;
+    }
+    if (_snippetEditIndex >= 0 && list[_snippetEditIndex]) {
+        list[_snippetEditIndex] = { name, body };
+    } else {
+        list.push({ name, body });
+        _snippetEditIndex = list.length - 1;
+    }
+    saveSettings();
+    refreshSnippetSelect();
+}
+
+async function deleteSnippet() {
+    const list = _snippetsList();
+    if (_snippetEditIndex < 0 || !list[_snippetEditIndex]) return;
+    const ok = await showConfirm(`Snippet „${list[_snippetEditIndex].name}" löschen?`);
+    if (!ok) return;
+    list.splice(_snippetEditIndex, 1);
+    _snippetEditIndex = list.length > 0 ? 0 : -1;
+    saveSettings();
+    refreshSnippetSelect();
+    loadSnippetIntoForm();
+}
+
 // --- C4: Focus Mode ---
 let focusModeActive = false;
 
@@ -565,6 +670,7 @@ function registerCommands() {
         { id: 'typewriter-mode', label: 'Typewriter-Modus', action: () => toggleTypewriterMode() },
         { id: 'export-dialog', label: 'Exportieren\u2026 (Format w\u00e4hlen)', shortcut: '\u2318\u21e7E', action: () => showExportDialog() },
         { id: 'paste-plain', label: 'Einf\u00fcgen ohne Formatierung', shortcut: '\u2318\u21e7V', action: () => pastePlainText() },
+        { id: 'snippets', label: 'Eigene Snippets bearbeiten\u2026', action: () => showSnippetsDialog() },
     ];
 }
 
@@ -1011,6 +1117,11 @@ window.closeCommandPalette = closeCommandPalette;
 window.showExportDialog = showExportDialog;
 window.closeExportDialog = closeExportDialog;
 window.runExportFromDialog = runExportFromDialog;
+window.showSnippetsDialog = showSnippetsDialog;
+window.closeSnippetsDialog = closeSnippetsDialog;
+window.newSnippet = newSnippet;
+window.saveSnippet = saveSnippet;
+window.deleteSnippet = deleteSnippet;
 window.pastePlainText = pastePlainText;
 window.convertHtmlToMarkdown = convertHtmlToMarkdown;
 window.importDroppedFile = importDroppedFile;

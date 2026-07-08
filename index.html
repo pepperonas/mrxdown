@@ -478,6 +478,10 @@
                         <label for="settingsWritingGoal" style="color: var(--text-secondary); font-size: 14px;">Schreibziel (Wörter/Sitzung, 0 = aus)</label>
                         <input type="number" class="table-editor-input" id="settingsWritingGoal" value="0" min="0" max="50000" style="width: 80px;">
                     </div>
+                    <div class="settings-row">
+                        <label style="color: var(--text-secondary); font-size: 14px;">Eigene Slash-Snippets</label>
+                        <button class="modal-button outlined" onclick="showSnippetsDialog()" style="padding: 4px 14px;">Bearbeiten…</button>
+                    </div>
                     <div class="search-buttons">
                         <button class="modal-button" onclick="applySettings()">Übernehmen</button>
                         <button class="modal-button outlined" onclick="closeSettingsDialog()">Abbrechen</button>
@@ -584,6 +588,37 @@
                     <div class="search-buttons">
                         <button class="modal-button" onclick="runExportFromDialog()">Exportieren</button>
                         <button class="modal-button outlined" onclick="closeExportDialog()">Abbrechen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- E2: Snippet-Verwaltung (eigene Slash-Befehle) -->
+    <div class="modal-overlay" id="snippetsModal">
+        <div class="modal" style="max-width: 560px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Eigene Snippets</h2>
+            </div>
+            <div class="modal-content">
+                <div class="search-controls">
+                    <div style="color: var(--text-muted, #888); font-size: 12px; margin-bottom: 8px;">
+                        Im Editor per <code>/name</code> einfügen. Platzhalter: <code>{{date}}</code>, <code>{{time}}</code>, <code>{{title}}</code>, <code>{{cursor}}</code> (Cursor-Position).
+                    </div>
+                    <div class="settings-row">
+                        <label for="snippetSelect" style="color: var(--text-secondary); font-size: 14px;">Snippet</label>
+                        <select class="search-input" id="snippetSelect" style="width: 220px;"></select>
+                    </div>
+                    <div class="settings-row">
+                        <label for="snippetName" style="color: var(--text-secondary); font-size: 14px;">Name</label>
+                        <input type="text" class="table-editor-input" id="snippetName" placeholder="z. B. besprechung" style="width: 220px;">
+                    </div>
+                    <textarea id="snippetBody" class="search-input" rows="7" placeholder="## Besprechung {{date}}&#10;&#10;Teilnehmer: {{cursor}}" style="width: 100%; font-family: monospace; resize: vertical;"></textarea>
+                    <div class="search-buttons">
+                        <button class="modal-button outlined" onclick="newSnippet()">Neu</button>
+                        <button class="modal-button outlined" onclick="deleteSnippet()">Löschen</button>
+                        <button class="modal-button" onclick="saveSnippet()">Speichern</button>
+                        <button class="modal-button outlined" onclick="closeSnippetsDialog()">Schließen</button>
                     </div>
                 </div>
             </div>
