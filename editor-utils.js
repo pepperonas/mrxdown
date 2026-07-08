@@ -557,6 +557,63 @@ function csvToMarkdownTable(text) {
     return null;
 }
 
+// --- K5: EPUB-Export — pure Kapitel-Split-Logik ---
+
+// Teilt Markdown (ohne Frontmatter) in Kapitel: an H1, wenn es mindestens
+// zwei davon gibt, sonst an H2 (mind. zwei), sonst ein einziges Kapitel.
+// Headings in Code-Fences zählen nie. Inhalt vor der ersten Kapitel-Überschrift
+// wird zum Kapitel „Einleitung" (falls nicht leer).
+// Rückgabe: [{ title, markdown }] — title null nur beim Ein-Kapitel-Fallback.
+function splitEpubChapters(markdown) {
+    const lines = (markdown || '').replace(/\r\n/g, '\n').split('\n');
+
+    const countHeadings = (level) => {
+        let inFence = false;
+        let n = 0;
+        const re = new RegExp('^#{' + level + '}\\s+\\S');
+        for (const line of lines) {
+            if (/^\s*(```|~~~)/.test(line)) { inFence = !inFence; continue; }
+            if (!inFence && re.test(line)) n++;
+        }
+        return n;
+    };
+
+    let level = null;
+    if (countHeadings(1) >= 2) level = 1;
+    else if (countHeadings(2) >= 2) level = 2;
+
+    if (level === null) {
+        return [{ title: null, markdown: (markdown || '').trim() }];
+    }
+
+    const re = new RegExp('^#{' + level + '}\\s+(\\S.*)$');
+    const chapters = [];
+    let current = [];
+    let currentTitle = null;
+    let inFence = false;
+
+    const flush = () => {
+        const md = current.join('\n').trim();
+        if (md || currentTitle) {
+            chapters.push({ title: currentTitle || 'Einleitung', markdown: md });
+        }
+    };
+
+    for (const line of lines) {
+        if (/^\s*(```|~~~)/.test(line)) inFence = !inFence;
+        const m = !inFence ? line.match(re) : null;
+        if (m) {
+            flush();
+            currentTitle = m[1].trim();
+            current = [line];
+        } else {
+            current.push(line);
+        }
+    }
+    flush();
+    return chapters;
+}
+
 // Export for Node.js (tests), no-op in browser
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -582,6 +639,7 @@ if (typeof module !== 'undefined' && module.exports) {
         tableCycleAlignment,
         findTableBounds,
         tableColumnAtPos,
-        csvToMarkdownTable
+        csvToMarkdownTable,
+        splitEpubChapters
     };
 }

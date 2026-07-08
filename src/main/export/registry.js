@@ -40,5 +40,6 @@ registerFormat(require('./formats/html'));
 registerFormat(require('./formats/pdf'));
 registerFormat(require('./formats/docx'));
 registerFormat(require('./formats/slides'));
+registerFormat(require('./formats/epub'));
 
 module.exports = { registerFormat, getFormat, listFormats };

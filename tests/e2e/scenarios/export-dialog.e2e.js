@@ -14,6 +14,7 @@ module.exports = {
         d.assert('PDF-Format registriert', ids.includes('pdf'));
         d.assert('DOCX-Format registriert (K2)', ids.includes('docx'));
         d.assert('Slides-Format registriert (K4)', ids.includes('slides'));
+        d.assert('EPUB-Format registriert (K5)', ids.includes('epub'));
         const pdf = (formats || []).find(f => f.id === 'pdf') || {};
         d.assertEq('PDF deklariert Options-Panel', pdf.optionsPanel, 'pdf');
         d.assert('PDF deklariert benötigte Dokumentfelder',

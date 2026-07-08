@@ -1,6 +1,6 @@
 #!/bin/bash
 # MrxDown CLI - Markdown-Konverter (K7)
-# Usage: mrxdown [--to pdf|html|docx|slides] <datei-oder-verzeichnis ...>
+# Usage: mrxdown [--to pdf|html|docx|slides|epub] <datei-oder-verzeichnis ...>
 #        mrxdown file.md                  → file.pdf (Default)
 #        mrxdown --to docx file.md        → file.docx
 #        mrxdown --to html docs/          → alle .md im Verzeichnis
@@ -19,7 +19,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -h|--help)
-            echo "Usage: mrxdown [--to pdf|html|docx|slides] <datei-oder-verzeichnis ...>"
+            echo "Usage: mrxdown [--to pdf|html|docx|slides|epub] <datei-oder-verzeichnis ...>"
             echo "Beispiele:"
             echo "  mrxdown notes.md              # → notes.pdf"
             echo "  mrxdown --to docx notes.md    # → notes.docx"
@@ -39,7 +39,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ ${#ARGS[@]} -eq 0 ]; then
-    echo "Usage: mrxdown [--to pdf|html|docx|slides] <datei-oder-verzeichnis ...>"
+    echo "Usage: mrxdown [--to pdf|html|docx|slides|epub] <datei-oder-verzeichnis ...>"
     exit 1
 fi
 

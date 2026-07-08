@@ -56,7 +56,7 @@
 | **Suche** | Nicht-modale Suche & Ersetzen mit Regex, Groß/Klein, Ganze Wörter |
 | **Command Palette** | `Cmd+Shift+P` — Fuzzy-Suche über alle Befehle und Shortcuts |
 | **Slash-Menü** | `/` am Zeilenanfang: 20 Block-Befehle (Tabelle, Callouts, Mermaid, Frontmatter …) + eigene Snippets mit `{{date}}`/`{{title}}`/`{{cursor}}`-Platzhaltern |
-| **Export** | Gemeinsamer Export-Dialog (`Cmd+Shift+E`) mit Format-Registry: HTML, PDF, **Word (DOCX)**, **Slides (reveal.js, self-contained)**, Batch-PDF aller Tabs, format-spezifische Optionen |
+| **Export** | Gemeinsamer Export-Dialog (`Cmd+Shift+E`) mit Format-Registry: HTML, PDF, **Word (DOCX)**, **Slides (reveal.js)**, **E-Book (EPUB 3)**, Batch-PDF aller Tabs, format-spezifische Optionen |
 | **PDF** | Syntax-Highlighting in Code-Blöcken, Inhaltsverzeichnis, konfigurierbare Ränder/Schriftgröße |
 | **Schreiben** | Smart Enter (Listen), URL-über-Auswahl → Link, Als-HTML-kopieren (`Cmd+Shift+C`), Auto-Save, Session Recovery, Schreibziel-Tracker, Fokus-Modus |
 | **Dashboard** | Dokument-Info-Panel, Live-Statistiken (Zeichen/Wörter/Absätze/Lesezeit), Markdown-Lint |
@@ -67,10 +67,10 @@
 | **Tabellen** | Floating-Toolbar (Spalten/Zeilen/Ausrichtung/Auto-Format), Tab-Navigation, CSV/TSV-Paste → Markdown-Tabelle |
 | **Rendering** | YAML-Frontmatter, Callouts (`> [!NOTE]` …), Wiki-Links (`[[Notiz]]` mit Vault-Autocomplete + Klick-Anlegen), Typewriter-Modus, inkrementelles DOM-Diffing (morphdom) |
 | **Rechtschreibung** | Integrierte Rechtschreibprüfung (DE/EN) mit Korrekturvorschlägen |
-| **CLI** | Headless-Konverter: `mrxdown --to pdf\|html\|docx\|slides <datei\|ordner …>` (Globs, Batch, Exit-Codes) |
+| **CLI** | Headless-Konverter: `mrxdown --to pdf\|html\|docx\|slides\|epub <datei\|ordner …>` (Globs, Batch, Exit-Codes) |
 | **Quick Action** | macOS Rechtsklick-Kontextmenü für Markdown → PDF Konvertierung |
 | **Windows Kontextmenü** | Windows Rechtsklick → "Mit MrxDown zu PDF konvertieren" (automatisch per Installer) |
-| **Qualität** | 166 Unit-Tests + 151 E2E-Checks (echte App headless) + CLI-Roundtrips (PDF/HTML/DOCX/Slides) als Release-Gate in CI |
+| **Qualität** | 177 Unit-Tests + 152 E2E-Checks (echte App headless) + CLI-Roundtrips (PDF/HTML/DOCX/Slides/EPUB) als Release-Gate in CI |
 | **Sicherheit** | Sandbox + Context-Isolation, CSP, Electron Fuses, gehärtetes DOMPurify, validierte IPC, `npm audit`-Gate — Details in [SECURITY.md](SECURITY.md) |
 
 ## Download & Installation
