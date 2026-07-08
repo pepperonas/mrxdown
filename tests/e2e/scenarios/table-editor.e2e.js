@@ -11,10 +11,13 @@ module.exports = {
             editor.value = 'Davor\\n\\n' + ${JSON.stringify(TABLE)} + '\\n\\nDanach';
             editor.selectionStart = editor.selectionEnd = editor.value.indexOf('| 1') + 2;
             updateTableToolbar();
-            const inTable = !document.getElementById('tableToolbar').hidden;
+            const tb = document.getElementById('tableToolbar');
+            // gerendertes Display prüfen — das hidden-Attribut allein hat in
+            // v0.18.0 nicht gereicht (CSS display:flex überstimmte [hidden])
+            const inTable = getComputedStyle(tb).display !== 'none';
             editor.selectionStart = editor.selectionEnd = 2; // "Davor"
             updateTableToolbar();
-            const outside = document.getElementById('tableToolbar').hidden;
+            const outside = getComputedStyle(tb).display === 'none';
             return { inTable, outside };
         `);
         d.assert('Toolbar sichtbar in Tabelle', toolbar.inTable);
@@ -87,5 +90,16 @@ module.exports = {
             return editor.value;
         `);
         d.assert('Prosa bleibt Prosa', !prose.includes('|'), prose);
+
+
+        // Regression v0.18.0: im leeren Dokument darf die Toolbar nicht als
+        // 0,0-Pille über der Haupt-Toolbar schweben (gerendert, nicht Attribut)
+        const emptyDoc = await d.exec(`
+            editor.value = '';
+            editor.selectionStart = editor.selectionEnd = 0;
+            updateTableToolbar();
+            return getComputedStyle(document.getElementById('tableToolbar')).display;
+        `);
+        d.assertEq('Leeres Dokument: Toolbar wirklich unsichtbar', emptyDoc, 'none');
     }
 };

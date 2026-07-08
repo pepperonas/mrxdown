@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
 
+## [0.18.1] - 2026-07-08
+
+### 🐛 Fix: Tabellen-Toolbar schwebte permanent über der Haupt-Toolbar
+- Die Floating-Tabellen-Toolbar (E3) war nie wirklich versteckt: die CSS-Regel `.table-toolbar { display: flex }` überstimmte das `[hidden]`-Attribut des UA-Stylesheets — die unpositionierte Pille lag dadurch bei 0,0 über den ersten Toolbar-Buttons. Fix: explizite `.table-toolbar[hidden] { display: none }`-Regel.
+- E2E gehärtet: der Test prüft jetzt das **gerenderte** Display (`getComputedStyle`) statt nur der `hidden`-Property — genau diese Lücke hatte den Bug grün durchgewunken; plus Regressions-Check „leeres Dokument → Toolbar unsichtbar".
+
 ## [0.18.0] - 2026-07-08
 
 ### 🤖 KI-Assistent — opt-in, self-hosted zuerst (I1)
