@@ -1,6 +1,6 @@
 {
   "name": "mrxdown",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "description": "Ein moderner Markdown-Editor mit Live-Vorschau",
   "main": "main.js",
   "homepage": "https://github.com/pepperonas/mrxdown",
@@ -67,6 +67,7 @@
     "@codemirror/view": "^6.39.15",
     "@electron/fuses": "^1.8.0",
     "@lezer/highlight": "^1.2.3",
+    "@xmldom/xmldom": "^0.9.10",
     "electron": "^43.0.0",
     "electron-builder": "^24.9.1",
     "esbuild": "^0.27.3",

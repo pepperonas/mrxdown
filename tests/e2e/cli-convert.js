@@ -75,6 +75,17 @@ async function main() {
         check('Slides: self-contained (keine externen Ressourcen)', !/(src|href)="https?:\/\//.test(deck));
     }
 
+    // --- --to epub (Struktur-Kurzcheck; Tiefe deckt jest ab) ---
+    const epub = run(['--to', 'epub', path.join(dir, 'doc.md')]);
+    check('--to epub Exit-Code 0', epub.status === 0, 'status=' + epub.status + ' ' + (epub.stderr || ''));
+    const epubOut = path.join(dir, 'doc.epub');
+    check('EPUB-Datei erzeugt', fs.existsSync(epubOut));
+    if (fs.existsSync(epubOut)) {
+        const head = fs.readFileSync(epubOut);
+        check('EPUB: Zip-Magic + mimetype als erster Eintrag',
+            head.readUInt32LE(0) === 0x04034b50 && head.toString('ascii', 30, 38) === 'mimetype');
+    }
+
     // --- Mehrere Datei-Argumente (Shell-Glob-Muster) ---
     fs.rmSync(htmlOut, { force: true });
     const multi = run(['--to', 'html', path.join(dir, 'doc.md'), path.join(dir, 'zwei.md')]);

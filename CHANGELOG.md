@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
 
+## [0.16.0] - 2026-07-08
+
+### 📚 EPUB-Export — E-Books ohne Pandoc (K5)
+- **Neues Format „E-Book (EPUB)"** im Export-Dialog und CLI (`--to epub`): natives EPUB 3 mit EPUB-2-Kompatibilität (nav.xhtml + toc.ncx), gebaut mit jszip — keine externen Tools.
+- **Kapitel-Split an H1** (ab zwei H1s), sonst **H2-Fallback**; Inhalt vor der ersten Kapitel-Überschrift wird „Einleitung"; Headings in Code-Fences splitten nie (pure `splitEpubChapters()` in editor-utils.js).
+- **Frontmatter → Metadaten** (title/author/description) und **`cover: bild.jpg`** → Cover-Seite + `cover-image`-Property (Traversal-Guard auf dem Pfad).
+- **Bilder als echte Manifest-Dateien** (Data-URIs können nicht alle Reader): die bestehende Einbettungs-Pipeline (Guard + Downscaling) läuft zuerst, die Data-URIs werden dann dedupliziert in `OEBPS/images/` extrahiert.
+- Kapitel sind **wohlgeformtes XHTML** (Void-Element-Fixup für marked-Output inkl. Task-Checkboxen) — jede XML-Datei wird im Test strikt geparst; mimetype-Spec (erster Eintrag, uncompressed) an den rohen Zip-Bytes verifiziert.
+- Tests: 11 Jest + E2E-Erweiterungen (Dialog-Katalog, CLI-Roundtrip mit Zip-Magic-Check).
+
 ## [0.15.0] - 2026-07-08
 
 ### 🔒 Security-Audit-Pass (Q2) — dokumentiert in SECURITY.md

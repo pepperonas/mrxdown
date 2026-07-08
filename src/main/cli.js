@@ -12,7 +12,7 @@ const { buildPdfHtml, renderMathForCLI, renderMermaidForCLI } = require('./expor
 const { renderHtmlToPdf } = require('./export/pdf-render');
 const { convertImagesToBase64 } = require('./export/images');
 
-const SUPPORTED_FORMATS = ['pdf', 'html', 'docx', 'slides'];
+const SUPPORTED_FORMATS = ['pdf', 'html', 'docx', 'slides', 'epub'];
 
 // Geteilte marked-Instanz (Callouts + Heading-IDs) — src/main/export/markdown.js
 const { getSharedMarked, resetHeadingIds } = require('./export/markdown');
@@ -61,6 +61,15 @@ async function convertMarkdownFile(filePath, format) {
         const html = marked.parse(withMath);
         const buffer = await generateDocx({ previewHtml: html, rawMarkdown: markdownContent, filePath });
         const outputPath = outBase + '.docx';
+        await fs.writeFile(outputPath, buffer);
+        return outputPath;
+    }
+
+    if (format === 'epub') {
+        // K5: EPUB 3 nativ (jszip) — Kapitel an H1/H2, Cover aus Frontmatter
+        const { generateEpub } = require('./export/formats/epub');
+        const buffer = await generateEpub({ rawMarkdown: markdownContent, filePath });
+        const outputPath = outBase + '.epub';
         await fs.writeFile(outputPath, buffer);
         return outputPath;
     }
