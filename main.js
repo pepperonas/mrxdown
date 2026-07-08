@@ -119,7 +119,8 @@ const defaultSettings = {
     wordWrap: true,
     tabSize: 4,
     pdfTemplate: 'default',
-    pasteHtmlAsMarkdown: true
+    pasteHtmlAsMarkdown: true,
+    snippets: []
 };
 let settings = { ...defaultSettings, ...loadSettingsFromDisk() };
 const recentFiles = loadRecentFilesFromDisk();

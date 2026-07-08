@@ -234,6 +234,12 @@ function handleGlobalShortcuts(e) {
             closeExportDialog();
             return;
         }
+        const snippetsModal = document.getElementById('snippetsModal');
+        if (snippetsModal && snippetsModal.classList.contains('visible')) {
+            e.preventDefault();
+            closeSnippetsDialog();
+            return;
+        }
     }
 
     if (e.metaKey || e.ctrlKey) {

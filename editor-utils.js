@@ -278,6 +278,58 @@ function splitSlides(markdown) {
     return slides.length > 0 ? slides : [{ markdown: '', notes: null }];
 }
 
+// --- E2: Slash-Commands & Snippets — pure Expansions-Logik ---
+
+// Expandiert einen Snippet-Body: {{date}} (ISO), {{time}} (HH:MM), {{title}}
+// (Dokumenttitel), {{cursor}} = Cursor-Stop (erstes Vorkommen; Marker werden
+// entfernt). ctx = { now?: Date, title?: string }. Rückgabe:
+// { text, cursorOffset } — cursorOffset = -1 heißt "ans Ende".
+function expandSnippet(body, ctx) {
+    const now = (ctx && ctx.now instanceof Date) ? ctx.now : new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const date = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
+    const time = pad(now.getHours()) + ':' + pad(now.getMinutes());
+    const title = (ctx && ctx.title) ? String(ctx.title) : '';
+
+    let text = String(body || '')
+        .replace(/\{\{date\}\}/gi, date)
+        .replace(/\{\{time\}\}/gi, time)
+        .replace(/\{\{title\}\}/gi, title);
+
+    let cursorOffset = -1;
+    const cursorIdx = text.indexOf('{{cursor}}');
+    if (cursorIdx !== -1) {
+        cursorOffset = cursorIdx;
+        text = text.replace(/\{\{cursor\}\}/g, '');
+    }
+    return { text, cursorOffset };
+}
+
+// Eingebaute Slash-Befehle. Reine Daten — body nutzt dieselben Platzhalter wie
+// eigene Snippets; das UI (05-editor.js) filtert nach name/keywords.
+const SLASH_COMMANDS = [
+    { id: 'tabelle', label: 'Tabelle', hint: '3×2-Grundgerüst', body: '| Spalte 1 | Spalte 2 | Spalte 3 |\n|----------|----------|----------|\n| {{cursor}}         |          |          |\n' },
+    { id: 'codeblock', label: 'Code-Block', hint: '``` mit Sprachwahl', body: '```{{cursor}}\n\n```\n' },
+    { id: 'hinweis', label: 'Callout: Hinweis', hint: '> [!NOTE]', body: '> [!NOTE]\n> {{cursor}}\n' },
+    { id: 'tipp', label: 'Callout: Tipp', hint: '> [!TIP]', body: '> [!TIP]\n> {{cursor}}\n' },
+    { id: 'wichtig', label: 'Callout: Wichtig', hint: '> [!IMPORTANT]', body: '> [!IMPORTANT]\n> {{cursor}}\n' },
+    { id: 'warnung', label: 'Callout: Warnung', hint: '> [!WARNING]', body: '> [!WARNING]\n> {{cursor}}\n' },
+    { id: 'achtung', label: 'Callout: Achtung', hint: '> [!CAUTION]', body: '> [!CAUTION]\n> {{cursor}}\n' },
+    { id: 'zitat', label: 'Zitat', hint: '> …', body: '> {{cursor}}\n' },
+    { id: 'aufgabe', label: 'Aufgabenliste', hint: '- [ ]', body: '- [ ] {{cursor}}\n' },
+    { id: 'liste', label: 'Liste', hint: '- …', body: '- {{cursor}}\n' },
+    { id: 'nummeriert', label: 'Nummerierte Liste', hint: '1. …', body: '1. {{cursor}}\n' },
+    { id: 'linie', label: 'Horizontale Linie', hint: '---', body: '---\n\n{{cursor}}' },
+    { id: 'datum', label: 'Datum', hint: 'heute (ISO)', body: '{{date}}' },
+    { id: 'zeit', label: 'Uhrzeit', hint: 'jetzt (HH:MM)', body: '{{time}}' },
+    { id: 'frontmatter', label: 'Frontmatter', hint: 'title/author/date', body: '---\ntitle: {{title}}\nauthor: {{cursor}}\ndate: {{date}}\n---\n\n' },
+    { id: 'bild', label: 'Bild', hint: '![]()', body: '![{{cursor}}]()' },
+    { id: 'link', label: 'Link', hint: '[]()', body: '[{{cursor}}]()' },
+    { id: 'mermaid', label: 'Mermaid-Diagramm', hint: 'flowchart', body: '```mermaid\nflowchart TD\n    A[{{cursor}}] --> B[Ende]\n```\n' },
+    { id: 'mathe', label: 'Mathe-Block', hint: '$$ … $$', body: '$$\n{{cursor}}\n$$\n' },
+    { id: 'wikilink', label: 'Wiki-Link', hint: '[[…]]', body: '[[{{cursor}}]]' }
+];
+
 // Export for Node.js (tests), no-op in browser
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -290,6 +342,8 @@ if (typeof module !== 'undefined' && module.exports) {
         lintMarkdown,
         shouldConvertHtmlPaste,
         cleanupPastedMarkdown,
-        splitSlides
+        splitSlides,
+        expandSnippet,
+        SLASH_COMMANDS
     };
 }
