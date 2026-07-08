@@ -2,6 +2,11 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
+    <!-- Q2: CSP — blockt jede Remote-Ressource (Skripte, Styles, Fonts, XHR/WS).
+         'unsafe-inline' für script-src ist nötig, solange die UI onclick-Attribute
+         nutzt (dokumentiert in SECURITY.md); Remote-Skripte bleiben trotzdem tot.
+         img erlaubt file/data/https für Bilder in Markdown-Dokumenten. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: blob: https: http:; font-src 'self' data:; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MrxDown - Markdown Editor</title>
     <link rel="stylesheet" href="css/variables.css">

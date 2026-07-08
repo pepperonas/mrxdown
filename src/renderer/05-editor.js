@@ -138,7 +138,11 @@ function renderMarkdown(force = false) {
         const sanitized = DOMPurify.sanitize(html, {
             ADD_ATTR: ['id'], // Allow id attribute for heading anchors
             ADD_TAGS: ['br'], // Explicitly allow br tags
-            KEEP_CONTENT: true
+            KEEP_CONTENT: true,
+            // Q2: <style> könnte die App-UI umstylen (Clickjacking-Fläche),
+            // Formular-Elemente sind Phishing-Fläche. <input> bleibt erlaubt —
+            // Task-Listen (- [ ]) rendern als Checkboxen.
+            FORBID_TAGS: ['style', 'form', 'textarea', 'select', 'button', 'link', 'meta', 'base']
         });
 
         // F1: Build new content in temporary container for morphdom diffing

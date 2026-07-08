@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PDF-Metadaten (Titel, Autor, Keywords)
 - Word-Export via Pandoc, Quick-Open (⌘P)
 
+## [0.15.0] - 2026-07-08
+
+### 🔒 Security-Audit-Pass (Q2) — dokumentiert in SECURITY.md
+- **Sandbox an**: alle Fenster (Haupt + PDF-Druck) laufen jetzt mit `sandbox: true` zusätzlich zu contextIsolation — das Preload nutzt nur contextBridge/ipcRenderer und blieb kompatibel.
+- **CSP** in index.html: `default-src 'none'` — Remote-Skripte/-Styles/-Fonts und XHR/WebSockets sind tot; `img-src` erlaubt Dokument-Bilder. Bekannte, dokumentierte Ausnahme: `'unsafe-inline'` für script-src wegen der historischen onclick-Attribute (Refactoring vorgemerkt).
+- **Electron Fuses** (afterPack, alle Plattformen): RunAsNode/`--inspect`/`NODE_OPTIONS` deaktiviert, OnlyLoadAppFromAsar + CookieEncryption aktiviert — an der gepackten Binary verifiziert (`ELECTRON_RUN_AS_NODE` wirkungslos, CLI funktioniert weiter).
+- **DOMPurify gehärtet**: Preview + Als-HTML-kopieren verbieten jetzt `style/form/textarea/select/button/link/meta/base` (App-Umstyling/Phishing-Fläche); `<input>` bleibt für Task-Checkboxen. Mermaid war bereits doppelt gesichert (securityLevel strict + SVG-Profil-Sanitize).
+- **Dependencies gefixt**: `npm audit fix` → 0 bekannte Verwundbarkeiten (u. a. DOMPurify ≥3.4.11, @xmldom/xmldom high); **`npm audit --audit-level=high` ist jetzt CI-Gate** (build + release).
+- **Supply-Chain geschlossen**: neues `npm run build:vendor-libs` kopiert marked/DOMPurify/morphdom/mermaid/KaTeX (inkl. Fonts) reproduzierbar aus node_modules — der vendored DOMPurify war eine ältere, verwundbare Version und ist jetzt aktuell; mermaid auf den lock-gepinnten Stand gehoben (PDF-Rendering verifiziert).
+
 ## [0.14.0] - 2026-07-08
 
 ### 📊 Visueller Tabellen-Editor (E3)

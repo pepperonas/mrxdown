@@ -482,6 +482,7 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
+            sandbox: true, // Q2: Chromium-OS-Sandbox — preload nutzt nur contextBridge/ipcRenderer (sandbox-kompatibel)
             spellcheck: true,
             preload: path.join(__dirname, 'preload.js')
         },

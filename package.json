@@ -1,6 +1,6 @@
 {
   "name": "mrxdown",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "Ein moderner Markdown-Editor mit Live-Vorschau",
   "main": "main.js",
   "homepage": "https://github.com/pepperonas/mrxdown",
@@ -34,7 +34,8 @@
     "build:editor": "esbuild src/codemirror-setup.js --bundle --outfile=vendor/codemirror-bundle.js --format=iife --global-name=CMSetup --minify",
     "build:hljs": "esbuild src/hljs-entry.js --bundle --outfile=vendor/highlight.min.js --format=iife --minify",
     "build:turndown": "esbuild node_modules/turndown/dist/turndown.js --minify --outfile=vendor/turndown.min.js && esbuild node_modules/turndown-plugin-gfm/dist/turndown-plugin-gfm.js --minify --outfile=vendor/turndown-plugin-gfm.min.js",
-    "build:vendor": "npm run build:editor && npm run build:hljs && npm run build:turndown",
+    "build:vendor-libs": "node scripts/copy-vendor.js",
+    "build:vendor": "npm run build:editor && npm run build:hljs && npm run build:turndown && npm run build:vendor-libs",
     "install-mac": "bash scripts/install-macos.sh"
   },
   "keywords": [
@@ -64,6 +65,7 @@
     "@codemirror/search": "^6.6.0",
     "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.15",
+    "@electron/fuses": "^1.8.0",
     "@lezer/highlight": "^1.2.3",
     "electron": "^43.0.0",
     "electron-builder": "^24.9.1",
@@ -72,6 +74,7 @@
   },
   "build": {
     "appId": "com.pepperonas.mrxdown",
+    "afterPack": "scripts/after-pack-fuses.js",
     "productName": "MrxDown",
     "artifactName": "mrxdown-${os}-${arch}.${ext}",
     "directories": {

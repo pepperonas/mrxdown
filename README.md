@@ -71,6 +71,7 @@
 | **Quick Action** | macOS Rechtsklick-Kontextmenü für Markdown → PDF Konvertierung |
 | **Windows Kontextmenü** | Windows Rechtsklick → "Mit MrxDown zu PDF konvertieren" (automatisch per Installer) |
 | **Qualität** | 166 Unit-Tests + 151 E2E-Checks (echte App headless) + CLI-Roundtrips (PDF/HTML/DOCX/Slides) als Release-Gate in CI |
+| **Sicherheit** | Sandbox + Context-Isolation, CSP, Electron Fuses, gehärtetes DOMPurify, validierte IPC, `npm audit`-Gate — Details in [SECURITY.md](SECURITY.md) |
 
 ## Download & Installation
 
